@@ -6,11 +6,7 @@
   padding: 16px 16px 14px;
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0.03)
-  );
+  background: var(--card-gradient);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   box-shadow: var(--shadow-md);
@@ -115,7 +111,7 @@
 }
 
 .is-selected .motor-card__value {
-  background: linear-gradient(180deg, #fff, var(--accent-bright));
+  background: linear-gradient(180deg, var(--accent), var(--accent-bright));
   -webkit-background-clip: text;
   background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -136,8 +132,8 @@
   height: 3px;
   transform: translateY(-50%);
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.1);
-  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+  background: var(--inset-strong);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .motor-track__target {
@@ -197,7 +193,7 @@
   margin-top: 10px;
   padding: 7px 10px;
   border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--inset);
 }
 
 .motor-card__error-k {

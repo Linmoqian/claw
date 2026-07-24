@@ -25,7 +25,7 @@
   width: 70%;
   height: 60px;
   transform: translateX(-50%) rotateX(60deg);
-  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.5), transparent 70%);
+  background: radial-gradient(50% 50% at 50% 50%, rgba(0, 0, 0, 0.14), transparent 70%);
   filter: blur(8px);
   pointer-events: none;
   z-index: -1;

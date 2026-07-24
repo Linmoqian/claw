@@ -94,7 +94,7 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
         padTop + usable * (0.5 - (Math.max(-max, Math.min(max, v)) / (max * 2)));
 
       // 网格
-      ctx.strokeStyle = "rgba(255,255,255,0.05)";
+      ctx.strokeStyle = "rgba(0,0,0,0.05)";
       ctx.lineWidth = 1;
       for (let i = 0; i <= 4; i++) {
         const y = padTop + (usable * i) / 4;
@@ -112,7 +112,7 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
       }
 
       // 零线
-      ctx.strokeStyle = "rgba(255,255,255,0.1)";
+      ctx.strokeStyle = "rgba(0,0,0,0.1)";
       const y0 = yOf(0);
       ctx.beginPath();
       ctx.moveTo(0, y0);
@@ -120,7 +120,7 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
       ctx.stroke();
 
       // setpoint（黄色虚线，阶跃）
-      ctx.strokeStyle = "rgba(255,214,10,0.85)";
+      ctx.strokeStyle = "rgba(255,149,10,0.9)";
       ctx.lineWidth = 1.4;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
@@ -136,8 +136,8 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
 
       // pv 渐变填充
       const grad = ctx.createLinearGradient(0, padTop, 0, padTop + usable);
-      grad.addColorStop(0, "rgba(41,151,255,0.35)");
-      grad.addColorStop(1, "rgba(41,151,255,0)");
+      grad.addColorStop(0, "rgba(0,113,227,0.22)");
+      grad.addColorStop(1, "rgba(0,113,227,0)");
       ctx.fillStyle = grad;
       ctx.beginPath();
       ctx.moveTo(0, y0);
@@ -151,9 +151,9 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
       ctx.fill();
 
       // pv 主线（蓝色高亮）
-      ctx.strokeStyle = "#2997ff";
+      ctx.strokeStyle = "#0071e3";
       ctx.lineWidth = 2;
-      ctx.shadowColor = "rgba(41,151,255,0.5)";
+      ctx.shadowColor = "rgba(0,113,227,0.35)";
       ctx.shadowBlur = 8;
       ctx.beginPath();
       for (let i = 0; i < BUFFER; i++) {
@@ -174,11 +174,11 @@ export default function WaveCanvas({ motor, pid, running }: Props) {
       ctx.fill();
 
       // 标尺标签
-      ctx.fillStyle = "rgba(255,214,10,0.9)";
+      ctx.fillStyle = "rgba(255,149,10,1)";
       ctx.font = "11px ui-monospace, monospace";
       ctx.textAlign = "left";
       ctx.fillText(`SP ${state.sp.toFixed(1)}°`, 8, 12);
-      ctx.fillStyle = "#2997ff";
+      ctx.fillStyle = "#0071e3";
       ctx.fillText(`PV ${state.pv.toFixed(1)}°`, 8, height - 6);
     };
 

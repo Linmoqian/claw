@@ -6,7 +6,7 @@
   gap: 0;
   border-radius: var(--radius-xl);
   border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.025));
+  background: var(--card-gradient);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   box-shadow: var(--shadow-lg);
@@ -125,7 +125,7 @@
   padding: 7px 11px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--inset-strong);
   color: var(--text);
   font: inherit;
   font-size: 12px;
@@ -136,7 +136,7 @@
 
 .run-btn:hover,
 .reset-btn:hover {
-  background: var(--surface-hover);
+  background: var(--surface-active);
   border-color: var(--border-strong);
 }
 
@@ -208,8 +208,8 @@
     90deg,
     var(--accent-bright) 0%,
     var(--accent) var(--pct, 50%),
-    rgba(255, 255, 255, 0.1) var(--pct, 50%),
-    rgba(255, 255, 255, 0.1) 100%
+    var(--inset-strong) var(--pct, 50%),
+    var(--inset-strong) 100%
   );
   outline: none;
   cursor: pointer;
@@ -254,7 +254,7 @@
 .stat {
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
+  background: var(--inset);
   border: 1px solid var(--border-hairline);
 }
 

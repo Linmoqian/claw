@@ -4,8 +4,11 @@
   justify-content: space-between;
   height: 36px;
   width: 100%;
-  background: #1e1e2e;
-  color: #cdd6f4;
+  background: rgba(245, 245, 247, 0.72);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  color: var(--text);
+  border-bottom: 1px solid var(--border-hairline);
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -47,7 +50,7 @@
 }
 
 .titlebar__btn:hover {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .titlebar__btn svg {
