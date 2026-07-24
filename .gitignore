@@ -17,6 +17,10 @@ dist-ssr
 !.vscode/extensions.json
 .idea
 .DS_Store
+
+# Playwright CLI 验证产物
+.playwright-cli/
+
 *.suo
 *.ntvs*
 *.njsproj

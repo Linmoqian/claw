@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Cat, Copy, Minus, Square, X } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { isTauri } from '@tauri-apps/api/core';
 import './TitleBar.css';
 
 type UnlistenFn = () => void;
 
 export default function TitleBar() {
   const [maximized, setMaximized] = useState<boolean>(false);
-  const appWindow = getCurrentWindow();
+  // 浏览器预览（非 Tauri 运行时）下优雅降级，避免 getCurrentWindow 崩溃
+  const appWindow = isTauri() ? getCurrentWindow() : null;
 
   useEffect(() => {
+    if (!appWindow) return;
     let active = true;
     let unlisten: UnlistenFn | null = null;
 
@@ -57,19 +60,19 @@ export default function TitleBar() {
   }, [appWindow]);
 
   const handleMinimize = (): void => {
-    appWindow.minimize().catch((error: unknown) => {
+    appWindow?.minimize().catch((error: unknown) => {
       console.error('Failed to minimize window:', error);
     });
   };
 
   const handleToggleMaximize = (): void => {
-    appWindow.toggleMaximize().catch((error: unknown) => {
+    appWindow?.toggleMaximize().catch((error: unknown) => {
       console.error('Failed to toggle maximize:', error);
     });
   };
 
   const handleClose = (): void => {
-    appWindow.close().catch((error: unknown) => {
+    appWindow?.close().catch((error: unknown) => {
       console.error('Failed to close window:', error);
     });
   };

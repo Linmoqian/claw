@@ -1,0 +1,235 @@
+/* ===== 连接区：两卡 2.5D 错落 ===== */
+.connection-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 18px;
+  transform-style: preserve-3d;
+}
+
+/* 卡片基底：毛玻璃 + 顶部高光描边 */
+.device-card {
+  position: relative;
+  padding: 22px 24px 24px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.07),
+    rgba(255, 255, 255, 0.035)
+  );
+  border: 1px solid var(--border);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  box-shadow: var(--shadow-md);
+  transform-style: preserve-3d;
+  transition: transform 0.5s var(--ease-spring), box-shadow 0.5s var(--ease-spring),
+    border-color 0.4s var(--ease-out);
+  overflow: hidden;
+}
+
+/* 设备 ID 卡：向右上浮起一点，形成 2.5D 错落 */
+.device-card--id {
+  transform: translateZ(24px);
+}
+
+.device-card:hover {
+  transform: translateZ(40px) translateY(-3px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--border-strong);
+}
+
+.device-card.is-idle {
+  filter: saturate(0.6) brightness(0.82);
+}
+
+.device-card.is-active {
+  border-color: rgba(48, 209, 88, 0.22);
+}
+
+/* 顶部高光斜扫 */
+.device-card__sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    transparent 32%,
+    transparent 100%
+  );
+  opacity: 0.7;
+}
+
+.device-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.device-card__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+}
+
+/* 状态徽标 */
+.device-card__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+}
+
+.device-card__chip.on {
+  color: var(--success);
+  background: rgba(48, 209, 88, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(48, 209, 88, 0.25);
+}
+
+.device-card__chip.off {
+  color: var(--text-tertiary);
+  background: rgba(255, 255, 255, 0.04);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+/* 设备 ID 大号等宽 */
+.device-id {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  margin-bottom: 20px;
+  line-height: 1;
+}
+
+.is-idle .device-id {
+  color: var(--text-quaternary);
+}
+
+/* 元信息网格 */
+.device-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin: 0;
+}
+
+.device-meta dt {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  margin-bottom: 4px;
+  letter-spacing: 0.03em;
+}
+
+.device-meta dd {
+  margin: 0;
+  font-size: 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+
+.is-idle .device-meta dd {
+  color: var(--text-quaternary);
+}
+
+/* 端口选择行 */
+.port-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.port-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.port-select:hover:not(:disabled) {
+  background: var(--surface-hover);
+  border-color: var(--border-strong);
+}
+
+.port-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.baud-pill {
+  padding: 11px 14px;
+  border-radius: var(--radius-md);
+  background: var(--accent-soft);
+  color: var(--accent-bright);
+  font-size: 13px;
+  font-weight: 600;
+  box-shadow: inset 0 0 0 1px rgba(41, 151, 255, 0.25);
+}
+
+/* 连接按钮 */
+.connect-btn {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 13px 18px;
+  border-radius: var(--radius-md);
+  border: none;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  color: #fff;
+  background: linear-gradient(180deg, var(--accent-bright), var(--accent));
+  box-shadow: 0 6px 18px rgba(10, 132, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+  transition: transform 0.2s var(--ease-spring), box-shadow 0.3s, filter 0.2s;
+}
+
+.connect-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(10, 132, 255, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.connect-btn:active {
+  transform: translateY(0) scale(0.99);
+}
+
+.connect-btn.connected {
+  background: linear-gradient(180deg, rgba(255, 69, 58, 0.9), rgba(215, 50, 40, 0.95));
+  box-shadow: 0 6px 18px rgba(255, 69, 58, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.connect-btn__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.6);
+  animation: pulse-dot 2s var(--ease-out) infinite;
+}
+
+@keyframes pulse-dot {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}

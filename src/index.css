@@ -1,4 +1,61 @@
-/* 全局重置 */
+/* ===== 设计令牌：苹果深色极简 ===== */
+:root {
+  /* 字体：系统栈，真苹果味，离线可用 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
+    "Roboto Mono", Consolas, monospace;
+
+  /* 背景层级 */
+  --bg: #000000;
+  --bg-grad-a: #0a0a0c;
+  --bg-grad-b: #000000;
+  --bg-elevated: #1c1c1e;
+
+  /* 毛玻璃表面 */
+  --surface: rgba(255, 255, 255, 0.055);
+  --surface-hover: rgba(255, 255, 255, 0.09);
+  --surface-active: rgba(255, 255, 255, 0.13);
+
+  /* 描边 */
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --border-hairline: rgba(255, 255, 255, 0.04);
+
+  /* 文字 */
+  --text: #f5f5f7;
+  --text-secondary: #98989d;
+  --text-tertiary: #636366;
+  --text-quaternary: #3a3a3c;
+
+  /* 强调色（苹果） */
+  --accent: #0a84ff;
+  --accent-bright: #2997ff;
+  --accent-soft: rgba(10, 132, 255, 0.18);
+
+  /* 状态色 */
+  --success: #30d158;
+  --warning: #ffd60a;
+  --danger: #ff453a;
+
+  /* 投影：柔和长投影，营造 2.5D 浮起感 */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 24px 60px rgba(0, 0, 0, 0.55), 0 8px 20px rgba(0, 0, 0, 0.35);
+  --shadow-float: 0 40px 80px rgba(0, 0, 0, 0.6), 0 12px 28px rgba(0, 0, 0, 0.4);
+
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+
+  /* 缓动：苹果标志性的清脆回弹 */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ===== 全局重置 ===== */
 * {
   box-sizing: border-box;
   scrollbar-width: none;
@@ -28,9 +85,23 @@ html {
 }
 
 body {
-  font-family: Inter, system-ui, Avenir, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
-  background: #181825;
-  color: #cdd6f4;
+  letter-spacing: -0.01em;
+  /* 苹果深色：纯黑底 + 极淡径向光晕，营造空间纵深 */
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(41, 151, 255, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.03), transparent 55%),
+    linear-gradient(180deg, var(--bg-grad-a), var(--bg-grad-b));
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* 数值等宽对齐（PID、电流、角度等数字读数） */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0;
 }

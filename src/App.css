@@ -6,24 +6,39 @@
 
 .app-content {
   flex: 1;
-  overflow: auto;
-  padding: 24px;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.nav {
+/* 2.5D 舞台：透视容器，自上而下排列各功能区 */
+.stage {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px 64px;
+  perspective: 1800px;
+  perspective-origin: 50% 0%;
   display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
+  flex-direction: column;
+  gap: 28px;
 }
 
-.nav a {
-  padding: 6px 12px;
-  border-radius: 6px;
-  text-decoration: none;
-  color: #cdd6f4;
-  background: rgba(255, 255, 255, 0.05);
+/* 区块标题：苹果式小字标签 */
+.section-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  padding: 0 4px;
 }
 
-.nav a.active {
-  background: #313244;
+.section-label__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.section-label__hint {
+  font-size: 12px;
+  color: var(--text-tertiary);
 }
