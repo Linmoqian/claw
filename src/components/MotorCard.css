@@ -5,7 +5,6 @@
   flex: 0 0 auto;
   padding: 16px 16px 14px;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--border);
   background: var(--card-gradient);
   backdrop-filter: blur(18px) saturate(140%);
   -webkit-backdrop-filter: blur(18px) saturate(140%);
@@ -14,15 +13,16 @@
   text-align: left;
   cursor: pointer;
   transform-style: preserve-3d;
-  transition: border-color 0.3s var(--ease-out), box-shadow 0.4s var(--ease-spring);
+  transition: box-shadow 0.4s var(--ease-spring);
   overflow: hidden;
   outline: none;
 }
 
 .motor-card.is-selected {
-  border-color: rgba(41, 151, 255, 0.55);
-  box-shadow: 0 24px 60px rgba(10, 132, 255, 0.28), 0 8px 20px rgba(0, 0, 0, 0.4),
-    inset 0 0 0 1px rgba(41, 151, 255, 0.2);
+  box-shadow:
+    0 16px 36px rgba(0, 113, 227, 0.22), 0 6px 14px rgba(0, 0, 0, 0.08),
+    0 0 0 1.5px rgba(0, 113, 227, 0.5), 0 0 0 6px rgba(0, 113, 227, 0.1),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.75);
 }
 
 .motor-card.is-disabled {
@@ -101,7 +101,9 @@
   font-size: 30px;
   font-weight: 600;
   color: var(--text);
-  letter-spacing: -0.02em;
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-display);
+  font-optical-sizing: auto;
 }
 
 .motor-card__unit {

@@ -6,6 +6,14 @@
   --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
     "Roboto Mono", Consolas, monospace;
 
+  /* 字距/行高：随尺寸变化（大字负字距紧排，小字正字距提可读性） */
+  --tracking-display: -0.022em;
+  --tracking-tight: -0.012em;
+  --tracking-body: -0.004em;
+  --tracking-eyebrow: 0.04em;
+  --leading-display: 1.04;
+  --leading-tight: 1.12;
+
   /* 背景层级 */
   --bg: #f5f5f7;
   --bg-grad-a: #fafafc;
@@ -44,11 +52,19 @@
   --warning: #ff9f0a;
   --danger: #ff3b30;
 
-  /* 投影：浅色下柔和灰投影，营造 2.5D 浮起感 */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06);
-  --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.04);
-  --shadow-lg: 0 14px 36px rgba(0, 0, 0, 0.09), 0 6px 14px rgba(0, 0, 0, 0.05);
-  --shadow-float: 0 28px 60px rgba(0, 0, 0, 0.14), 0 10px 22px rgba(0, 0, 0, 0.07);
+  /* 投影：物理光照——明亮顶边高光(inset) + 近投影 + 远投影，编码材质厚度 */
+  --shadow-sm:
+    0 0.5px 1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.07),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
+  --shadow-md:
+    0 0.5px 1px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.06),
+    0 1.5px 3px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.65);
+  --shadow-lg:
+    0 1px 1px rgba(0, 0, 0, 0.05), 0 12px 28px rgba(0, 0, 0, 0.09),
+    0 4px 8px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.7);
+  --shadow-float:
+    0 2px 4px rgba(0, 0, 0, 0.05), 0 24px 52px rgba(0, 0, 0, 0.13),
+    0 8px 18px rgba(0, 0, 0, 0.06), inset 0 0.5px 0 rgba(255, 255, 255, 0.75);
 
   /* 圆角 */
   --radius-sm: 8px;
@@ -93,7 +109,9 @@ html {
 body {
   font-family: var(--font-sans);
   font-size: 14px;
-  letter-spacing: -0.01em;
+  font-optical-sizing: auto;
+  letter-spacing: var(--tracking-body);
+  line-height: 1.5;
   /* 苹果浅色：灰白底 + 极淡蓝色光晕，营造空间纵深 */
   background:
     radial-gradient(1200px 600px at 50% -10%, rgba(0, 113, 227, 0.07), transparent 60%),

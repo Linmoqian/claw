@@ -50,7 +50,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--text-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-eyebrow);
 }
 
 .section-label__hint {
