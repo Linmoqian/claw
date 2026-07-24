@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { MotionConfig } from "motion/react";
 import { Routes, Route, Navigate } from "react-router";
 import TitleBar from "./components/TitleBar";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
@@ -26,18 +27,20 @@ function App() {
   }, []);
 
   return (
-    <div className="app-shell">
-      <div className="ambient-glow" aria-hidden />
-      <TitleBar />
-      <main className="app-content">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/about" element={<About />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      <ContextMenu items={contextItems} />
-    </div>
+    <MotionConfig reducedMotion="user">
+      <div className="app-shell">
+        <div className="ambient-glow" aria-hidden />
+        <TitleBar />
+        <main className="app-content">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </main>
+        <ContextMenu items={contextItems} />
+      </div>
+    </MotionConfig>
   );
 }
 

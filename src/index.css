@@ -129,3 +129,27 @@ body {
   font-variant-numeric: tabular-nums;
   letter-spacing: 0;
 }
+
+/* ===== 无障碍：尊重系统偏好（reduced-motion / reduced-transparency） ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .device-card,
+  .motor-card,
+  .pid-tuner,
+  .titlebar,
+  .ctx-menu {
+    background: var(--bg-elevated) !important;
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
