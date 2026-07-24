@@ -195,6 +195,12 @@
   font-size: 14px;
   font-weight: 600;
   color: var(--text);
+  transition: color 0.2s var(--ease-out), transform 0.2s var(--ease-spring);
+}
+
+.pid-slider:focus-within .pid-slider__value {
+  color: var(--accent);
+  transform: scale(1.06);
 }
 
 /* range 美化 */

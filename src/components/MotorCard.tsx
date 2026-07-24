@@ -47,7 +47,13 @@ export default function MotorCard({ motor, index, total, selected, onSelect }: P
       initial={{ opacity: 0, y: 30 }}
       animate={{ opacity: 1, ...arcTransform(index, total, selected) }}
       transition={{ duration: 0.6, delay: 0.25 + index * 0.06, ease: [0.22, 1, 0.36, 1] }}
-      whileHover={{ y: selected ? -14 : -8, translateZ: 30, transition: { duration: 0.3 } }}
+      whileHover={{
+        y: selected ? -14 : -8,
+        translateZ: 30,
+        scale: 1.04,
+        transition: { duration: 0.3 },
+      }}
+      whileTap={{ scale: 0.96, transition: { duration: 0.08 } }}
       style={{ transformOrigin: "center center" }}
     >
       <div className="motor-card__sheen" aria-hidden />

@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Routes, Route, Navigate } from "react-router";
 import TitleBar from "./components/TitleBar";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
@@ -13,8 +14,20 @@ const contextItems: ContextMenuItem[] = [
 ];
 
 function App() {
+  // 环境光晕跟随鼠标
+  useEffect(() => {
+    const onMove = (e: MouseEvent) => {
+      const root = document.documentElement;
+      root.style.setProperty("--mx", `${e.clientX}px`);
+      root.style.setProperty("--my", `${e.clientY}px`);
+    };
+    window.addEventListener("mousemove", onMove, { passive: true });
+    return () => window.removeEventListener("mousemove", onMove);
+  }, []);
+
   return (
     <div className="app-shell">
+      <div className="ambient-glow" aria-hidden />
       <TitleBar />
       <main className="app-content">
         <Routes>

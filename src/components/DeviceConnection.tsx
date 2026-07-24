@@ -18,6 +18,15 @@ function DeviceIdCard({ connected }: { connected: boolean }) {
       transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
     >
       <div className="device-card__sheen" aria-hidden />
+      {connected && (
+        <motion.span
+          className="device-card__pulse"
+          aria-hidden
+          initial={{ opacity: 0.45, scale: 0.88 }}
+          animate={{ opacity: 0, scale: 1.4 }}
+          transition={{ duration: 0.95, ease: [0.22, 1, 0.36, 1] }}
+        />
+      )}
       <header className="device-card__head">
         <span className="device-card__label">
           <Cpu size={13} /> 设备 ID

@@ -55,6 +55,16 @@
   opacity: 0.7;
 }
 
+/* 连接点亮波纹 */
+.device-card__pulse {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: var(--radius-lg);
+  border: 2px solid rgba(48, 209, 88, 0.6);
+  box-shadow: 0 0 24px rgba(48, 209, 88, 0.35);
+}
+
 .device-card__head {
   display: flex;
   align-items: center;

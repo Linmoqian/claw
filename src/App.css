@@ -8,6 +8,21 @@
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+/* 环境光晕：跟随鼠标的蓝色辉光，营造空间纵深 */
+.ambient-glow {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    540px circle at var(--mx, 50%) var(--my, 30%),
+    rgba(0, 113, 227, 0.08),
+    transparent 62%
+  );
 }
 
 /* 2.5D 舞台：透视容器，自上而下排列各功能区 */
