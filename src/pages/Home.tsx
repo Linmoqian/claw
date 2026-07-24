@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import DeviceConnection from "../components/DeviceConnection";
 import MotorGrid from "../components/MotorGrid";
 import PidTuner from "../components/PidTuner";
@@ -23,6 +23,18 @@ function Home() {
 
   const updatePid = (next: PidGains) =>
     setPidByMotor((prev) => ({ ...prev, [selectedId]: next }));
+
+  // 方向键切换关节
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const idx = MOTORS.findIndex((m) => m.id === selectedId);
+      if (e.key === "ArrowLeft" && idx > 0) setSelectedId(MOTORS[idx - 1].id);
+      else if (e.key === "ArrowRight" && idx < MOTORS.length - 1)
+        setSelectedId(MOTORS[idx + 1].id);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selectedId]);
 
   return (
     <div className="stage">
