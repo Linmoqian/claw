@@ -1,0 +1,213 @@
+/* ===== 电机卡片（2.5D 弧面成员） ===== */
+.motor-card {
+  position: relative;
+  width: 158px;
+  flex: 0 0 auto;
+  padding: 16px 16px 14px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.08),
+    rgba(255, 255, 255, 0.03)
+  );
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  box-shadow: var(--shadow-md);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transform-style: preserve-3d;
+  transition: border-color 0.3s var(--ease-out), box-shadow 0.4s var(--ease-spring);
+  overflow: hidden;
+  outline: none;
+}
+
+.motor-card.is-selected {
+  border-color: rgba(41, 151, 255, 0.55);
+  box-shadow: 0 24px 60px rgba(10, 132, 255, 0.28), 0 8px 20px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(41, 151, 255, 0.2);
+}
+
+.motor-card.is-disabled {
+  filter: saturate(0.5) brightness(0.7);
+}
+
+.motor-card__sheen {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    140deg,
+    rgba(255, 255, 255, 0.12) 0%,
+    transparent 34%,
+    transparent 100%
+  );
+  opacity: 0.6;
+}
+
+.motor-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 2px;
+}
+
+.motor-card__code {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+}
+
+.motor-card__status {
+  display: inline-flex;
+}
+
+.motor-card__led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  display: block;
+}
+
+.motor-card__status.on .motor-card__led {
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(48, 209, 88, 0.8);
+  animation: led-breathe 2.4s var(--ease-out) infinite;
+}
+
+.motor-card__status.off .motor-card__led {
+  background: var(--text-quaternary);
+}
+
+@keyframes led-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+.motor-card__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 12px;
+}
+
+.motor-card__angle {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-bottom: 14px;
+  line-height: 1;
+}
+
+.motor-card__value {
+  font-size: 30px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.motor-card__unit {
+  font-size: 16px;
+  color: var(--text-tertiary);
+  font-weight: 500;
+}
+
+.is-selected .motor-card__value {
+  background: linear-gradient(180deg, #fff, var(--accent-bright));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 角度轨道 */
+.motor-track {
+  position: relative;
+  height: 18px;
+  margin-bottom: 14px;
+}
+
+.motor-track__rail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.3);
+}
+
+.motor-track__target {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  transform: translate(-50%, -50%);
+  border-radius: 1px;
+  background: var(--warning);
+  opacity: 0.85;
+}
+
+.motor-track__thumb {
+  position: absolute;
+  top: 50%;
+  width: 11px;
+  height: 11px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 3px rgba(41, 151, 255, 0.3), 0 2px 6px rgba(0, 0, 0, 0.5);
+  transition: left 0.3s var(--ease-out);
+}
+
+.is-selected .motor-track__thumb {
+  box-shadow: 0 0 0 4px rgba(41, 151, 255, 0.5), 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+/* 指标网格 */
+.motor-card__metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.motor-metric__k {
+  display: block;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+  margin-bottom: 2px;
+}
+
+.motor-metric__v {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.motor-card__error {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.motor-card__error-k {
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.motor-card__error-v {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning);
+}

@@ -42,3 +42,11 @@
   font-size: 12px;
   color: var(--text-tertiary);
 }
+
+.section-label__hint b {
+  font-weight: 600;
+}
+
+.section-label__accent {
+  color: var(--accent-bright);
+}

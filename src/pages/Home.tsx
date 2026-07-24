@@ -1,8 +1,12 @@
 import { useState } from "react";
 import DeviceConnection from "../components/DeviceConnection";
+import MotorGrid from "../components/MotorGrid";
+import { MOTORS } from "../types";
 
 function Home() {
   const [connected, setConnected] = useState(false);
+  const [selectedId, setSelectedId] = useState(MOTORS[0].id);
+  const selectedMotor = MOTORS.find((m) => m.id === selectedId) ?? MOTORS[0];
 
   return (
     <div className="stage">
@@ -20,7 +24,18 @@ function Home() {
         />
       </div>
 
-      {/* 区域 2、3 由后续批次接入 */}
+      {/* 区域 2：7 电机卡片（2.5D 弧面） */}
+      <div>
+        <div className="section-label">
+          <span className="section-label__title">关节 · 7 DOF</span>
+          <span className="section-label__hint">
+            选中 <b className="section-label__accent">{selectedMotor.code} {selectedMotor.name}</b> 查看波形
+          </span>
+        </div>
+        <MotorGrid motors={MOTORS} selectedId={selectedId} onSelect={setSelectedId} />
+      </div>
+
+      {/* 区域 3：PID 波形（批次3接入） */}
     </div>
   );
 }
