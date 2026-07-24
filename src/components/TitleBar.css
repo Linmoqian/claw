@@ -1,0 +1,61 @@
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 36px;
+  width: 100%;
+  background: #1e1e2e;
+  color: #cdd6f4;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.titlebar__drag {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  padding: 0 12px;
+  font-size: 13px;
+  -webkit-app-region: drag;
+}
+
+.titlebar__drag svg,
+.titlebar__icon {
+  width: 16px;
+  height: 16px;
+}
+
+.titlebar__controls {
+  display: flex;
+  height: 100%;
+}
+
+.titlebar__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background 0.15s;
+}
+
+.titlebar__btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.titlebar__btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.titlebar__btn--close:hover {
+  background: #e0244e;
+  color: #fff;
+}

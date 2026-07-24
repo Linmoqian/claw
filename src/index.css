@@ -1,0 +1,36 @@
+/* 全局重置 */
+* {
+  box-sizing: border-box;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+/* 隐藏所有滚动条（核心需求） */
+::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+  display: none;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+
+html {
+  -webkit-touch-callout: none;
+}
+
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: Inter, system-ui, Avenir, sans-serif;
+  font-size: 14px;
+  background: #181825;
+  color: #cdd6f4;
+  -webkit-font-smoothing: antialiased;
+}
