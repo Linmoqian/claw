@@ -15,7 +15,7 @@ function DeviceIdCard({ connected }: { connected: boolean }) {
       className={`device-card device-card--id ${connected ? "is-active" : "is-idle"}`}
       initial={{ opacity: 0, y: 18, rotateX: 12 }}
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
-      transition={{ duration: 0.7, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ type: "spring", bounce: 0, duration: 0.55, delay: 0.1 }}
     >
       <div className="device-card__sheen" aria-hidden />
       {connected && (
@@ -69,7 +69,7 @@ function UsbCard({ connected, onToggle }: Props) {
       className={`device-card device-card--usb ${connected ? "is-active" : "is-idle"}`}
       initial={{ opacity: 0, y: 18, rotateX: 12 }}
       animate={{ opacity: 1, y: 0, rotateX: 0 }}
-      transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ type: "spring", bounce: 0, duration: 0.55 }}
     >
       <div className="device-card__sheen" aria-hidden />
       <header className="device-card__head">
