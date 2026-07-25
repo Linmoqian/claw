@@ -4,32 +4,54 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 36px;
+  height: 38px;
   width: 100%;
-  background: rgba(245, 245, 247, 0.72);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: var(--bg-elevated);
   color: var(--text);
   border-bottom: 1px solid var(--border-hairline);
   user-select: none;
   -webkit-app-region: drag;
 }
 
+/* 标题栏底：一缕极淡的墨韵渐变 */
+.titlebar::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent) 30%, var(--accent) 32%, transparent 60%);
+  opacity: 0.35;
+}
+
 .titlebar__drag {
   display: flex;
   flex: 1;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   height: 100%;
-  padding: 0 12px;
-  font-size: 13px;
+  padding: 0 16px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  letter-spacing: var(--tracking-body);
   -webkit-app-region: drag;
 }
 
-.titlebar__drag svg,
 .titlebar__icon {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
+  color: var(--accent);
+}
+
+.titlebar__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+  letter-spacing: 0.01em;
 }
 
 .titlebar__controls {
@@ -45,22 +67,23 @@
   height: 100%;
   border: none;
   background: transparent;
-  color: inherit;
+  color: var(--text-tertiary);
   cursor: pointer;
   -webkit-app-region: no-drag;
-  transition: background 0.15s;
+  transition: background 0.18s, color 0.18s;
 }
 
 .titlebar__btn:hover {
-  background: rgba(0, 0, 0, 0.06);
+  background: var(--inset);
+  color: var(--text);
 }
 
 .titlebar__btn svg {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
 }
 
 .titlebar__btn--close:hover {
-  background: #e0244e;
-  color: #fff;
+  background: var(--accent);
+  color: #fdf6ea;
 }

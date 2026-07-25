@@ -1,80 +1,82 @@
-/* ===== 设计令牌：苹果浅色极简 ===== */
+/* ===== 宣纸 · 墨韵 =====
+   设计哲学：以纸为底，以墨为字，以朱砂点睛。
+   靠衬线字型、暖纸留白、发丝金棕线建立层级，
+   不靠毛玻璃与投影堆叠。卡片=宣纸面+发丝框。
+*/
+
+/* 字体：衬线为骨（标题/文学气），无衬线为肉（界面标签），
+   等宽为筋（数字读数）。纯系统栈，离线可用，不依赖外网。
+   拉丁衬线用 Georgia（古典优雅），中文衬线用宋体/思源宋体。 */
+
 :root {
-  /* 字体：系统栈，真苹果味，离线可用 */
-  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code",
-    "Roboto Mono", Consolas, monospace;
+  --font-serif: Georgia, "Source Han Serif SC", "Noto Serif SC", "Songti SC",
+    "STSong", "SimSun", serif;
+  --font-sans: "PingFang SC", "Microsoft YaHei", -apple-system,
+    BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Code", "JetBrains Mono", ui-monospace, "SF Mono",
+    Consolas, monospace;
 
-  /* 字距/行高：随尺寸变化（大字负字距紧排，小字正字距提可读性） */
-  --tracking-display: -0.022em;
-  --tracking-tight: -0.012em;
-  --tracking-body: -0.004em;
-  --tracking-eyebrow: 0.04em;
-  --leading-display: 1.04;
-  --leading-tight: 1.12;
+  /* 字距：大字紧排显气韵，标签松排提清雅 */
+  --tracking-display: -0.015em;
+  --tracking-tight: -0.008em;
+  --tracking-body: 0.005em;
+  --tracking-eyebrow: 0.22em;
 
-  /* 背景层级 */
-  --bg: #f5f5f7;
-  --bg-grad-a: #fafafc;
-  --bg-grad-b: #ebebef;
-  --bg-elevated: #ffffff;
+  /* 宣纸层级：底色偏深暖，抬升面更亮 */
+  --bg: #ece4d2;
+  --bg-elevated: #f3ecd9;
 
-  /* 卡片表面（毛玻璃白） */
-  --surface: rgba(255, 255, 255, 0.72);
-  --surface-hover: rgba(255, 255, 255, 0.92);
-  --surface-active: #ffffff;
+  /* 卡片：最亮的纸面 */
+  --surface: #faf4e6;
+  --surface-soft: #f2ebd8;
 
-  /* 卡片背景渐变（统一） */
-  --card-gradient: linear-gradient(180deg, #ffffff, rgba(255, 255, 255, 0.78));
-  /* 凹陷内嵌表面（输入框、徽标底等） */
-  --inset: rgba(0, 0, 0, 0.04);
-  --inset-strong: rgba(0, 0, 0, 0.06);
+  /* 凹陷：如压痕 */
+  --inset: #e6dcc4;
+  --inset-strong: #d9ccae;
 
-  /* 描边 */
-  --border: rgba(0, 0, 0, 0.08);
-  --border-strong: rgba(0, 0, 0, 0.14);
-  --border-hairline: rgba(0, 0, 0, 0.05);
+  /* 发丝：暖金棕，仅暗示边界 */
+  --border: #d3c6a4;
+  --border-strong: #bda97a;
+  --border-hairline: #e1d6ba;
+  --border-ink: #4a3f2a;
 
-  /* 文字 */
-  --text: #1d1d1f;
-  --text-secondary: #6e6e73;
-  --text-tertiary: #86868b;
-  --text-quaternary: #aeaeb2;
+  /* 墨色文字 */
+  --text: #1d1810;
+  --text-secondary: #544733;
+  --text-tertiary: #847449;
+  --text-quaternary: #ab9a6f;
 
-  /* 强调色（苹果浅色蓝） */
-  --accent: #0071e3;
-  --accent-bright: #2997ff;
-  --accent-soft: rgba(0, 113, 227, 0.1);
+  /* 朱砂主色系（点睛之笔，克制使用） */
+  --accent: #b0432a;
+  --accent-bright: #c75a3e;
+  --accent-deep: #822f1c;
+  --accent-soft: #efd6cb;
+  --accent-softer: #f7e9e1;
 
-  /* 状态色 */
-  --success: #34c759;
-  --warning: #ff9f0a;
-  --danger: #ff3b30;
+  /* 黛青：信息/目标线辅色 */
+  --indigo: #3d5a5a;
+  --indigo-soft: #d2dcd9;
 
-  /* 投影：物理光照——明亮顶边高光(inset) + 近投影 + 远投影，编码材质厚度 */
-  --shadow-sm:
-    0 0.5px 1px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.07),
-    inset 0 0.5px 0 rgba(255, 255, 255, 0.6);
-  --shadow-md:
-    0 0.5px 1px rgba(0, 0, 0, 0.05), 0 4px 10px rgba(0, 0, 0, 0.06),
-    0 1.5px 3px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.65);
-  --shadow-lg:
-    0 1px 1px rgba(0, 0, 0, 0.05), 0 12px 28px rgba(0, 0, 0, 0.09),
-    0 4px 8px rgba(0, 0, 0, 0.04), inset 0 0.5px 0 rgba(255, 255, 255, 0.7);
-  --shadow-float:
-    0 2px 4px rgba(0, 0, 0, 0.05), 0 24px 52px rgba(0, 0, 0, 0.13),
-    0 8px 18px rgba(0, 0, 0, 0.06), inset 0 0.5px 0 rgba(255, 255, 255, 0.75);
+  /* 状态色（低饱和，与墨韵和谐） */
+  --success: #5d7d49;
+  --warning: #b08035;
+  --danger: #b0432a;
 
-  /* 圆角 */
-  --radius-sm: 8px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
-  --radius-xl: 28px;
+  /* 投影：暖墨色，极克制 */
+  --shadow-sm: 0 1px 2px rgba(60, 40, 15, 0.05);
+  --shadow-md: 0 1px 2px rgba(60, 40, 15, 0.04), 0 4px 14px rgba(60, 40, 15, 0.06);
+  --shadow-lg: 0 2px 6px rgba(60, 40, 15, 0.06), 0 16px 38px rgba(60, 40, 15, 0.09);
 
-  /* 缓动：苹果标志性的清脆回弹 */
-  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+  /* 圆角：克制温润 */
+  --radius-sm: 5px;
+  --radius-md: 9px;
+  --radius-lg: 13px;
+  --radius-xl: 16px;
+
+  /* 缓动：如墨落纸 */
+  --ease-spring: cubic-bezier(0.18, 0.9, 0.3, 1);
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-ink: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 /* ===== 全局重置 ===== */
@@ -111,16 +113,41 @@ body {
   font-size: 14px;
   font-optical-sizing: auto;
   letter-spacing: var(--tracking-body);
-  line-height: 1.5;
-  /* 苹果浅色：灰白底 + 极淡蓝色光晕，营造空间纵深 */
-  background:
-    radial-gradient(1200px 600px at 50% -10%, rgba(0, 113, 227, 0.07), transparent 60%),
-    radial-gradient(900px 500px at 100% 0%, rgba(255, 255, 255, 0.7), transparent 55%),
-    linear-gradient(180deg, var(--bg-grad-a), var(--bg-grad-b));
+  line-height: 1.55;
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  /* 宣纸底：暖色渐变 + 极淡墨晕 */
+  background-color: var(--bg);
+  background-image:
+    radial-gradient(120% 80% at 100% 0%, rgba(176, 67, 42, 0.05) 0%, transparent 55%),
+    radial-gradient(100% 70% at 0% 100%, rgba(61, 90, 90, 0.06) 0%, transparent 60%),
+    linear-gradient(180deg, #efe7d4 0%, #e8dfc8 100%);
+}
+
+/* 纸纹噪点：全局覆盖一层极淡的纤维感 */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.5;
+  mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.32  0 0 0 0 0.24  0 0 0 0 0.14  0 0 0 0.08 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+/* 衬线显示字：标题/品牌专用 */
+.serif {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: var(--tracking-display);
 }
 
 /* 数值等宽对齐（PID、电流、角度等数字读数） */
@@ -130,7 +157,35 @@ body {
   letter-spacing: 0;
 }
 
-/* ===== 无障碍：尊重系统偏好（reduced-motion / reduced-transparency） ===== */
+/* 眉批小签：松排大写，如版心批注 */
+.eyebrow {
+  font-family: var(--font-sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+
+/* ===== 入场：墨迹晕染式 stagger ===== */
+@keyframes ink-rise {
+  from {
+    opacity: 0;
+    filter: blur(6px);
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+    transform: translateY(0);
+  }
+}
+
+.ink-in {
+  animation: ink-rise 0.7s var(--ease-ink) both;
+}
+
+/* ===== 无障碍：尊重系统偏好 ===== */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -142,13 +197,20 @@ body {
   }
 }
 
+/* 墨韵设计本就极少毛玻璃，此降级仅作兜底 */
 @media (prefers-reduced-transparency: reduce) {
   .device-card,
   .motor-card,
   .pid-tuner,
   .titlebar,
-  .ctx-menu {
-    background: var(--bg-elevated) !important;
+  .ctx-menu,
+  .camera-feed,
+  .about-card,
+  .hero-status,
+  .wave-region,
+  .motor-head,
+  .pid-bar,
+  .advanced {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }

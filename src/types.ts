@@ -40,3 +40,40 @@ export type PidGains = {
 };
 
 export const DEFAULT_PID: PidGains = { kp: 12.0, ki: 0.8, kd: 2.4 };
+
+/** 高级调试参数（参与仿真模型） */
+export type AdvancedParams = {
+  /** 速度前馈（基于目标每步位移） */
+  kv: number;
+  /** 重力/位置前馈（基于目标位置） */
+  kg: number;
+  /** 微分项低通滤波截止频率（Hz，越低滤波越强） */
+  dFilterHz: number;
+  /** 反馈(PV)平滑系数（一阶低通强度） */
+  pvSmooth: number;
+  /** 输出限幅（绝对值） */
+  outLimit: number;
+  /** 积分限幅（抗饱和，绝对值） */
+  iLimit: number;
+  /** 目标斜坡速率（°/s，限制设定点变化速度） */
+  rampRate: number;
+  /** 误差死区（°，小于该值不响应） */
+  deadZone: number;
+};
+
+/** 默认值保证不改变既有波形：滤波/限幅/斜坡近似不生效 */
+export const DEFAULT_ADVANCED: AdvancedParams = {
+  kv: 0,
+  kg: 0,
+  dFilterHz: 50,
+  pvSmooth: 0,
+  outLimit: 2000,
+  iLimit: 80,
+  rampRate: 3600,
+  deadZone: 0,
+};
+
+/** 单电机完整调参集 */
+export type TuneParams = PidGains & AdvancedParams;
+
+export const DEFAULT_TUNE: TuneParams = { ...DEFAULT_PID, ...DEFAULT_ADVANCED };

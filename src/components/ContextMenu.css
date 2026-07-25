@@ -1,16 +1,14 @@
 .ctx-menu {
   position: fixed;
   z-index: 9999;
-  min-width: 180px;
+  min-width: 184px;
   list-style: none;
   margin: 0;
-  padding: 6px;
-  background: rgba(255, 255, 255, 0.82);
-  backdrop-filter: blur(24px) saturate(180%);
-  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  padding: 5px;
+  background: var(--surface);
   color: var(--text);
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   box-shadow: var(--shadow-lg);
   font-size: 13px;
   transform-origin: top left;
@@ -18,8 +16,8 @@
 
 .ctx-menu__divider {
   height: 1px;
-  margin: 6px 2px;
-  background: var(--border);
+  margin: 5px 2px;
+  background: var(--border-hairline);
 }
 
 .ctx-menu__item {
@@ -33,12 +31,14 @@
   color: inherit;
   font: inherit;
   text-align: left;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 }
 
 .ctx-menu__item:hover:not(:disabled) {
-  background: var(--inset-strong);
+  background: var(--accent-softer);
+  color: var(--accent-deep);
 }
 
 .ctx-menu__item:disabled {
@@ -47,7 +47,12 @@
 }
 
 .ctx-menu__icon {
-  width: 15px;
-  height: 15px;
+  width: 14px;
+  height: 14px;
   flex-shrink: 0;
+  color: var(--text-tertiary);
+}
+
+.ctx-menu__item:hover:not(:disabled) .ctx-menu__icon {
+  color: var(--accent);
 }

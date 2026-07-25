@@ -1,7 +1,7 @@
-import { useEffect } from "react";
 import { MotionConfig } from "motion/react";
 import { Routes, Route, Navigate } from "react-router";
 import TitleBar from "./components/TitleBar";
+import Sidebar from "./components/Sidebar";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
 import Home from "./pages/Home";
 import About from "./pages/About";
@@ -15,29 +15,20 @@ const contextItems: ContextMenuItem[] = [
 ];
 
 function App() {
-  // 环境光晕跟随鼠标
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      const root = document.documentElement;
-      root.style.setProperty("--mx", `${e.clientX}px`);
-      root.style.setProperty("--my", `${e.clientY}px`);
-    };
-    window.addEventListener("mousemove", onMove, { passive: true });
-    return () => window.removeEventListener("mousemove", onMove);
-  }, []);
-
   return (
     <MotionConfig reducedMotion="user">
       <div className="app-shell">
-        <div className="ambient-glow" aria-hidden />
         <TitleBar />
-        <main className="app-content">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+        <div className="app-body">
+          <Sidebar />
+          <main className="app-content">
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
+        </div>
         <ContextMenu items={contextItems} />
       </div>
     </MotionConfig>

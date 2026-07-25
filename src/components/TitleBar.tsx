@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Cat, Copy, Minus, Square, X } from 'lucide-react';
+import { Bot, Copy, Minus, Square, X } from 'lucide-react';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import { isTauri } from '@tauri-apps/api/core';
 import './TitleBar.css';
@@ -80,8 +80,8 @@ export default function TitleBar() {
   return (
     <header className="titlebar">
       <div className="titlebar__drag" data-tauri-drag-region>
-        <Cat className="titlebar__icon" />
-        <span className="titlebar__title">claw</span>
+        <Bot className="titlebar__icon" />
+        <span className="titlebar__title">Embodied</span>
       </div>
       <div className="titlebar__controls">
         <button

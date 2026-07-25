@@ -1,0 +1,112 @@
+.sidebar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  width: 210px;
+  padding: 14px 11px 11px;
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border-hairline);
+  overflow: hidden;
+  user-select: none;
+  position: relative;
+  z-index: 1;
+  transition: width 0.26s var(--ease-spring);
+}
+
+/* 侧边栏右缘：纵向墨韵线 */
+.sidebar::after {
+  content: "";
+  position: absolute;
+  top: 18%;
+  bottom: 18%;
+  right: -1px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, var(--border-strong) 40%, transparent);
+  opacity: 0.5;
+}
+
+.sidebar[data-collapsed] {
+  width: 58px;
+}
+
+.sidebar__nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sidebar__item,
+.sidebar__toggle {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  height: 38px;
+  padding: 0 11px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  letter-spacing: var(--tracking-body);
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  transition: background 0.2s var(--ease-out), color 0.2s var(--ease-out);
+}
+
+.sidebar__item:hover,
+.sidebar__toggle:hover {
+  background: var(--inset);
+  color: var(--text);
+}
+
+/* 当前路由：朱砂细栏 + 淡印底 */
+.sidebar__item.active {
+  background: var(--accent-softer);
+  color: var(--accent-deep);
+  font-weight: 500;
+  position: relative;
+}
+
+.sidebar__item.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 0 1px 1px 0;
+  background: var(--accent);
+}
+
+.sidebar__icon {
+  width: 17px;
+  height: 17px;
+  flex-shrink: 0;
+}
+
+.sidebar__item.active .sidebar__icon {
+  color: var(--accent);
+}
+
+.sidebar__label {
+  min-width: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+/* 收起态：仅保留居中图标，文字淡出且不占位 */
+.sidebar[data-collapsed] .sidebar__item,
+.sidebar[data-collapsed] .sidebar__toggle {
+  justify-content: center;
+  padding: 0;
+  gap: 0;
+}
+
+.sidebar[data-collapsed] .sidebar__label {
+  opacity: 0;
+  width: 0;
+  margin: 0;
+}

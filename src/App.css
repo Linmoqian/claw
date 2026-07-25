@@ -6,62 +6,559 @@
 
 .app-content {
   flex: 1;
+  min-width: 0;
+  min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* 主体：侧边栏 + 内容区水平排列 */
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+/* ===== 控制台：master-detail 主布局 ===== */
+.console {
+  height: 100%;
+  display: flex;
+  gap: 20px;
+  padding: 22px 26px 22px;
+  max-width: 1440px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* 左：电机导航 */
+.motor-nav {
+  width: 224px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.motor-nav .motor-list {
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+/* 区块眉批（导航/波形区复用）：衬线 + 朱砂短划 */
+.console__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-family: var(--font-serif);
+  font-size: 13px;
+  font-weight: 500;
+  font-style: italic;
+  color: var(--text-secondary);
+  letter-spacing: 0.01em;
+  padding: 0 2px;
+  position: relative;
+}
+
+.console__label svg {
+  color: var(--accent);
+}
+
+.console__label::after {
+  content: "";
+  flex: none;
+  width: 22px;
+  height: 1px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+  opacity: 0.7;
+}
+
+/* 右：仪表盘主区 */
+.dashboard {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+
+/* 入场：墨落纸上，依次晕开 */
+.dashboard > * {
+  animation: ink-rise 0.7s var(--ease-ink) both;
+}
+.dashboard > *:nth-child(1) { animation-delay: 0.04s; }
+.dashboard > *:nth-child(2) { animation-delay: 0.12s; }
+.dashboard > *:nth-child(3) { animation-delay: 0.20s; }
+.dashboard > *:nth-child(4) { animation-delay: 0.28s; }
+.dashboard > *:nth-child(5) { animation-delay: 0.36s; }
+.dashboard > *:nth-child(6) { animation-delay: 0.44s; }
+
+.motor-nav > * {
+  animation: ink-rise 0.6s var(--ease-ink) both;
+}
+.motor-nav > *:nth-child(2) { animation-delay: 0.08s; }
+
+/* 选中电机详情 head —— 卷首 */
+.motor-head {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  padding: 16px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 卡片左缘：一抹朱砂细栏，如页边批红 */
+.motor-head::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 14px;
+  bottom: 14px;
+  width: 2px;
+  background: linear-gradient(180deg, var(--accent), transparent);
+  border-radius: 0 1px 1px 0;
+}
+
+.motor-head__id {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-right: 26px;
+  border-right: 1px solid var(--border-hairline);
+}
+
+.motor-head__code {
+  font-family: var(--font-serif);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--accent);
+  font-style: italic;
+}
+
+.motor-head__name {
+  font-family: var(--font-serif);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.1;
+}
+
+.motor-head__readings {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  flex: 1;
+  flex-wrap: wrap;
+}
+
+.reading {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.reading__k {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.reading__v {
+  font-size: 22px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.1;
+  font-family: var(--font-mono);
+}
+
+.reading__unit {
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+  font-family: var(--font-sans);
+}
+
+/* 波形区（主角，拉伸）—— 画卷 */
+.wave-region {
+  flex: 1 1 auto;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px 14px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  position: relative;
+}
+
+/* 画卷角标：极淡墨晕 */
+.wave-region::after {
+  content: "";
+  position: absolute;
+  right: -40px;
+  top: -40px;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(176, 67, 42, 0.06), transparent 70%);
+  pointer-events: none;
+}
+
+.wave-region__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
   position: relative;
   z-index: 1;
 }
 
-/* 环境光晕：跟随鼠标的蓝色辉光，营造空间纵深 */
-.ambient-glow {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  background: radial-gradient(
-    540px circle at var(--mx, 50%) var(--my, 30%),
-    rgba(0, 113, 227, 0.08),
-    transparent 62%
-  );
+.wave-region__legend {
+  display: flex;
+  gap: 16px;
 }
 
-/* 2.5D 舞台：透视容器，自上而下排列各功能区 */
+.legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+.legend::before {
+  content: "";
+  width: 16px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.legend--sp::before {
+  background: var(--indigo);
+  opacity: 0.7;
+}
+
+.legend--pv::before {
+  background: var(--accent);
+}
+
+/* canvas 拉伸充满波形区 */
+.wave-canvas {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  position: relative;
+  z-index: 1;
+}
+
+/* PID 控制条 —— 笔架 */
+.pid-bar {
+  flex-shrink: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  align-items: center;
+  gap: 24px;
+  padding: 16px 22px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.pid-bar__run {
+  display: flex;
+  gap: 7px;
+}
+
+.run-btn,
+.reset-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-secondary);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+    color 0.2s var(--ease-out);
+}
+
+.run-btn:hover,
+.reset-btn:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.run-btn.running {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fdf6ea;
+  box-shadow: 0 1px 6px rgba(176, 67, 42, 0.28);
+}
+
+.run-btn.running:hover {
+  background: var(--accent-deep);
+  border-color: var(--accent-deep);
+}
+
+/* 高级调试参数折叠头 */
+.advanced-toggle {
+  flex-shrink: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 11px 18px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+  color: var(--text-secondary);
+  font: inherit;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+    color 0.2s var(--ease-out);
+}
+
+.advanced-toggle:hover {
+  border-color: var(--border-strong);
+  color: var(--text);
+}
+
+.advanced-toggle.is-open {
+  color: var(--accent-deep);
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.advanced-toggle__chevron {
+  color: var(--text-tertiary);
+  transition: transform 0.25s var(--ease-spring), color 0.2s;
+}
+
+.advanced-toggle.is-open .advanced-toggle__chevron {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.advanced-toggle__hint {
+  margin-left: auto;
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.02em;
+}
+
+/* 高级参数面板 */
+.advanced {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: 18px 20px;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.advanced-group {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.advanced-group__title {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+.advanced-group__grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px 24px;
+}
+
+/* 辅助条：设备连接 */
+.aux-strip {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ===== 响应式 ===== */
+@media (max-width: 980px) {
+  .console {
+    flex-direction: column;
+    height: auto;
+    min-height: 100%;
+  }
+
+  .motor-nav {
+    width: 100%;
+  }
+
+  .motor-nav .motor-list {
+    overflow: visible;
+  }
+
+  .motor-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .console {
+    padding: 14px;
+  }
+
+  .motor-head {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .motor-head__id {
+    padding-right: 0;
+    border-right: none;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-hairline);
+    width: 100%;
+  }
+
+  .motor-head__readings {
+    gap: 18px;
+  }
+
+  .pid-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pid-bar__run {
+    grid-column: 1 / -1;
+  }
+
+  .advanced-group__grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .aux-strip {
+    flex-wrap: wrap;
+  }
+}
+
+/* ===== About 页 ===== */
 .stage {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 28px 32px 64px;
-  perspective: 1800px;
-  perspective-origin: 50% 0%;
+  padding: 32px 40px 64px;
   display: flex;
   flex-direction: column;
-  gap: 28px;
+  gap: 26px;
 }
 
-/* 区块标题：苹果式小字标签 */
 .section-label {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  margin-bottom: 4px;
-  padding: 0 4px;
+  margin-bottom: 12px;
 }
 
 .section-label__title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  letter-spacing: var(--tracking-eyebrow);
-}
-
-.section-label__hint {
+  font-family: var(--font-serif);
+  font-style: italic;
   font-size: 12px;
-  color: var(--text-tertiary);
-}
-
-.section-label__hint b {
   font-weight: 600;
+  color: var(--accent);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
 }
 
-.section-label__accent {
-  color: var(--accent-bright);
+/* 关于页：宣纸卷 + 发丝框 + 朱砂印 */
+.about-card {
+  position: relative;
+  max-width: 660px;
+  padding: 40px 38px 30px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-md);
+}
+
+/* 朱砂闲章：右下角 */
+.about-card::after {
+  content: " Embodied ";
+  position: absolute;
+  right: 26px;
+  bottom: 22px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 11px;
+  letter-spacing: 0.2em;
+  color: #fdf6ea;
+  background: var(--accent);
+  padding: 5px 10px 4px;
+  border-radius: 2px;
+  box-shadow: 0 1px 4px rgba(176, 67, 42, 0.3);
+}
+
+.about-card__title {
+  margin: 0 0 14px;
+  font-family: var(--font-serif);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.18;
+  color: var(--text);
+}
+
+.about-card__lead {
+  margin: 0 0 20px;
+  font-family: var(--font-serif);
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--text-secondary);
+  font-weight: 400;
+}
+
+.about-card__tech {
+  margin: 0;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-hairline);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.01em;
 }
