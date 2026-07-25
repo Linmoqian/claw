@@ -1,0 +1,116 @@
+.motor-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s var(--ease-out), box-shadow 0.2s,
+    transform 0.15s var(--ease-spring);
+}
+
+.motor-card:hover {
+  border-color: var(--border-strong);
+  transform: translateY(-1px);
+}
+
+.motor-card.is-selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow-sm);
+}
+
+.motor-card.is-off {
+  opacity: 0.6;
+}
+
+.motor-card.is-fault {
+  border-color: var(--danger);
+}
+
+.motor-card__head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.motor-card__code {
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--accent);
+  letter-spacing: 0.05em;
+}
+
+.motor-card__name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+.motor-card__led {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.motor-card__led.on {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(93, 125, 73, 0.16);
+}
+
+.motor-card__led.off {
+  background: var(--text-quaternary);
+}
+
+.motor-card__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 16px;
+}
+
+.motor-card__metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.motor-card__k {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.motor-card__v {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.motor-card__v i {
+  font-style: normal;
+  font-size: 10px;
+  color: var(--text-tertiary);
+  margin-left: 2px;
+}
+
+.motor-card__v.warn {
+  color: var(--danger);
+}
+
+.motor-card__fault {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--danger);
+  letter-spacing: 0.04em;
+}
