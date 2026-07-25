@@ -1,0 +1,222 @@
+.connect {
+  max-width: 720px;
+}
+
+.connect__hint {
+  font-family: var(--font-sans);
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.connect__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 22px 24px;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-sm);
+}
+
+.connect__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--border-hairline);
+}
+
+.connect__state {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-serif);
+  font-style: italic;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.connect__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.connect__dot.on {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(93, 125, 73, 0.18);
+}
+
+.connect__dot.off {
+  background: var(--text-quaternary);
+}
+
+.connect__id {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  letter-spacing: 0.04em;
+}
+
+.connect__scan {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fdf6ea;
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), opacity 0.2s;
+}
+
+.connect__scan:hover:not(:disabled) {
+  background: var(--accent-deep);
+}
+
+.connect__scan:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.connect__scan .spin {
+  animation: connect-spin 0.9s linear infinite;
+}
+
+@keyframes connect-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .connect__scan .spin {
+    animation: none;
+  }
+}
+
+.port-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.port-list__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 22px;
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+
+.port-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-hairline);
+  background: var(--surface-soft);
+  transition: border-color 0.2s var(--ease-out), background 0.2s;
+}
+
+.port-item:hover {
+  border-color: var(--border);
+}
+
+.port-item.is-busy {
+  opacity: 0.6;
+}
+
+.port-item__icon {
+  color: var(--text-tertiary);
+}
+
+.port-item__name {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 60px;
+}
+
+.port-item__baud {
+  flex: 1;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+.port-item__tag {
+  font-size: 10px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  letter-spacing: 0.04em;
+}
+
+.port-item__tag.free {
+  color: var(--success);
+  background: rgba(93, 125, 73, 0.12);
+}
+
+.port-item__tag.busy {
+  color: var(--text-tertiary);
+  background: var(--inset);
+}
+
+.port-item__btn {
+  padding: 6px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent-deep);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.port-item__btn:hover:not(:disabled) {
+  background: var(--accent);
+  color: #fdf6ea;
+}
+
+.port-item__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.connect__disconnect {
+  align-self: flex-start;
+  padding: 8px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+
+.connect__disconnect:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}

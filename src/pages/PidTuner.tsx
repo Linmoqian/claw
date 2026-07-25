@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from "react";
-import { Play, Pause, RotateCcw, Radio, ChevronDown } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Play, Pause, RotateCcw, Radio, ChevronDown, Save } from "lucide-react";
 import MotorList from "../components/MotorList";
-import DeviceConnection from "../components/DeviceConnection";
 import WaveCanvas from "../components/WaveCanvas";
 import PidSlider from "../components/PidSlider";
-import { MOTORS, DEFAULT_TUNE, type Motor, type TuneParams, type AdvancedParams } from "../types";
+import { useDevice } from "../store/DeviceContext";
+import type { AdvancedParams } from "../types";
+import "./PidTuner.css";
 
 function tempColor(temp: number) {
   if (temp >= 45) return "var(--danger)";
@@ -67,39 +68,40 @@ const ADVANCED_GROUPS: { title: string; items: AdvItem[] }[] = [
   },
 ];
 
-function Home() {
-  const [connected, setConnected] = useState(false);
-  const [selectedId, setSelectedId] = useState(MOTORS[0].id);
-  const [running, setRunning] = useState(true);
+/** PID 调参页：电机选择 + 实时仿真波形 + PID/高级参数 + Flash 保存 */
+function PidTuner() {
+  const {
+    motors,
+    selectedId,
+    selectMotor,
+    running,
+    setRunning,
+    tuneByMotor,
+    dirtyByMotor,
+    updateTune,
+    saveToFlash,
+    resetTune,
+  } = useDevice();
+
   const [resetKey, setResetKey] = useState(0);
   const [advancedOpen, setAdvancedOpen] = useState(false);
 
-  // 每电机的完整调参（PID + 高级），初始为默认值
-  const [tuneByMotor, setTuneByMotor] = useState<Record<string, TuneParams>>(() =>
-    Object.fromEntries(MOTORS.map((m) => [m.id, { ...DEFAULT_TUNE }])),
-  );
-
-  const selectedMotor: Motor = useMemo(
-    () => MOTORS.find((m) => m.id === selectedId) ?? MOTORS[0],
-    [selectedId],
-  );
+  const selectedMotor = motors.find((m) => m.id === selectedId) ?? motors[0];
   const selectedTune = tuneByMotor[selectedId];
+  const dirty = dirtyByMotor[selectedId];
   const error = Math.abs(selectedMotor.angle - selectedMotor.target);
-
-  const updateTune = (next: TuneParams) =>
-    setTuneByMotor((prev) => ({ ...prev, [selectedId]: next }));
 
   // 方向键切换关节
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      const idx = MOTORS.findIndex((m) => m.id === selectedId);
-      if (e.key === "ArrowLeft" && idx > 0) setSelectedId(MOTORS[idx - 1].id);
-      else if (e.key === "ArrowRight" && idx < MOTORS.length - 1)
-        setSelectedId(MOTORS[idx + 1].id);
+      const idx = motors.findIndex((m) => m.id === selectedId);
+      if (e.key === "ArrowLeft" && idx > 0) selectMotor(motors[idx - 1].id);
+      else if (e.key === "ArrowRight" && idx < motors.length - 1)
+        selectMotor(motors[idx + 1].id);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [selectedId]);
+  }, [motors, selectedId, selectMotor]);
 
   return (
     <div className="console">
@@ -109,7 +111,7 @@ function Home() {
           <Radio size={12} />
           <span>关节 · 7 DOF</span>
         </div>
-        <MotorList motors={MOTORS} selectedId={selectedId} onSelect={setSelectedId} />
+        <MotorList motors={motors} selectedId={selectedId} onSelect={selectMotor} />
       </aside>
 
       {/* 右：仪表盘主区 */}
@@ -167,7 +169,7 @@ function Home() {
             min={0}
             max={50}
             step={0.1}
-            onChange={(v) => updateTune({ ...selectedTune, kp: v })}
+            onChange={(v) => updateTune(selectedId, { kp: v })}
           />
           <PidSlider
             label="积分"
@@ -176,7 +178,7 @@ function Home() {
             min={0}
             max={5}
             step={0.01}
-            onChange={(v) => updateTune({ ...selectedTune, ki: v })}
+            onChange={(v) => updateTune(selectedId, { ki: v })}
           />
           <PidSlider
             label="微分"
@@ -185,13 +187,13 @@ function Home() {
             min={0}
             max={10}
             step={0.05}
-            onChange={(v) => updateTune({ ...selectedTune, kd: v })}
+            onChange={(v) => updateTune(selectedId, { kd: v })}
           />
           <div className="pid-bar__run">
             <button
               type="button"
               className={`run-btn ${running ? "running" : ""}`}
-              onClick={() => setRunning((v) => !v)}
+              onClick={() => setRunning(!running)}
             >
               {running ? <Pause size={14} /> : <Play size={14} />}
               {running ? "暂停" : "运行"}
@@ -203,6 +205,15 @@ function Home() {
               title="重置仿真"
             >
               <RotateCcw size={14} />
+            </button>
+            <button
+              type="button"
+              className={`save-btn ${dirty ? "dirty" : ""}`}
+              onClick={() => saveToFlash(selectedId)}
+              title={dirty ? "参数已修改，点击保存到 Flash" : "参数已与 Flash 一致"}
+            >
+              <Save size={14} />
+              {dirty ? "存 Flash" : "已保存"}
             </button>
           </div>
         </div>
@@ -236,22 +247,33 @@ function Home() {
                       step={it.step}
                       decimals={it.decimals}
                       unit={it.unit}
-                      onChange={(v) => updateTune({ ...selectedTune, [it.key]: v })}
+                      onChange={(v) => updateTune(selectedId, { [it.key]: v })}
                     />
                   ))}
                 </div>
               </div>
             ))}
+            <div className="advanced-actions">
+              <button
+                type="button"
+                className="reset-btn"
+                onClick={() => resetTune(selectedId)}
+              >
+                <RotateCcw size={13} /> 恢复默认
+              </button>
+              <button
+                type="button"
+                className={`save-btn ${dirty ? "dirty" : ""}`}
+                onClick={() => saveToFlash(selectedId)}
+              >
+                <Save size={13} /> {dirty ? "保存到 Flash" : "已与 Flash 一致"}
+              </button>
+            </div>
           </div>
         )}
-
-        {/* 辅助条：设备连接 */}
-        <footer className="aux-strip">
-          <DeviceConnection connected={connected} onToggle={() => setConnected((v) => !v)} />
-        </footer>
       </section>
     </div>
   );
 }
 
-export default Home;
+export default PidTuner;

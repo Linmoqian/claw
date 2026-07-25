@@ -1,0 +1,43 @@
+/* PidTuner 页特有：Flash 保存与脏标记。
+   通用布局类（.console / .dashboard / .pid-bar / .advanced 等）定义在 App.css。 */
+
+.save-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-tertiary);
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s var(--ease-out), border-color 0.2s, color 0.2s;
+}
+
+/* 脏标记：参数已改未存 Flash —— 朱砂高亮 */
+.save-btn.dirty {
+  color: var(--accent-deep);
+  border-color: var(--accent);
+  background: var(--accent-softer);
+}
+
+.save-btn.dirty:hover {
+  background: var(--accent-soft);
+}
+
+.save-btn:not(.dirty):hover {
+  border-color: var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.advanced-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-hairline);
+}

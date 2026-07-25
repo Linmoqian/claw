@@ -7,7 +7,9 @@ export type Motor = {
   name: string;
   /** 当前角度（°） */
   angle: number;
-  /** 目标角度（°） */
+  /** 实测速度（°/s） */
+  velocity: number;
+  /** 目标值（单位随控制模式） */
   target: number;
   /** 角度上限 */
   max: number;
@@ -23,14 +25,66 @@ export type Motor = {
 
 /** 7 自由度机械臂关节（mock 数据，后续接 USB 实时数据替换） */
 export const MOTORS: Motor[] = [
-  { id: "m1", code: "J1", name: "基座", angle: 12.4, target: 15.0, max: 180, min: -180, current: 0.82, temp: 38.2, enabled: true },
-  { id: "m2", code: "J2", name: "肩部", angle: -28.6, target: -30.0, max: 90, min: -90, current: 1.14, temp: 41.7, enabled: true },
-  { id: "m3", code: "J3", name: "肘部", angle: 64.2, target: 60.0, max: 135, min: -10, current: 0.96, temp: 39.5, enabled: true },
-  { id: "m4", code: "J4", name: "腕俯仰", angle: 8.1, target: 10.0, max: 90, min: -90, current: 0.34, temp: 36.0, enabled: true },
-  { id: "m5", code: "J5", name: "腕偏航", angle: -15.3, target: -15.0, max: 90, min: -90, current: 0.28, temp: 35.4, enabled: true },
-  { id: "m6", code: "J6", name: "腕旋转", angle: 42.0, target: 45.0, max: 180, min: -180, current: 0.31, temp: 35.9, enabled: true },
-  { id: "m7", code: "J7", name: "夹爪", angle: 58.0, target: 60.0, max: 100, min: 0, current: 0.12, temp: 34.1, enabled: true },
+  { id: "m1", code: "J1", name: "基座", angle: 12.4, velocity: 0, target: 15.0, max: 180, min: -180, current: 0.82, temp: 38.2, enabled: true },
+  { id: "m2", code: "J2", name: "肩部", angle: -28.6, velocity: 0, target: -30.0, max: 90, min: -90, current: 1.14, temp: 41.7, enabled: true },
+  { id: "m3", code: "J3", name: "肘部", angle: 64.2, velocity: 0, target: 60.0, max: 135, min: -10, current: 0.96, temp: 39.5, enabled: true },
+  { id: "m4", code: "J4", name: "腕俯仰", angle: 8.1, velocity: 0, target: 10.0, max: 90, min: -90, current: 0.34, temp: 36.0, enabled: true },
+  { id: "m5", code: "J5", name: "腕偏航", angle: -15.3, velocity: 0, target: -15.0, max: 90, min: -90, current: 0.28, temp: 35.4, enabled: true },
+  { id: "m6", code: "J6", name: "腕旋转", angle: 42.0, velocity: 0, target: 45.0, max: 180, min: -180, current: 0.31, temp: 35.9, enabled: true },
+  { id: "m7", code: "J7", name: "夹爪", angle: 58.0, velocity: 0, target: 60.0, max: 100, min: 0, current: 0.12, temp: 34.1, enabled: true },
 ];
+
+/** 控制模式 */
+export type ControlMode = "position" | "velocity" | "current";
+
+/** 单电机故障标志 */
+export type FaultFlags = {
+  /** 超限位 */
+  overTravel: boolean;
+  /** 过流 */
+  overCurrent: boolean;
+  /** 过温 */
+  overTemp: boolean;
+  /** 通信丢失 */
+  commLost: boolean;
+};
+
+export const NO_FAULT: FaultFlags = {
+  overTravel: false,
+  overCurrent: false,
+  overTemp: false,
+  commLost: false,
+};
+
+/** 安全限制（全局阈值） */
+export type SafetyLimits = {
+  /** 过温阈值（°C） */
+  tempMax: number;
+  /** 过流阈值（A） */
+  currentMax: number;
+  /** 超速阈值（°/s） */
+  velocityMax: number;
+  /** 软限位开关 */
+  softLimit: boolean;
+  /** 超限自动断使能 */
+  autoDisable: boolean;
+};
+
+export const DEFAULT_SAFETY: SafetyLimits = {
+  tempMax: 60,
+  currentMax: 3.0,
+  velocityMax: 180,
+  softLimit: true,
+  autoDisable: true,
+};
+
+/** 串口扫描结果 */
+export type SerialPort = {
+  name: string;
+  baud: number;
+  /** 是否被占用 */
+  inUse: boolean;
+};
 
 /** 单个电机的 PID 参数 */
 export type PidGains = {

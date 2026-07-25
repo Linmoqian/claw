@@ -1,0 +1,57 @@
+.estop {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 50;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  border: 1px solid var(--accent-deep);
+  background: var(--accent);
+  color: #fdf6ea;
+  font: inherit;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(130, 47, 28, 0.35);
+  transition: transform 0.15s var(--ease-spring), background 0.2s var(--ease-out),
+    box-shadow 0.2s var(--ease-out);
+}
+
+.estop:hover {
+  transform: translateY(-1px);
+  background: var(--accent-bright);
+}
+
+.estop:active {
+  transform: translateY(0);
+}
+
+.estop.is-active {
+  background: var(--accent-deep);
+  border-color: var(--border-ink);
+  animation: estop-pulse 1.1s var(--ease-ink) infinite;
+}
+
+@keyframes estop-pulse {
+  0%,
+  100% {
+    box-shadow: 0 6px 20px rgba(130, 47, 28, 0.35);
+  }
+  50% {
+    box-shadow: 0 6px 28px rgba(176, 67, 42, 0.65);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .estop {
+    transition: none;
+  }
+  .estop.is-active {
+    animation: none;
+  }
+}

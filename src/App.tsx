@@ -2,8 +2,16 @@ import { MotionConfig } from "motion/react";
 import { Routes, Route, Navigate } from "react-router";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
+import EstopButton from "./components/EstopButton";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
-import Home from "./pages/Home";
+import { DeviceProvider } from "./store/DeviceContext";
+import Connect from "./pages/Connect";
+import Monitor from "./pages/Monitor";
+import Control from "./pages/Control";
+import ModeControl from "./pages/ModeControl";
+import PidTuner from "./pages/PidTuner";
+import Scope from "./pages/Scope";
+import Safety from "./pages/Safety";
 import About from "./pages/About";
 import "./App.css";
 
@@ -11,26 +19,36 @@ const contextItems: ContextMenuItem[] = [
   { id: "reload", label: "刷新", onClick: () => window.location.reload() },
   { id: "about", label: "关于", onClick: () => window.location.assign("#/about") },
   { divider: true },
-  { id: "back", label: "返回首页", onClick: () => window.location.assign("#/") },
+  { id: "connect", label: "设备连接", onClick: () => window.location.assign("#/connect") },
 ];
 
 function App() {
   return (
     <MotionConfig reducedMotion="user">
-      <div className="app-shell">
-        <TitleBar />
-        <div className="app-body">
-          <Sidebar />
-          <main className="app-content">
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </main>
+      <DeviceProvider>
+        <div className="app-shell">
+          <TitleBar />
+          <div className="app-body">
+            <Sidebar />
+            <main className="app-content">
+              <Routes>
+                <Route path="/" element={<Navigate to="/connect" replace />} />
+                <Route path="/connect" element={<Connect />} />
+                <Route path="/monitor" element={<Monitor />} />
+                <Route path="/control" element={<Control />} />
+                <Route path="/mode" element={<ModeControl />} />
+                <Route path="/pid" element={<PidTuner />} />
+                <Route path="/scope" element={<Scope />} />
+                <Route path="/safety" element={<Safety />} />
+                <Route path="/about" element={<About />} />
+                <Route path="*" element={<Navigate to="/connect" replace />} />
+              </Routes>
+            </main>
+          </div>
+          <ContextMenu items={contextItems} />
+          <EstopButton />
         </div>
-        <ContextMenu items={contextItems} />
-      </div>
+      </DeviceProvider>
     </MotionConfig>
   );
 }

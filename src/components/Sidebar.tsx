@@ -1,6 +1,17 @@
 import { useState, type ComponentType } from "react";
 import { NavLink } from "react-router";
-import { Gauge, Info, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import {
+  Plug,
+  Cpu,
+  ToggleRight,
+  SlidersHorizontal,
+  Gauge,
+  Activity,
+  ShieldAlert,
+  Info,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import "./Sidebar.css";
 
 type NavItem = {
@@ -11,7 +22,13 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/", label: "控制台", Icon: Gauge, end: true },
+  { to: "/connect", label: "设备连接", Icon: Plug },
+  { to: "/monitor", label: "状态监控", Icon: Cpu },
+  { to: "/control", label: "基础控制", Icon: ToggleRight },
+  { to: "/mode", label: "控制模式", Icon: SlidersHorizontal },
+  { to: "/pid", label: "PID 调参", Icon: Gauge },
+  { to: "/scope", label: "实时曲线", Icon: Activity },
+  { to: "/safety", label: "故障与安全", Icon: ShieldAlert },
   { to: "/about", label: "关于", Icon: Info },
 ];
 
