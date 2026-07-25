@@ -19,6 +19,7 @@ import {
   type SerialPort,
   type TuneParams,
 } from "../types";
+import { isDesktop, listSerialPorts, serialConnect, serialDisconnect } from "../lib/serial";
 
 /** mock 扫描到的串口列表 */
 const MOCK_PORTS: SerialPort[] = [
@@ -40,9 +41,9 @@ export type DeviceContextValue = {
   scanning: boolean;
   connected: boolean;
   deviceId: string | null;
-  scanPorts: () => void;
-  connect: (portName: string) => void;
-  disconnect: () => void;
+  scanPorts: () => Promise<void>;
+  connect: (portName: string) => Promise<void>;
+  disconnect: () => Promise<void>;
 
   // 电机
   motors: Motor[];
@@ -117,27 +118,54 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   );
 
   // ---- 连接动作 ----
-  const scanPorts = useCallback(() => {
+  const scanPorts = useCallback(async () => {
     setScanning(true);
-    window.setTimeout(() => {
-      setPorts(MOCK_PORTS);
+    try {
+      if (isDesktop()) {
+        const names = await listSerialPorts();
+        setPorts(names.map((name) => ({ name, baud: 1000000, inUse: false })));
+      } else {
+        await new Promise<void>((r) => window.setTimeout(r, 500));
+        setPorts(MOCK_PORTS);
+      }
+    } catch (e) {
+      console.error("[scanPorts]", e);
+    } finally {
       setScanning(false);
-    }, 500);
+    }
   }, []);
 
-  const connect = useCallback((portName: string) => {
-    setPorts((prev) =>
-      prev.map((p) => (p.name === portName ? { ...p, inUse: true } : p)),
-    );
-    setConnected(true);
-    setDeviceId(MOCK_DEVICE_ID);
+  const connect = useCallback(async (portName: string) => {
+    try {
+      if (isDesktop()) {
+        const id = await serialConnect(portName, 1000000);
+        setDeviceId(id);
+      } else {
+        await new Promise<void>((r) => window.setTimeout(r, 300));
+        setDeviceId(MOCK_DEVICE_ID);
+      }
+      setPorts((prev) =>
+        prev.map((p) => (p.name === portName ? { ...p, inUse: true } : p)),
+      );
+      setConnected(true);
+    } catch (e) {
+      console.error("[connect]", e);
+    }
   }, []);
 
-  const disconnect = useCallback(() => {
-    setPorts((prev) => prev.map((p) => ({ ...p, inUse: false })));
-    setConnected(false);
-    setDeviceId(null);
-    setMotors((prev) => prev.map((m) => ({ ...m, enabled: false })));
+  const disconnect = useCallback(async () => {
+    try {
+      if (isDesktop()) {
+        await serialDisconnect();
+      }
+    } catch (e) {
+      console.error("[disconnect]", e);
+    } finally {
+      setPorts((prev) => prev.map((p) => ({ ...p, inUse: false })));
+      setConnected(false);
+      setDeviceId(null);
+      setMotors((prev) => prev.map((m) => ({ ...m, enabled: false })));
+    }
   }, []);
 
   // ---- 电机动作 ----
