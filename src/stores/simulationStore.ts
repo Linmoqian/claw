@@ -31,7 +31,6 @@ interface SimulationStore {
   /** 把仿真快照同步进 store（30Hz 低频轮询调用） */
   syncTick: () => void;
   setSpeed: (speed: number) => void;
-  setJointTarget: (index: number, deg: number) => void;
   goHome: () => void;
   play: () => void;
   stop: () => void;
@@ -54,10 +53,6 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
   setSpeed: (speed) => {
     if (sim) sim.speed = speed;
     set({ speed });
-  },
-  setJointTarget: (index, deg) => {
-    sim?.setJointTarget(index, deg);
-    if (sim) set({ mode: sim.currentMode, snapshot: sim.getSnapshot() });
   },
   goHome: () => {
     sim?.goHome();

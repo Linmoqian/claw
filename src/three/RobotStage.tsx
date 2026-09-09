@@ -6,6 +6,8 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import RobotView from "./RobotView";
 import MobileBase from "./MobileBase";
+import InteractionGizmos from "../interaction/InteractionGizmos";
+import { useInteractionStore } from "../stores/interactionStore";
 import type { SimulationLoop } from "../robot/simulation";
 import type { RobotModel } from "../robot/types";
 import { useRobotStore } from "../stores/robotStore";
@@ -30,6 +32,8 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
   const focusToken = useSceneStore((s) => s.focusToken);
   // 模型加载代次：切换模型时以此 key 重挂 RobotView（重置其内部加载状态）
   const loads = useRobotStore((s) => s.loads);
+  // 交互模式：SELECT 才允许拖转/平移视角，其余模式保留滚轮缩放
+  const interactionMode = useInteractionStore((s) => s.mode);
 
   // 记录初始视角（相机位置 + 目标点），供"重置视角"恢复
   useEffect(() => {
@@ -99,9 +103,10 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
         <shadowMaterial transparent opacity={0.09} />
       </mesh>
 
-      {/* 移动底盘（world 遥测位姿） + 机械臂（URDF 运动树） */}
+      {/* 移动底盘（world 遥测位姿） + 机械臂（URDF 运动树） + 交互 Gizmo */}
       <MobileBase>
         <RobotView key={loads} model={model} sim={sim} assetBase={assetBase} />
+        <InteractionGizmos model={model} sim={sim} />
       </MobileBase>
       <axesHelper position={WORLD_AXES_POSITION} args={[0.16]} />
 
@@ -110,6 +115,8 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
         makeDefault
         enableDamping
         dampingFactor={0.08}
+        enableRotate={interactionMode === "select"}
+        enablePan={interactionMode === "select"}
         target={INITIAL_TARGET}
         minDistance={0.22}
         maxDistance={2.8}

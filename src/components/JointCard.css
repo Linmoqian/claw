@@ -108,3 +108,14 @@
   font-size: 10px;
   color: var(--s-text-3);
 }
+/* 3D 拾取联动：选中关节的卡片高亮 */
+.joint-card.is-selected {
+  border-color: #3c7de0;
+  background: #f2f6fc;
+}
+
+.joint-card__target {
+  font-size: 10.5px;
+  color: #3c7de0;
+  letter-spacing: 0.03em;
+}

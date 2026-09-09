@@ -6,6 +6,7 @@ import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { rpyToQuaternion } from "../robot/kinematics";
 import type { SimulationLoop } from "../robot/simulation";
 import type { JointDef, RobotModel, VisualDef } from "../robot/types";
+import { interactionController, useInteractionStore } from "../stores/interactionStore";
 import { useSceneStore } from "../stores/sceneStore";
 
 interface LoadedVisual {
@@ -18,14 +19,6 @@ interface LoadedVisual {
 const TRAIL_MAX_POINTS = 640;
 const TRAIL_SAMPLE_SEC = 0.05;
 
-/** 关节轴环 / TCP 轴 / 轨迹线材质（模块级共享，不随重渲染新建） */
-const AXIS_RING_MATERIAL = new THREE.MeshStandardMaterial({
-  color: "#8592a6",
-  roughness: 0.5,
-  metalness: 0.3,
-  transparent: true,
-  opacity: 0.9,
-});
 const AXIS_COLORS = ["#e04f3c", "#37a86c", "#3c7de0"];
 const TRAIL_MATERIAL = new THREE.LineBasicMaterial({
   color: "#d9684e",
@@ -45,9 +38,6 @@ const getFallbackMaterial = () => {
   }
   return fallbackMaterial;
 };
-
-/** 关节轴环几何（模块级共享，不随重渲染新建） */
-const ringGeometry = new THREE.TorusGeometry(0.0135, 0.0022, 10, 32);
 
 interface RobotViewProps {
   model: RobotModel;
@@ -145,10 +135,10 @@ function TcpAxes() {
 
 /** 渲染主体：加载 STL → 构建 link/joint 层级 → 逐帧驱动关节 */
 export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
-  const showJointAxes = useSceneStore((s) => s.showJointAxes);
   const showTcpAxes = useSceneStore((s) => s.showTcpAxes);
   const showTrail = useSceneStore((s) => s.showTrail);
   const materialStyle = useSceneStore((s) => s.materialStyle);
+  const interactionMode = useInteractionStore((s) => s.mode);
 
   const [visuals, setVisuals] = useState<LoadedVisual[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -214,16 +204,12 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
   const axisGroups = useRef<THREE.Group[]>([]);
   const axisVectors = useRef<THREE.Vector3[]>([]);
   const tmpQuats = useRef<THREE.Quaternion[]>([]);
-  const ringAlignQuats = useRef<THREE.Quaternion[]>([]);
   const active = model.active;
 
   useEffect(() => {
     axisGroups.current = [];
     axisVectors.current = active.map((a) => new THREE.Vector3(...a.def.axis).normalize());
     tmpQuats.current = active.map(() => new THREE.Quaternion());
-    ringAlignQuats.current = axisVectors.current.map((axis) =>
-      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 0, 1), axis),
-    );
   }, [active, model]);
 
   const registerAxisGroup = (index: number) => (group: THREE.Group | null) => {
@@ -294,6 +280,13 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
               material={
                 materials[entry.visual.materialName ?? ""] ?? getFallbackMaterial()
               }
+              userData={{ linkName }}
+              onClick={(e) => {
+                // 仅 SELECT 模式且近乎未拖动时视为拾取（避免旋转视角误选）
+                if (interactionMode === "select" && e.delta < 6) {
+                  interactionController.pick(linkName);
+                }
+              }}
             />
           </group>
         ))}
@@ -314,15 +307,6 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
                   isActive ? registerAxisGroup(activeIdx as number) : undefined
                 }
               >
-                {showJointAxes && isActive && (
-                  <mesh
-                    geometry={ringGeometry}
-                    material={AXIS_RING_MATERIAL}
-                    quaternion={ringAlignQuats.current[activeIdx] ?? undefined}
-                    castShadow={false}
-                    receiveShadow={false}
-                  />
-                )}
                 {renderLink(joint.child)}
               </group>
             </group>

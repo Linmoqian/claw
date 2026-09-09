@@ -4,6 +4,8 @@ import JointCard from "../components/JointCard";
 import { formatPose } from "../robot/kinematics";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore } from "../stores/bridgeStore";
+import { useInteractionStore } from "../stores/interactionStore";
+import { useTargetStore } from "../stores/targetStore";
 import { useReadyModel, useRobotStore } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
 import { useSimulationStore } from "../stores/simulationStore";
@@ -27,7 +29,6 @@ export default function Studio() {
   const mode = useSimulationStore((s) => s.mode);
   const snapshot = useSimulationStore((s) => s.snapshot);
   const setSpeed = useSimulationStore((s) => s.setSpeed);
-  const setJointTarget = useSimulationStore((s) => s.setJointTarget);
   const goHome = useSimulationStore((s) => s.goHome);
   const play = useSimulationStore((s) => s.play);
   const stop = useSimulationStore((s) => s.stop);
@@ -50,6 +51,12 @@ export default function Studio() {
   const connectMock = useBridgeStore((s) => s.connectMock);
   const backToSim = useBridgeStore((s) => s.backToSim);
 
+  // 交互系统：模式机 / 拾取 / 统一 Intent 发布
+  const interactionMode = useInteractionStore((s) => s.mode);
+  const selected = useInteractionStore((s) => s.selected);
+  const setInteractionMode = useInteractionStore((s) => s.setMode);
+  const publishIntent = useTargetStore((s) => s.publish);
+
   // 首次进入自动加载内置 SO-100 模型
   useEffect(() => {
     if (status === "idle") void loadSo100();
@@ -60,12 +67,22 @@ export default function Studio() {
     if (!model) {
       bind(null);
       simRef.current = null;
+      useTargetStore.getState().bindModel(null);
       return;
     }
     const sim = new SimulationLoop(model);
     simRef.current = sim;
     bind(sim);
+    // 目标世界接线：限位来源 + 执行器（M4 起由 CommandArbiter 接管）
+    useTargetStore.getState().bindModel(model);
+    const unreg = useTargetStore.getState().registerExecutor((intent) => {
+      if (intent.kind === "joint-target") {
+        sim.setJointTarget(intent.jointIndex, intent.valueDeg);
+      }
+    });
     return () => {
+      unreg();
+      useTargetStore.getState().bindModel(null);
       bind(null);
       simRef.current = null;
     };
@@ -206,7 +223,17 @@ export default function Studio() {
               joint={joint}
               panelIndex={i}
               valueDeg={snapshot.currentDeg[i] ?? 0}
-              onChange={setJointTarget}
+              targetDeg={snapshot.targetDeg[i] ?? 0}
+              selected={selected?.jointIndex === i}
+              onChange={(idx, deg) =>
+                publishIntent({
+                  kind: "joint-target",
+                  source: "slider",
+                  jointIndex: idx,
+                  jointName: model?.active[idx]?.def.name ?? "",
+                  valueDeg: deg,
+                })
+              }
             />
           ))}
         </div>
@@ -214,6 +241,19 @@ export default function Studio() {
         {mode === "play" && (
           <div className="studio__progress" aria-label="轨迹进度">
             <i style={{ width: `${progressPct}%` }} />
+          </div>
+        )}
+
+        {/* 拾取联动提示：点选 3D 部件 → 左侧定位对应关节 */}
+        {selected && (
+          <div className="studio__pick">
+            <span className="studio__pick-link">Link {selected.linkName}</span>
+            {selected.jointName && (
+              <span className="studio__pick-joint tnum">
+                · 关节 {selected.jointName}
+                {selected.jointIndex !== null && ` (J${selected.jointIndex + 1})`}
+              </span>
+            )}
           </div>
         )}
 
@@ -295,6 +335,40 @@ export default function Studio() {
           </div>
         )}
 
+        {/* 交互模式工具条（顶部中央） */}
+        <div className="studio__modes" role="toolbar" aria-label="交互模式">
+          <button
+            type="button"
+            className={interactionMode === "select" ? "is-on" : ""}
+            onClick={() => setInteractionMode("select")}
+            aria-pressed={interactionMode === "select"}
+          >
+            <i aria-hidden="true">↖</i>
+            选择
+          </button>
+          <button
+            type="button"
+            className={interactionMode === "joint" ? "is-on" : ""}
+            onClick={() => setInteractionMode("joint")}
+            aria-pressed={interactionMode === "joint"}
+          >
+            <i aria-hidden="true">⟳</i>
+            关节
+          </button>
+          <button type="button" disabled title="TCP 拖拽在下一阶段（IK）接入">
+            <i aria-hidden="true">✥</i>
+            TCP
+          </button>
+          <button
+            type="button"
+            disabled
+            title="BASE 拖拽随 X-line 底盘与规划器接入"
+          >
+            <i aria-hidden="true">⌖</i>
+            底座
+          </button>
+        </div>
+
         {/* 链接状态 HUD（悬浮于 3D 左上） */}
         <div className={`studio__hud is-${bridgeInfo.status}`}>
           <span className="studio__hud-kind">
@@ -350,7 +424,11 @@ export default function Studio() {
         </div>
 
         <div className="studio__hint">
-          左键旋转 · 滚轮缩放 · 右键平移 · F 聚焦 · R 复位视角
+          {interactionMode === "select"
+            ? "左键拾取部件 · 拖拽旋转视角 · 滚轮缩放 · 右键平移 · F 聚焦 · R 复位"
+            : interactionMode === "joint"
+              ? "拖拽关节环设定目标角 · 滚轮缩放 · 松开即生效"
+              : "此工具在后续阶段接入"}
         </div>
       </section>
     </div>
