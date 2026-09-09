@@ -33,7 +33,7 @@ function SwitchRow({
   );
 }
 
-/** 故障与安全：阈值 / 急停策略 / Flash 保存 / 配置导出 */
+/** 故障与安全：安全阈值 / 急停策略 / 配置导出 */
 export default function Safety() {
   const {
     motors,
@@ -41,7 +41,7 @@ export default function Safety() {
     setSafety,
     faults,
     dirtyByMotor,
-    saveToFlash,
+    saveTunePlan,
     exportConfig,
   } = useDevice();
 
@@ -49,7 +49,7 @@ export default function Safety() {
   const [copied, setCopied] = useState(false);
 
   const anyDirty = motors.some((m) => dirtyByMotor[m.id]);
-  const saveAll = () => motors.forEach((m) => saveToFlash(m.id));
+  const saveAll = () => motors.forEach((m) => saveTunePlan(m.id));
 
   const doExport = () => {
     setExported(exportConfig());
@@ -145,19 +145,19 @@ export default function Safety() {
         </div>
       </div>
 
-      {/* Flash 保存与导出 */}
+      {/* 方案保存与导出 */}
       <div className="safety__panel">
-        <div className="safety__panel-title">Flash 保存与配置导出</div>
+        <div className="safety__panel-title">参数方案与配置导出</div>
         <div className="safety__row">
           <div className={`safety__row-info ${anyDirty ? "dirty" : ""}`}>
-            {anyDirty ? "存在未保存的参数修改" : "所有参数已与 Flash 一致"}
+            {anyDirty ? "存在未保存的参数草案" : "所有参数方案已保存"}
           </div>
           <button
             type="button"
             className={`ctrl-btn ${anyDirty ? "is-on" : ""}`}
             onClick={saveAll}
           >
-            <Save size={14} /> 保存全部到 Flash
+            <Save size={14} /> 保存全部方案
           </button>
         </div>
         <div className="safety__row">

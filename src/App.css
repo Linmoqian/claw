@@ -1,7 +1,26 @@
 .app-shell {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100%;
+  isolation: isolate;
+}
+
+.app-aurora {
+  position: fixed;
+  z-index: -1;
+  top: 10%;
+  right: 2%;
+  width: 48vw;
+  height: 58vh;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(71, 117, 113, 0.08),
+    transparent 68%
+  );
+  filter: blur(30px);
+  pointer-events: none;
 }
 
 .app-content {
@@ -24,7 +43,7 @@
   height: 100%;
   display: flex;
   gap: 20px;
-  padding: 22px 26px 22px;
+  padding: 30px 34px 34px;
   max-width: 1440px;
   margin: 0 auto;
   box-sizing: border-box;
@@ -87,17 +106,31 @@
 .dashboard > * {
   animation: ink-rise 0.7s var(--ease-ink) both;
 }
-.dashboard > *:nth-child(1) { animation-delay: 0.04s; }
-.dashboard > *:nth-child(2) { animation-delay: 0.12s; }
-.dashboard > *:nth-child(3) { animation-delay: 0.20s; }
-.dashboard > *:nth-child(4) { animation-delay: 0.28s; }
-.dashboard > *:nth-child(5) { animation-delay: 0.36s; }
-.dashboard > *:nth-child(6) { animation-delay: 0.44s; }
+.dashboard > *:nth-child(1) {
+  animation-delay: 0.04s;
+}
+.dashboard > *:nth-child(2) {
+  animation-delay: 0.12s;
+}
+.dashboard > *:nth-child(3) {
+  animation-delay: 0.2s;
+}
+.dashboard > *:nth-child(4) {
+  animation-delay: 0.28s;
+}
+.dashboard > *:nth-child(5) {
+  animation-delay: 0.36s;
+}
+.dashboard > *:nth-child(6) {
+  animation-delay: 0.44s;
+}
 
 .motor-nav > * {
   animation: ink-rise 0.6s var(--ease-ink) both;
 }
-.motor-nav > *:nth-child(2) { animation-delay: 0.08s; }
+.motor-nav > *:nth-child(2) {
+  animation-delay: 0.08s;
+}
 
 /* 选中电机详情 head —— 卷首 */
 .motor-head {
@@ -270,9 +303,9 @@
 .pid-bar {
   flex-shrink: 0;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  grid-template-columns: repeat(3, minmax(120px, 1fr));
   align-items: center;
-  gap: 24px;
+  gap: 18px 24px;
   padding: 16px 22px;
   border-radius: var(--radius-lg);
   background: var(--surface);
@@ -281,8 +314,12 @@
 }
 
 .pid-bar__run {
+  grid-column: 1 / -1;
   display: flex;
+  justify-content: flex-end;
   gap: 7px;
+  padding-top: 13px;
+  border-top: 1px solid var(--border-hairline);
 }
 
 .run-btn,
@@ -300,7 +337,9 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
     color 0.2s var(--ease-out);
 }
 
@@ -340,7 +379,9 @@
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s var(--ease-out), border-color 0.2s var(--ease-out),
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
     color 0.2s var(--ease-out);
 }
 
@@ -357,7 +398,9 @@
 
 .advanced-toggle__chevron {
   color: var(--text-tertiary);
-  transition: transform 0.25s var(--ease-spring), color 0.2s;
+  transition:
+    transform 0.25s var(--ease-spring),
+    color 0.2s;
 }
 
 .advanced-toggle.is-open .advanced-toggle__chevron {
@@ -483,7 +526,7 @@
 .stage {
   max-width: 1280px;
   margin: 0 auto;
-  padding: 32px 40px 64px;
+  padding: 34px 42px 72px;
   display: flex;
   flex-direction: column;
   gap: 26px;
@@ -498,10 +541,10 @@
 
 .section-label__title {
   font-family: var(--font-serif);
-  font-style: italic;
+  font-style: normal;
   font-size: 12px;
   font-weight: 600;
-  color: var(--accent);
+  color: var(--text-tertiary);
   letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
@@ -527,7 +570,7 @@
   font-style: italic;
   font-size: 11px;
   letter-spacing: 0.2em;
-  color: #fdf6ea;
+  color: #fff;
   background: var(--accent);
   padding: 5px 10px 4px;
   border-radius: 2px;

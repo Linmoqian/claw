@@ -1,4 +1,4 @@
-/* PidTuner 页特有：Flash 保存与脏标记。
+/* PidTuner 页特有：参数方案保存与脏标记。
    通用布局类（.console / .dashboard / .pid-bar / .advanced 等）定义在 App.css。 */
 
 .save-btn {
@@ -15,10 +15,13 @@
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s var(--ease-out), border-color 0.2s, color 0.2s;
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s,
+    color 0.2s;
 }
 
-/* 脏标记：参数已改未存 Flash —— 朱砂高亮 */
+/* 脏标记：参数草案已修改但未保存 */
 .save-btn.dirty {
   color: var(--accent-deep);
   border-color: var(--accent);

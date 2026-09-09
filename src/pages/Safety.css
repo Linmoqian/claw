@@ -102,7 +102,9 @@
   background: var(--inset);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.2s var(--ease-out), border-color 0.2s;
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s;
 }
 
 .safety__switch-btn.on {
@@ -126,7 +128,7 @@
   transform: translateX(18px);
 }
 
-/* Flash / 导出 行 */
+/* 参数方案 / 导出行 */
 .safety__row {
   display: flex;
   align-items: center;

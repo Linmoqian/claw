@@ -27,7 +27,11 @@ export default function Control() {
           <Power size={12} />
           <span>基础控制 · 选择关节</span>
         </div>
-        <MotorList motors={motors} selectedId={selectedId} onSelect={selectMotor} />
+        <MotorList
+          motors={motors}
+          selectedId={selectedId}
+          onSelect={selectMotor}
+        />
       </aside>
 
       <section className="dashboard control-panel">
@@ -56,7 +60,9 @@ export default function Control() {
               <span
                 className="reading__v"
                 style={{
-                  color: selected.enabled ? "var(--success)" : "var(--text-quaternary)",
+                  color: selected.enabled
+                    ? "var(--success)"
+                    : "var(--text-quaternary)",
                 }}
               >
                 {selected.enabled ? "ON" : "OFF"}
@@ -79,7 +85,7 @@ export default function Control() {
                 onClick={enableAll}
                 disabled={!connected}
               >
-                <Power size={14} /> 全部使能
+                <Power size={14} /> 全部锁定扭矩
               </button>
               <button
                 type="button"
@@ -87,7 +93,7 @@ export default function Control() {
                 onClick={disableAll}
                 disabled={!connected}
               >
-                全部失能
+                全部释放扭矩
               </button>
               <button
                 type="button"
@@ -133,7 +139,7 @@ export default function Control() {
                 onClick={() => setEnabled(selectedId, !selected.enabled)}
                 disabled={!connected}
               >
-                <Power size={14} /> {selected.enabled ? "失能" : "使能"}
+                <Power size={14} /> {selected.enabled ? "释放扭矩" : "锁定扭矩"}
               </button>
             </div>
           </div>

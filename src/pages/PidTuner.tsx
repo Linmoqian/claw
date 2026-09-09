@@ -51,24 +51,91 @@ const ADVANCED_GROUPS: { title: string; items: AdvItem[] }[] = [
   {
     title: "前馈与滤波",
     items: [
-      { key: "kv", label: "速度前馈", symbol: "Kv", min: 0, max: 1, step: 0.02, decimals: 2 },
-      { key: "kg", label: "重力补偿", symbol: "Kg", min: 0, max: 1, step: 0.02, decimals: 2 },
-      { key: "dFilterHz", label: "微分滤波", symbol: "fc", min: 1, max: 50, step: 1, decimals: 0, unit: "Hz" },
-      { key: "pvSmooth", label: "反馈平滑", symbol: "α", min: 0, max: 0.9, step: 0.05, decimals: 2 },
+      {
+        key: "kv",
+        label: "速度前馈",
+        symbol: "Kv",
+        min: 0,
+        max: 1,
+        step: 0.02,
+        decimals: 2,
+      },
+      {
+        key: "kg",
+        label: "重力补偿",
+        symbol: "Kg",
+        min: 0,
+        max: 1,
+        step: 0.02,
+        decimals: 2,
+      },
+      {
+        key: "dFilterHz",
+        label: "微分滤波",
+        symbol: "fc",
+        min: 1,
+        max: 50,
+        step: 1,
+        decimals: 0,
+        unit: "Hz",
+      },
+      {
+        key: "pvSmooth",
+        label: "反馈平滑",
+        symbol: "α",
+        min: 0,
+        max: 0.9,
+        step: 0.05,
+        decimals: 2,
+      },
     ],
   },
   {
     title: "限幅与约束",
     items: [
-      { key: "outLimit", label: "输出限幅", symbol: "ol", min: 50, max: 2000, step: 10, decimals: 0 },
-      { key: "iLimit", label: "积分限幅", symbol: "il", min: 5, max: 500, step: 5, decimals: 0 },
-      { key: "rampRate", label: "目标斜坡", symbol: "rp", min: 10, max: 3600, step: 10, decimals: 0, unit: "°/s" },
-      { key: "deadZone", label: "死区", symbol: "dz", min: 0, max: 8, step: 0.1, decimals: 1, unit: "°" },
+      {
+        key: "outLimit",
+        label: "输出限幅",
+        symbol: "ol",
+        min: 50,
+        max: 2000,
+        step: 10,
+        decimals: 0,
+      },
+      {
+        key: "iLimit",
+        label: "积分限幅",
+        symbol: "il",
+        min: 5,
+        max: 500,
+        step: 5,
+        decimals: 0,
+      },
+      {
+        key: "rampRate",
+        label: "目标斜坡",
+        symbol: "rp",
+        min: 10,
+        max: 3600,
+        step: 10,
+        decimals: 0,
+        unit: "°/s",
+      },
+      {
+        key: "deadZone",
+        label: "死区",
+        symbol: "dz",
+        min: 0,
+        max: 8,
+        step: 0.1,
+        decimals: 1,
+        unit: "°",
+      },
     ],
   },
 ];
 
-/** PID 调参页：电机选择 + 实时仿真波形 + PID/高级参数 + Flash 保存 */
+/** PID 调参页：执行器选择 + 响应仿真 + PID/高级参数草案 */
 function PidTuner() {
   const {
     motors,
@@ -79,7 +146,7 @@ function PidTuner() {
     tuneByMotor,
     dirtyByMotor,
     updateTune,
-    saveToFlash,
+    saveTunePlan,
     resetTune,
   } = useDevice();
 
@@ -109,9 +176,13 @@ function PidTuner() {
       <aside className="motor-nav">
         <div className="console__label">
           <Radio size={12} />
-          <span>关节 · 7 DOF</span>
+          <span>6 执行器 · 5 轴 + 夹爪</span>
         </div>
-        <MotorList motors={motors} selectedId={selectedId} onSelect={selectMotor} />
+        <MotorList
+          motors={motors}
+          selectedId={selectedId}
+          onSelect={selectMotor}
+        />
       </aside>
 
       {/* 右：仪表盘主区 */}
@@ -123,15 +194,27 @@ function PidTuner() {
             <span className="motor-head__name">{selectedMotor.name}</span>
           </div>
           <div className="motor-head__readings">
-            <Reading label="实测" value={selectedMotor.angle.toFixed(1)} unit="°" />
-            <Reading label="目标" value={selectedMotor.target.toFixed(1)} unit="°" />
+            <Reading
+              label="模拟值"
+              value={selectedMotor.angle.toFixed(1)}
+              unit="°"
+            />
+            <Reading
+              label="目标"
+              value={selectedMotor.target.toFixed(1)}
+              unit="°"
+            />
             <Reading
               label="误差"
               value={error.toFixed(2)}
               unit="°"
               color="var(--warning)"
             />
-            <Reading label="电流" value={selectedMotor.current.toFixed(2)} unit="A" />
+            <Reading
+              label="电流"
+              value={selectedMotor.current.toFixed(2)}
+              unit="A"
+            />
             <Reading
               label="温度"
               value={selectedMotor.temp.toFixed(1)}
@@ -145,11 +228,11 @@ function PidTuner() {
         <div className="wave-region">
           <div className="wave-region__head">
             <div className="console__label">
-              <span>PID 响应 · 实时仿真</span>
+              <span>响应仿真 · 非实机反馈</span>
             </div>
             <div className="wave-region__legend">
               <span className="legend legend--sp">目标 SP</span>
-              <span className="legend legend--pv">实测 PV</span>
+              <span className="legend legend--pv">仿真 PV</span>
             </div>
           </div>
           <WaveCanvas
@@ -209,11 +292,11 @@ function PidTuner() {
             <button
               type="button"
               className={`save-btn ${dirty ? "dirty" : ""}`}
-              onClick={() => saveToFlash(selectedId)}
-              title={dirty ? "参数已修改，点击保存到 Flash" : "参数已与 Flash 一致"}
+              onClick={() => saveTunePlan(selectedId)}
+              title={dirty ? "参数草案已修改，点击保存方案" : "参数方案已保存"}
             >
               <Save size={14} />
-              {dirty ? "存 Flash" : "已保存"}
+              {dirty ? "保存方案" : "已保存"}
             </button>
           </div>
         </div>
@@ -227,7 +310,9 @@ function PidTuner() {
         >
           <ChevronDown size={14} className="advanced-toggle__chevron" />
           <span className="advanced-toggle__title">高级参数</span>
-          <span className="advanced-toggle__hint">前馈 · 滤波 · 限幅 · 约束</span>
+          <span className="advanced-toggle__hint">
+            前馈 · 滤波 · 限幅 · 约束
+          </span>
         </button>
 
         {advancedOpen && (
@@ -264,9 +349,9 @@ function PidTuner() {
               <button
                 type="button"
                 className={`save-btn ${dirty ? "dirty" : ""}`}
-                onClick={() => saveToFlash(selectedId)}
+                onClick={() => saveTunePlan(selectedId)}
               >
-                <Save size={13} /> {dirty ? "保存到 Flash" : "已与 Flash 一致"}
+                <Save size={13} /> {dirty ? "保存参数方案" : "参数方案已保存"}
               </button>
             </div>
           </div>
