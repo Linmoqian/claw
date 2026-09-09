@@ -110,10 +110,10 @@ export default function InteractionGizmos({
   useFrame(() => {
     const poses = computeLinkPoses(model, [...sim.currentDegrees]);
     const tmpQ = new THREE.Quaternion();
-    model.active.forEach((joint) => {
+    model.active.forEach((joint, index) => {
       const pp = poses.get(joint.def.parent);
       if (!pp) return;
-      const frame = frameCache.current[joint.index];
+      const frame = frameCache.current[index];
       rpyToQuaternion(joint.def.originRpy, tmpQ);
       // 中心：parent 位姿 × joint origin 平移
       frame.center
@@ -127,7 +127,7 @@ export default function InteractionGizmos({
         .applyQuaternion(tmpQ)
         .normalize();
       frame.align.setFromUnitVectors(Z_AXIS, frame.axis);
-      const group = groupRefs.current[joint.index];
+      const group = groupRefs.current[index];
       if (group) {
         group.position.copy(frame.center);
         group.quaternion.copy(frame.align);
@@ -146,7 +146,7 @@ export default function InteractionGizmos({
           <group
             key={joint.def.name}
             ref={(g) => {
-              groupRefs.current[joint.index] = g;
+              groupRefs.current[index] = g;
             }}
           >
             <mesh
