@@ -1,0 +1,510 @@
+/* ===== 3D 仿真工作室（页内独立浅色主题：浅底/大圆角/黑主色/红橙危险动作） ===== */
+.studio {
+  --s-bg: #eef0f3;
+  --s-panel: #fbfcfd;
+  --s-panel-soft: #f4f6f8;
+  --s-code-bg: #e8eaee;
+  --s-border: #e3e7ec;
+  --s-track: #dee2e8;
+  --s-text: #1c2128;
+  --s-text-2: #59616d;
+  --s-text-3: #8b94a1;
+  --s-ink: #232a33;
+  --s-danger: #d96245;
+  --s-danger-soft: rgba(217, 98, 69, 0.12);
+  --s-shadow:
+    0 1px 2px rgba(20, 26, 33, 0.05),
+    0 10px 28px rgba(20, 26, 33, 0.07);
+
+  position: relative;
+  height: 100%;
+  display: flex;
+  gap: 14px;
+  padding: 14px;
+  background: var(--s-bg);
+  overflow: hidden;
+  color: var(--s-text);
+}
+
+/* ===== 左：控制台（340px 面板） ===== */
+.studio__console {
+  width: 348px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 16px 16px;
+  background: var(--s-panel);
+  border: 1px solid var(--s-border);
+  border-radius: 18px;
+  box-shadow: var(--s-shadow);
+  overflow-y: auto;
+}
+
+.studio__title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.studio__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  color: var(--s-text);
+}
+
+.studio__subtitle {
+  font-size: 12px;
+  font-style: italic;
+  color: var(--s-text-3);
+}
+
+.studio__status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.studio__status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--s-text-2);
+  background: var(--s-panel-soft);
+  border: 1px solid var(--s-border);
+  padding: 5px 11px;
+  border-radius: 999px;
+}
+
+.studio__status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #4caf77;
+  box-shadow: 0 0 0 3px rgba(76, 175, 119, 0.18);
+}
+
+.studio__status-dot.is-connecting {
+  background: #d9932b;
+  box-shadow: 0 0 0 3px rgba(217, 147, 43, 0.18);
+}
+
+.studio__status-dot.is-offline,
+.studio__status-dot.is-error {
+  background: #9aa3af;
+  box-shadow: 0 0 0 3px rgba(154, 163, 175, 0.16);
+}
+
+.studio__status-note {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--s-text-3);
+}
+
+/* 仿真速度分段 */
+.studio__speed {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--s-panel-soft);
+  border: 1px solid var(--s-border);
+  border-radius: 14px;
+}
+
+.studio__speed-label {
+  font-size: 11.5px;
+  color: var(--s-text-3);
+  letter-spacing: 0.06em;
+}
+
+.studio__speed-options {
+  display: flex;
+  gap: 4px;
+}
+
+.studio__speed-opt {
+  font: inherit;
+  font-size: 11.5px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  color: var(--s-text-3);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 4px 9px;
+  cursor: pointer;
+  transition:
+    background 0.16s var(--ease-out),
+    color 0.16s var(--ease-out),
+    border-color 0.16s var(--ease-out);
+}
+
+.studio__speed-opt:hover {
+  color: var(--s-text);
+}
+
+.studio__speed-opt.is-on {
+  background: var(--s-ink);
+  color: #fff;
+}
+
+/* 关节卡片列表 */
+.studio__joints {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* 轨迹进度条 */
+.studio__progress {
+  height: 3px;
+  border-radius: 999px;
+  background: var(--s-track);
+  overflow: hidden;
+}
+
+.studio__progress i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--s-danger);
+  transition: width 0.1s linear;
+}
+
+/* TCP 读数 */
+.studio__tcp {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px 12px;
+  background: var(--s-panel-soft);
+  border: 1px solid var(--s-border);
+  border-radius: 14px;
+}
+
+.studio__tcp-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.studio__tcp-label {
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--s-text-3);
+}
+
+.studio__tcp-value {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--s-text);
+}
+
+.studio__tcp-value i {
+  font-style: normal;
+  font-size: 9.5px;
+  color: var(--s-text-3);
+  margin-left: 4px;
+}
+
+/* 动作区 */
+.studio__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.studio__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--s-border);
+  background: var(--s-panel);
+  color: var(--s-text);
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.16s var(--ease-out),
+    border-color 0.16s var(--ease-out),
+    color 0.16s var(--ease-out),
+    transform 0.16s var(--ease-spring);
+}
+
+.studio__btn:hover {
+  border-color: var(--s-ink);
+}
+
+.studio__btn:active {
+  transform: scale(0.97);
+}
+
+.studio__btn.is-active,
+.studio__btn.is-play {
+  background: var(--s-ink);
+  border-color: var(--s-ink);
+  color: #fff;
+}
+
+/* STOP：唯一红橙动作（仿真停止，非硬件急停） */
+.studio__btn-danger {
+  grid-column: 1 / -1;
+  background: var(--s-danger);
+  border-color: var(--s-danger);
+  color: #fff;
+  letter-spacing: 0.12em;
+}
+
+.studio__btn-danger:hover {
+  background: #c7543a;
+  border-color: #c7543a;
+}
+
+.studio__btn-danger:active {
+  transform: scale(0.98);
+}
+
+.studio__btn-danger i {
+  font-style: normal;
+  font-size: 8px;
+  vertical-align: 2px;
+}
+
+.studio__stop-note {
+  margin: 0;
+  font-size: 10px;
+  color: var(--s-text-3);
+  text-align: center;
+  line-height: 1.5;
+}
+
+/* ===== 右：3D 世界 ===== */
+.studio__stage {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  background: var(--s-bg);
+  border: 1px solid var(--s-border);
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: var(--s-shadow);
+}
+
+.studio__stage canvas {
+  display: block;
+}
+
+.studio__fallback {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--s-text-2);
+  font-size: 13px;
+}
+
+.studio__fallback strong {
+  font-weight: 600;
+}
+
+/* 视图工具条（悬浮右上） */
+.studio__scene-tools {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgba(251, 252, 253, 0.86);
+  border: 1px solid var(--s-border);
+  border-radius: 13px;
+  box-shadow: 0 4px 14px rgba(20, 26, 33, 0.08);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.studio__scene-tools button {
+  font: inherit;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--s-text-3);
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  padding: 5px 10px;
+  cursor: pointer;
+  transition:
+    background 0.16s var(--ease-out),
+    color 0.16s var(--ease-out);
+}
+
+.studio__scene-tools button:hover {
+  color: var(--s-text);
+}
+
+.studio__scene-tools button.is-on {
+  background: var(--s-ink);
+  color: #fff;
+}
+
+/* 操作提示（左下） */
+.studio__hint {
+  position: absolute;
+  left: 16px;
+  bottom: 12px;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--s-text-3);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* 缩放窗体时适当收缩控制台（不低于 300px） */
+@media (max-width: 980px) {
+  .studio__console {
+    width: 300px;
+  }
+}
+
+/* 无障碍：减少透明 */
+@media (prefers-reduced-transparency: reduce) {
+  .studio__scene-tools {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--s-panel);
+  }
+}
+
+/* ================= 数据链路卡 ================= */
+
+.studio__link {
+  display: flex;
+  flex-direction: column;
+  row-gap: 8px;
+  padding: 12px;
+  background: var(--s-panel);
+  border: 1px solid var(--s-border);
+  border-radius: 14px;
+}
+
+.studio__link-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio__link-label {
+  font-size: 11.5px;
+  color: var(--s-text-2);
+}
+
+.studio__link-chip {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--s-code-bg);
+  color: var(--s-text-2);
+}
+
+.studio__link-chip.is-connected {
+  background: rgba(76, 175, 119, 0.14);
+  color: #2f8f5e;
+}
+
+.studio__link-chip.is-connecting {
+  background: rgba(217, 147, 43, 0.14);
+  color: #a06a14;
+}
+
+.studio__link-meta {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--s-text-3);
+}
+
+.studio__link-btn {
+  width: 100%;
+  padding: 8px 0;
+  font-size: 12px;
+  border: 1px solid var(--s-border);
+  border-radius: 10px;
+  background: var(--s-panel-soft);
+  color: var(--s-text);
+  cursor: pointer;
+  transition: background 120ms ease, border-color 120ms ease;
+}
+
+.studio__link-btn:hover {
+  background: var(--s-code-bg);
+  border-color: #cfd5dd;
+}
+
+.studio__link-error {
+  margin: 0;
+  font-size: 10.5px;
+  color: var(--s-danger);
+}
+
+/* ================= 3D 区左上链路 HUD ================= */
+
+.studio__hud {
+  position: absolute;
+  top: 14px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgba(251, 252, 253, 0.82);
+  border: 1px solid var(--s-border);
+  box-shadow: 0 4px 14px rgba(28, 33, 40, 0.06);
+  pointer-events: none;
+  user-select: none;
+}
+
+.studio__hud-kind {
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: var(--s-text-2);
+}
+
+.studio__hud.is-connected .studio__hud-kind {
+  color: #2f8f5e;
+}
+
+.studio__hud.is-connecting .studio__hud-kind {
+  color: #a06a14;
+}
+
+.studio__hud-meta {
+  font-size: 10.5px;
+  color: var(--s-text-3);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .studio__hud {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--s-panel);
+  }
+}
