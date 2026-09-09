@@ -19,18 +19,25 @@ import {
   type SerialPort,
   type TuneParams,
 } from "../types";
-import { isDesktop, listSerialPorts, serialConnect, serialDisconnect } from "../lib/serial";
+import {
+  isDesktop,
+  serialConnect,
+  serialDisconnect,
+  listSerialPorts,
+  servoSetTorque,
+  servoSyncReadPositions,
+  servoWritePosition,
+} from "../lib/serial";
+import { angleToPosition, positionToAngle } from "../lib/units";
 
-/** mock 扫描到的串口列表 */
-const MOCK_PORTS: SerialPort[] = [
-  { name: "COM3", baud: 115200, inUse: false },
-  { name: "COM5", baud: 115200, inUse: true },
-  { name: "COM7", baud: 921600, inUse: false },
-];
+/** 波特率（与 claw_arm/script 一致，SO-100 走 1M） */
+const BAUDRATE = 1_000_000;
+/** 实时位置采样间隔（ms）；串口半双工，5Hz 安全 */
+const TICK_MS = 200;
 
-const MOCK_DEVICE_ID = "CLW-7A4F-209B";
+const round1 = (n: number) => Math.round(n * 10) / 10;
 
-const initMotors = (): Motor[] => MOTORS.map((m) => ({ ...m, enabled: false }));
+const initMotors = (): Motor[] => MOTORS.map((m) => ({ ...m }));
 
 const initMap = <T,>(value: T): Record<string, T> =>
   Object.fromEntries(MOTORS.map((m) => [m.id, value]));
@@ -49,8 +56,8 @@ export type DeviceContextValue = {
   motors: Motor[];
   selectedId: string;
   selectMotor: (id: string) => void;
-  setEnabled: (id: string, on: boolean) => void;
-  setTarget: (id: string, value: number) => void;
+  setEnabled: (id: string, on: boolean) => Promise<void>;
+  setTarget: (id: string, value: number) => Promise<void>;
 
   // 模式
   mode: ControlMode;
@@ -59,9 +66,9 @@ export type DeviceContextValue = {
   // 参数
   tuneByMotor: Record<string, TuneParams>;
   dirtyByMotor: Record<string, boolean>;
-  flashByMotor: Record<string, boolean>;
+  planSavedByMotor: Record<string, boolean>;
   updateTune: (id: string, patch: Partial<TuneParams>) => void;
-  saveToFlash: (id: string) => void;
+  saveTunePlan: (id: string) => void;
   resetTune: (id: string) => void;
 
   // 运行
@@ -105,7 +112,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const [dirtyByMotor, setDirtyByMotor] = useState<Record<string, boolean>>(() =>
     initMap(false),
   );
-  const [flashByMotor, setFlashByMotor] = useState<Record<string, boolean>>(() =>
+  const [planSavedByMotor, setPlanSavedByMotor] = useState<Record<string, boolean>>(() =>
     initMap(true),
   );
 
@@ -117,16 +124,29 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     initMap({ ...NO_FAULT }),
   );
 
+  // 写操作需要最新 motors/connected，用 ref 镜像避免回调频繁重建
+  const motorsRef = useRef(motors);
+  motorsRef.current = motors;
+  const connectedRef = useRef(connected);
+  connectedRef.current = connected;
+
+  // 平滑插值动画 token（per-motor，新请求自增以取消旧动画）
+  const animTokens = useRef<Record<string, number>>({});
+  // 通信丢失标志：tick 检测到链路整体失败时置 true，写操作据此停止下发
+  const commLostRef = useRef(false);
+
+  const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+
   // ---- 连接动作 ----
   const scanPorts = useCallback(async () => {
     setScanning(true);
     try {
       if (isDesktop()) {
         const names = await listSerialPorts();
-        setPorts(names.map((name) => ({ name, baud: 1000000, inUse: false })));
+        setPorts(names.map((name) => ({ name, baud: BAUDRATE, inUse: false })));
       } else {
-        await new Promise<void>((r) => window.setTimeout(r, 500));
-        setPorts(MOCK_PORTS);
+        // 浏览器预览模式：无串口访问能力，置空由 UI 给出占位提示
+        setPorts([]);
       }
     } catch (e) {
       console.error("[scanPorts]", e);
@@ -136,14 +156,11 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const connect = useCallback(async (portName: string) => {
+    // 浏览器端无串口能力，不建立连接
+    if (!isDesktop()) return;
     try {
-      if (isDesktop()) {
-        const id = await serialConnect(portName, 1000000);
-        setDeviceId(id);
-      } else {
-        await new Promise<void>((r) => window.setTimeout(r, 300));
-        setDeviceId(MOCK_DEVICE_ID);
-      }
+      const id = await serialConnect(portName, BAUDRATE);
+      setDeviceId(id);
       setPorts((prev) =>
         prev.map((p) => (p.name === portName ? { ...p, inUse: true } : p)),
       );
@@ -164,23 +181,61 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       setPorts((prev) => prev.map((p) => ({ ...p, inUse: false })));
       setConnected(false);
       setDeviceId(null);
-      setMotors((prev) => prev.map((m) => ({ ...m, enabled: false })));
+      commLostRef.current = false;
+      animTokens.current = {};
+      setMotors((prev) =>
+        prev.map((m) => ({ ...m, enabled: false, angle: 0, velocity: 0, target: 0 })),
+      );
     }
   }, []);
 
   // ---- 电机动作 ----
   const selectMotor = useCallback((id: string) => setSelectedId(id), []);
 
-  const setEnabled = useCallback((id: string, on: boolean) => {
+  const setEnabled = useCallback(async (id: string, on: boolean) => {
+    const m = motorsRef.current.find((x) => x.id === id);
+    if (!m) return;
+    // 通信丢失：停止发送指令，保持当前力矩（skill 规则）
+    if (isDesktop() && connectedRef.current && !commLostRef.current) {
+      try {
+        await servoSetTorque(m.hwId, on);
+      } catch (e) {
+        console.error("[setEnabled]", e);
+        return; // 硬件失败则不更新本地状态
+      }
+    }
     setMotors((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, enabled: on } : m)),
+      prev.map((x) => (x.id === id ? { ...x, enabled: on } : x)),
     );
   }, []);
 
-  const setTarget = useCallback((id: string, value: number) => {
+  const setTarget = useCallback(async (id: string, value: number) => {
+    const m = motorsRef.current.find((x) => x.id === id);
+    if (!m) return;
+    const clamped = Math.max(m.min, Math.min(m.max, value));
     setMotors((prev) =>
-      prev.map((m) => (m.id === id ? { ...m, target: value } : m)),
+      prev.map((x) => (x.id === id ? { ...x, target: clamped } : x)),
     );
+    // 通信丢失或未连接：仅更新本地目标，不下发（skill：停止发送指令，保持当前力矩）
+    if (!isDesktop() || !connectedRef.current || commLostRef.current) return;
+
+    // 低速平滑插值（参考 move_smooth）：30 步 × 20ms，消除抖动
+    const myToken = (animTokens.current[id] ?? 0) + 1;
+    animTokens.current[id] = myToken;
+    const start = m.angle;
+    const steps = 30;
+    for (let i = 1; i <= steps; i++) {
+      if (animTokens.current[id] !== myToken) return; // 被新请求取消
+      if (estopRef.current) return; // 急停中断
+      const interp = start + (clamped - start) * (i / steps);
+      try {
+        await servoWritePosition(m.hwId, angleToPosition(interp, m.hwId));
+      } catch (e) {
+        console.error("[setTarget]", e);
+        return;
+      }
+      await sleep(20);
+    }
   }, []);
 
   // ---- 参数动作 ----
@@ -189,9 +244,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setDirtyByMotor((prev) => ({ ...prev, [id]: true }));
   }, []);
 
-  const saveToFlash = useCallback((id: string) => {
+  const saveTunePlan = useCallback((id: string) => {
     setDirtyByMotor((prev) => ({ ...prev, [id]: false }));
-    setFlashByMotor((prev) => ({ ...prev, [id]: true }));
+    setPlanSavedByMotor((prev) => ({ ...prev, [id]: true }));
   }, []);
 
   const resetTune = useCallback((id: string) => {
@@ -200,10 +255,28 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // ---- 安全动作 ----
-  const triggerEstop = useCallback(() => {
+  const triggerEstop = useCallback(async () => {
     setEstop(true);
-    setMotors((prev) => prev.map((m) => ({ ...m, enabled: false })));
     setRunning(false);
+    animTokens.current = {}; // 取消所有平滑动画（进行中的循环检测 token 失配后退出）
+    if (isDesktop() && connectedRef.current && !commLostRef.current) {
+      // 急停 = 原地停住：读当前 present 写入 goal，保持扭矩。
+      // 不 disable torque，避免抗重力关节失力坠落（skill 第一守则：确保用户安全）。
+      try {
+        const ids = MOTORS.map((m) => m.hwId);
+        const readings = await servoSyncReadPositions(ids);
+        for (const r of readings) {
+          if (!r.ok) continue;
+          try {
+            await servoWritePosition(r.id, r.position);
+          } catch (e) {
+            console.error("[estop write]", e);
+          }
+        }
+      } catch (e) {
+        console.error("[estop read]", e);
+      }
+    }
   }, []);
 
   const clearEstop = useCallback(() => setEstop(false), []);
@@ -223,6 +296,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       safety,
       motors: motors.map((m) => ({
         id: m.id,
+        hwId: m.hwId,
         code: m.code,
         min: m.min,
         max: m.max,
@@ -232,35 +306,50 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     return JSON.stringify(dump, null, 2);
   }, [deviceId, mode, safety, motors, tuneByMotor]);
 
-  // ---- mock 实时数据 tick（仅连接且运行且未急停时更新已使能电机） ----
+  // ---- 实时位置采样：仅桌面端连接且运行且未急停时，批量读取舵机当前位置 ----
   const runningRef = useRef(running);
   const estopRef = useRef(estop);
-  const connectedRef = useRef(connected);
   runningRef.current = running;
   estopRef.current = estop;
-  connectedRef.current = connected;
 
   useEffect(() => {
-    const tick = window.setInterval(() => {
+    if (!isDesktop()) return; // 浏览器端无硬件，不开采样
+    let active = true;
+    let busy = false;
+
+    const tick = async () => {
+      if (!active || busy) return;
       if (!connectedRef.current || estopRef.current || !runningRef.current) return;
-      setMotors((prev) =>
-        prev.map((m) => {
-          if (!m.enabled) return m;
-          const err = m.target - m.angle;
-          const next = m.angle + err * 0.08 + (Math.random() - 0.5) * 0.3;
-          const vel = Math.abs(err) * 6 + (Math.random() - 0.5);
-          const clamped = Math.max(m.min, Math.min(m.max, next));
-          return {
-            ...m,
-            angle: clamped,
-            velocity: Math.round(vel * 10) / 10,
-            current: Math.max(0, m.current + (Math.random() - 0.5) * 0.08),
-            temp: Math.max(25, m.temp + (Math.random() - 0.5) * 0.15),
-          };
-        }),
-      );
-    }, 200);
-    return () => window.clearInterval(tick);
+      busy = true;
+      try {
+        const ids = MOTORS.map((m) => m.hwId);
+        const readings = await servoSyncReadPositions(ids);
+        if (!active) return;
+        // 链路整体失败 → 通信丢失：停止下发（写操作据此保持当前力矩），读数保持上次
+        const allFailed = readings.length > 0 && readings.every((r) => !r.ok);
+        commLostRef.current = allFailed;
+        if (allFailed) return;
+        const byId = new Map(readings.map((r) => [r.id, r]));
+        setMotors((prev) =>
+          prev.map((m) => {
+            const r = byId.get(m.hwId);
+            // 单电机读数失败（掉线）时保持上一次角度，避免跳变
+            if (!r || !r.ok) return m;
+            return { ...m, angle: round1(positionToAngle(r.position, m.hwId)) };
+          }),
+        );
+      } catch (e) {
+        console.error("[tick]", e);
+      } finally {
+        busy = false;
+      }
+    };
+
+    const timer = window.setInterval(tick, TICK_MS);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
   }, []);
 
   const value: DeviceContextValue = {
@@ -280,9 +369,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setMode,
     tuneByMotor,
     dirtyByMotor,
-    flashByMotor,
+    planSavedByMotor,
     updateTune,
-    saveToFlash,
+    saveTunePlan,
     resetTune,
     running,
     setRunning,

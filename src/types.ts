@@ -1,6 +1,8 @@
 /** 电机/关节模型 */
 export type Motor = {
   id: string;
+  /** 硬件舵机 ID（1-6），用于串口通信 */
+  hwId: number;
   /** 关节代号，如 J1 */
   code: string;
   /** 中文名，如 基座 */
@@ -23,15 +25,20 @@ export type Motor = {
   enabled: boolean;
 };
 
-/** 7 自由度机械臂关节（mock 数据，后续接 USB 实时数据替换） */
+/**
+ * SO-100：5 个旋转关节 + 夹爪的静态配置基线。
+ *
+ * min/max 为 URDF 真实关节限位（与 claw_arm/script/3.2arm_viewer.py 的 JOINT_LIMITS 一致）。
+ * angle/velocity/current/temp/target 为运行时读数，初始置 0；
+ * 连接真实设备后由 DeviceContext 的实时 tick 用串口读数刷新。
+ */
 export const MOTORS: Motor[] = [
-  { id: "m1", code: "J1", name: "基座", angle: 12.4, velocity: 0, target: 15.0, max: 180, min: -180, current: 0.82, temp: 38.2, enabled: true },
-  { id: "m2", code: "J2", name: "肩部", angle: -28.6, velocity: 0, target: -30.0, max: 90, min: -90, current: 1.14, temp: 41.7, enabled: true },
-  { id: "m3", code: "J3", name: "肘部", angle: 64.2, velocity: 0, target: 60.0, max: 135, min: -10, current: 0.96, temp: 39.5, enabled: true },
-  { id: "m4", code: "J4", name: "腕俯仰", angle: 8.1, velocity: 0, target: 10.0, max: 90, min: -90, current: 0.34, temp: 36.0, enabled: true },
-  { id: "m5", code: "J5", name: "腕偏航", angle: -15.3, velocity: 0, target: -15.0, max: 90, min: -90, current: 0.28, temp: 35.4, enabled: true },
-  { id: "m6", code: "J6", name: "腕旋转", angle: 42.0, velocity: 0, target: 45.0, max: 180, min: -180, current: 0.31, temp: 35.9, enabled: true },
-  { id: "m7", code: "J7", name: "夹爪", angle: 58.0, velocity: 0, target: 60.0, max: 100, min: 0, current: 0.12, temp: 34.1, enabled: true },
+  { id: "m1", hwId: 1, code: "J1", name: "底部旋转", angle: 0, velocity: 0, target: 0, max: 114.6, min: -114.6, current: 0, temp: 0, enabled: false },
+  { id: "m2", hwId: 2, code: "J2", name: "大臂升降", angle: 0, velocity: 0, target: 0, max: 200.5, min: 0, current: 0, temp: 0, enabled: false },
+  { id: "m3", hwId: 3, code: "J3", name: "肘部弯曲", angle: 0, velocity: 0, target: 0, max: 0, min: -180, current: 0, temp: 0, enabled: false },
+  { id: "m4", hwId: 4, code: "J4", name: "手腕俯仰", angle: 0, velocity: 0, target: 0, max: 68.8, min: -143.2, current: 0, temp: 0, enabled: false },
+  { id: "m5", hwId: 5, code: "J5", name: "手腕旋转", angle: 0, velocity: 0, target: 0, max: 180, min: -180, current: 0, temp: 0, enabled: false },
+  { id: "m6", hwId: 6, code: "J6", name: "夹爪", angle: 0, velocity: 0, target: 0, max: 114.6, min: -11.5, current: 0, temp: 0, enabled: false },
 ];
 
 /** 控制模式 */
