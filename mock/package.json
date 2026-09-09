@@ -1,0 +1,13 @@
+{
+  "name": "claw-mock",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "claw 数字孪生假数据源：robot 50Hz + station 10Hz WebSocket 双端口",
+  "scripts": {
+    "start": "node mock-server.mjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
