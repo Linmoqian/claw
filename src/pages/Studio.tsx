@@ -2,6 +2,7 @@
 import { useEffect, useRef } from "react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
+import { CollisionSystem, describeCollision, isRejected } from "../robot/collision";
 import { formatPose } from "../robot/kinematics";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore } from "../stores/bridgeStore";
@@ -63,7 +64,7 @@ export default function Studio() {
     if (status === "idle") void loadSo100();
   }, [status, loadSo100]);
 
-  // 模型就绪 → 创建仿真回路（SimulationLoop 非响应式，只挂在 ref 上）
+  // 模型就绪 → 碰撞系统 + 仿真回路（SimulationLoop 非响应式，只挂在 ref 上）
   useEffect(() => {
     if (!model) {
       bind(null);
@@ -71,16 +72,38 @@ export default function Studio() {
       useTargetStore.getState().bindModel(null);
       return;
     }
-    const sim = new SimulationLoop(model);
+    // 纯 TS 解析几何碰撞系统：同步构建，零 WASM 依赖
+    const collision = CollisionSystem.create(model);
+    const sim = new SimulationLoop(model, collision);
     simRef.current = sim;
+    sim.speed = useSimulationStore.getState().speed;
+    // DEV 调试探针：控制台直戳仿真/碰撞实例（生产构建排除）
+    if (import.meta.env.DEV) {
+      (window as unknown as Record<string, unknown>).__sim = sim;
+      (window as unknown as Record<string, unknown>).__collision = collision;
+    }
     bind(sim);
     // 目标世界接线：限位来源 + 执行器（M4 起由 CommandArbiter 接管）
     useTargetStore.getState().bindModel(model);
     const unreg = useTargetStore.getState().registerExecutor((intent) => {
+      const loop = simRef.current;
+      if (!loop) return;
       if (intent.kind === "joint-target") {
-        sim.setJointTarget(intent.jointIndex, intent.valueDeg);
+        const st = loop.setJointTarget(intent.jointIndex, intent.valueDeg);
+        if (isRejected(st)) {
+          // 目标被拒：徽标回灌（不覆盖 publish 已写入的限位信息以外的正常态）
+          useTargetStore.getState().setValidation({
+            valid: false,
+            jointLimit: false,
+            collision: true,
+            singularity: false,
+            reachable: true,
+            safetyDistance: null,
+            reason: `目标被拒：${describeCollision(st)}`,
+          });
+        }
       } else if (intent.kind === "tcp-pose") {
-        const r = sim.setTcpTargetPose(
+        const r = loop.setTcpTargetPose(
           new Vector3(intent.position.x, intent.position.y, intent.position.z),
           new Quaternion(
             intent.quaternion.x,
@@ -90,17 +113,19 @@ export default function Studio() {
           ),
         );
         useTargetStore.getState().setValidation({
-          valid: true,
+          valid: !r.collision,
           jointLimit: r.atLimit.length > 0,
-          collision: false,
+          collision: r.collision !== undefined,
           singularity: r.singular,
           reachable: r.ok,
           safetyDistance: null,
-          reason: r.singular
-            ? "IK 收敛于近奇异构型"
-            : r.atLimit.length > 0
-              ? `IK 触及关节限位: ${r.atLimit.map((i) => `J${i + 1}`).join(", ")}`
-              : undefined,
+          reason: r.collision
+            ? `目标被拒：${describeCollision(r.collision)}`
+            : r.singular
+              ? "IK 收敛于近奇异构型"
+              : r.atLimit.length > 0
+                ? `IK 触及关节限位: ${r.atLimit.map((i) => `J${i + 1}`).join(", ")}`
+                : undefined,
         });
       }
     });
@@ -108,6 +133,7 @@ export default function Studio() {
       unreg();
       useTargetStore.getState().bindModel(null);
       bind(null);
+      simRef.current?.dispose();
       simRef.current = null;
     };
   }, [model, bind]);
@@ -424,6 +450,21 @@ export default function Studio() {
           )}
         </div>
 
+        {/* 碰撞安全 HUD（M3：环境档位 + 自碰撞；档位随现实构型 30Hz 刷新） */}
+        {snapshot.collisionEnabled && (
+          <div className={`studio__safety is-${snapshot.collision.tier}`}>
+            <i className="studio__safety-dot" aria-hidden="true" />
+            <span className="studio__safety-label">碰撞</span>
+            <span className="studio__safety-value">
+              {snapshot.collision.selfCollision
+                ? "自碰撞"
+                : snapshot.collision.tier === "clear"
+                  ? "安全"
+                  : describeCollision(snapshot.collision)}
+            </span>
+          </div>
+        )}
+
         {/* 视图工具条（悬浮） */}
         <div className="studio__scene-tools">
           <button
@@ -469,7 +510,7 @@ export default function Studio() {
               ? "拖拽关节环设定目标角 · 滚轮缩放 · 松开即生效"
               : "拖拽彩轴平移末端 · 拖彩环转向 · IK 实时解算 · Ghost 预览目标 · 松开生效"}
         </div>
-        {validation.reason && interactionMode === "tcp" && (
+        {validation.reason && (
           <div className="studio__vbadge">{validation.reason}</div>
         )}
       </section>

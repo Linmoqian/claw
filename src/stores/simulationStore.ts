@@ -1,6 +1,7 @@
 /** simulationStore：仿真控制状态（低频 UI：模式/速度/目标值/快照读数）。 */
 import { create } from "zustand";
 import { Quaternion, Vector3 } from "three";
+import { COLLISION_CLEAR } from "../robot/collision";
 import {
   SimulationLoop,
   type SimMode,
@@ -21,6 +22,8 @@ const emptySnapshot = (): SimSnapshot => ({
   },
   tcpTarget: null,
   ik: null,
+  collision: COLLISION_CLEAR,
+  collisionEnabled: false,
   progress: 0,
 });
 

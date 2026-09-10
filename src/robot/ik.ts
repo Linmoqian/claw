@@ -4,6 +4,7 @@
  * 纯函数、无 React/渲染依赖，q 语义为 active 数组顺序（°）。
  */
 import { Quaternion, Vector3 } from "three";
+import type { CollisionStatus } from "./collision";
 import {
   computeLinkPoses,
   computeTcpPose,
@@ -42,6 +43,8 @@ export interface IkResult {
   manipulability: number;
   /** 奇异/近奇异（μ 过小，维度混合的雅可比） */
   singular: boolean;
+  /** M3：解被碰撞入闸拒绝时的命中状态（未拒绝为 undefined） */
+  collision?: CollisionStatus;
 }
 
 /** 关节夹取到限位范围（含非对称单边） */

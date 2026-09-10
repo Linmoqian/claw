@@ -4,6 +4,13 @@
  * UI 只下达意图（"J3 到 40°"），不参与运动计算。
  */
 import { Quaternion, Vector3 } from "three";
+import {
+  COLLISION_CLEAR,
+  CollisionSystem,
+  isRejected,
+  TIER_SPEED_SCALE,
+  type CollisionStatus,
+} from "./collision";
 import { solveIk, type IkResult } from "./ik";
 import { computeLinkPoses, computeTcpPose, type Pose } from "./kinematics";
 import { sampleTrajectory, so100DemoLoop, type TrajPoint } from "./trajectory";
@@ -26,6 +33,10 @@ export interface SimSnapshot {
   tcpTarget: Pose | null;
   /** 最近一次 IK 结果（奇异/限位徽标） */
   ik: IkResult | null;
+  /** 碰撞评估（现实构型：自碰撞 + 环境档位；无碰撞系统时为全清） */
+  collision: CollisionStatus;
+  /** 碰撞引擎是否启用（WASM 加载失败为 false） */
+  collisionEnabled: boolean;
   /** 轨迹循环进度 0..1 */
   progress: number;
 }
@@ -47,9 +58,13 @@ export class SimulationLoop {
   private traj: TrajPoint[];
   private trajTime = 0;
   private tcp: Pose = { position: new Vector3(), quaternion: new Quaternion() };
+  /** M3 碰撞查询器（null = 无碰撞系统，全部放行） */
+  private collision: CollisionSystem | null;
+  private lastCollision: CollisionStatus = COLLISION_CLEAR;
 
-  constructor(model: RobotModel) {
+  constructor(model: RobotModel, collision: CollisionSystem | null = null) {
     this.model = model;
+    this.collision = collision;
     const zeros = model.active.map(() => 0);
     this.currentDeg = [...zeros];
     this.targetDeg = [...zeros];
@@ -73,8 +88,15 @@ export class SimulationLoop {
       }
     } else {
       // 手动/回零：current 向 target 以速率上限渐近（目标与现状保持分离）
-      const rate = this.mode === "homing" ? HOMING_RATE_DEG_S : MANUAL_RATE_DEG_S;
-      const stepDeg = rate * dt;
+      // M3：环境档位随距离缩放（warn 50% / slow 20% / stop 冻结）
+      // 自碰撞只报告不冻结：现实穿过碰撞区时若冻结会死锁（回零路径可能穿越），
+      // 防护职责在目标侧拒绝（checkCandidate）
+      const rate0 = this.mode === "homing" ? HOMING_RATE_DEG_S : MANUAL_RATE_DEG_S;
+      const scale =
+        this.collision && this.lastCollision.tier !== "clear"
+          ? TIER_SPEED_SCALE[this.lastCollision.tier]
+          : 1;
+      const stepDeg = rate0 * dt * scale;
       for (let i = 0; i < n; i++) {
         this.currentDeg[i] = approach(
           this.currentDeg[i],
@@ -83,37 +105,67 @@ export class SimulationLoop {
         );
       }
     }
+    // 现实构型碰撞评估（限速依据 + 快照读数；无系统时为全清常量）
+    if (this.collision) {
+      this.lastCollision = this.collision.evaluate(this.currentDeg);
+    }
     this.updateTcp();
   }
 
-  /** 用户拖动滑块/关节环：只写目标（现状经速率追赶，不瞬移） */
-  setJointTarget(index: number, deg: number): void {
+  /** 用户拖动滑块/关节环：只写目标（现状经速率追赶，不瞬移）。
+   * M3：目标/扫掠路径命中自碰撞或 stop 档时拒绝写入，返回命中状态（供徽标回灌） */
+  setJointTarget(index: number, deg: number): CollisionStatus {
     const joint = this.model.active[index];
-    if (!joint) return;
+    if (!joint) return COLLISION_CLEAR;
     this.mode = "manual";
-    this.targetDeg[index] = clampDeg(deg, joint);
+    const candidate = [...this.targetDeg];
+    candidate[index] = clampDeg(deg, joint);
+    const rejected = this.checkCandidate(candidate);
+    if (rejected) return rejected;
+    this.targetDeg[index] = candidate[index];
+    return COLLISION_CLEAR;
   }
 
-  /** 多关节目标批量设置（TCP IK 解算结果 / 外部意图） */
-  setJointTargets(degs: number[]): void {
+  /** 多关节目标批量设置（TCP IK 解算结果 / 外部意图）；拒绝时整批不写入 */
+  setJointTargets(degs: number[]): CollisionStatus {
     this.mode = "manual";
+    const candidate = [...this.targetDeg];
     this.model.active.forEach((joint, i) => {
       const v = degs[i];
       if (v !== undefined) {
-        this.targetDeg[i] = clampDeg(v, joint);
+        candidate[i] = clampDeg(v, joint);
       }
     });
+    const rejected = this.checkCandidate(candidate);
+    if (rejected) return rejected;
+    this.targetDeg = candidate;
+    return COLLISION_CLEAR;
   }
 
-  /** TCP 位姿意图：DLS IK 解算 → 写关节目标；返回结果供校验徽标 */
+  /** 目标入闸校验：终点 + 扫掠路径（自碰撞或 stop 档 → 拒绝并返回命中状态） */
+  private checkCandidate(candidate: number[]): CollisionStatus | null {
+    if (!this.collision) return null;
+    const goal = this.collision.evaluate(candidate);
+    if (isRejected(goal)) return goal;
+    const swept = this.collision.evaluateSwept(this.currentDeg, candidate);
+    if (isRejected(swept)) return swept;
+    return null;
+  }
+
+  /** TCP 位姿意图：DLS IK 解算 → 碰撞入闸 → 写关节目标；返回结果供校验徽标 */
   setTcpTargetPose(position: Vector3, quaternion: Quaternion): IkResult {
     const result = solveIk(this.model, {
       target: { position: position.clone(), quaternion: quaternion.clone() },
       q0Deg: [...this.currentDeg],
     });
+    const rejected = this.setJointTargets(result.qDeg);
+    if (rejected) {
+      // 拒绝：目标与 TCP 意图都冻结在最后有效状态（Ghost 停在安全边界）
+      result.collision = rejected;
+      return result;
+    }
     this.lastIk = result;
     this.tcpTarget = { position: position.clone(), quaternion: quaternion.clone() };
-    this.setJointTargets(result.qDeg);
     this.updateTcp();
     return result;
   }
@@ -165,6 +217,12 @@ export class SimulationLoop {
     return this.targetDeg;
   }
 
+  /** 释放碰撞系统资源（Studio 卸载时调用） */
+  dispose(): void {
+    this.collision?.dispose();
+    this.collision = null;
+  }
+
   /** UI 低频拉取快照 */
   getSnapshot(): SimSnapshot {
     const total = this.traj[this.traj.length - 1]?.time ?? 1;
@@ -190,6 +248,8 @@ export class SimulationLoop {
             atLimit: [...this.lastIk.atLimit],
           }
         : null,
+      collision: this.lastCollision,
+      collisionEnabled: this.collision !== null,
       progress: total > 0 ? this.trajTime / total : 0,
     };
   }

@@ -606,3 +606,104 @@
   border: 1px solid #f2ddcd;
   color: #c2713a;
 }
+
+/* ================= M3 碰撞安全 HUD ================= */
+
+/* 悬浮于 3D 左上（HUD 下方），档位着色：clear 灰 / warn 黄 / slow 橙 / stop 红 */
+.studio__safety {
+  position: absolute;
+  top: 56px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  column-gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(251, 252, 253, 0.82);
+  border: 1px solid var(--s-border);
+  box-shadow: 0 4px 14px rgba(28, 33, 40, 0.06);
+  pointer-events: none;
+  user-select: none;
+  backdrop-filter: blur(10px);
+}
+
+.studio__safety-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--s-ok, #3aa675);
+  box-shadow: 0 0 6px rgba(58, 166, 117, 0.5);
+}
+
+.studio__safety-label {
+  font-size: 11px;
+  color: var(--s-text-dim, #8a94a3);
+  letter-spacing: 0.04em;
+}
+
+.studio__safety-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--s-text, #2c3440);
+}
+
+.studio__safety.is-warn .studio__safety-dot {
+  background: #d9a13c;
+  box-shadow: 0 0 6px rgba(217, 161, 60, 0.55);
+}
+
+.studio__safety.is-warn .studio__safety-value {
+  color: #a87b1e;
+}
+
+.studio__safety.is-slow .studio__safety-dot {
+  background: #e0833c;
+  box-shadow: 0 0 6px rgba(224, 131, 60, 0.55);
+}
+
+.studio__safety.is-slow .studio__safety-value {
+  color: #b5641f;
+}
+
+.studio__safety.is-stop {
+  border-color: rgba(217, 88, 70, 0.4);
+}
+
+.studio__safety.is-stop .studio__safety-dot {
+  background: #d95846;
+  box-shadow: 0 0 8px rgba(217, 88, 70, 0.6);
+}
+
+.studio__safety.is-stop .studio__safety-value {
+  color: #c03f2e;
+}
+
+/* 自碰撞（比 stop 更严）：红底脉冲提醒 */
+.studio__safety.is-self {
+  border-color: rgba(217, 88, 70, 0.55);
+  background: rgba(217, 88, 70, 0.1);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .studio__safety.is-stop .studio__safety-dot,
+  .studio__safety.is-self .studio__safety-dot {
+    animation: safety-pulse 1s ease-in-out infinite;
+  }
+}
+
+@keyframes safety-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .studio__safety {
+    background: #fbfcfd;
+    backdrop-filter: none;
+  }
+}
