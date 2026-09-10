@@ -9,7 +9,7 @@ export type ControlSource = "mouse" | "slider" | "trajectory" | "agent" | "ros";
 /** 统一输入意图：滑块/鼠标/未来的 Agent 全部经此形态进入目标世界 */
 export type InputIntent = JointIntent | TcpPoseIntent | BasePoseIntent;
 
-/** 关节级目标（M1：滑块与 JOINT 旋转环共用） */
+/** 关节级目标（滑块与 3D 部件直操共用） */
 export interface JointIntent {
   kind: "joint-target";
   source: ControlSource;
@@ -74,7 +74,7 @@ export interface SelectedEntity {
   jointIndex: number | null;
 }
 
-/** JOINT 拖拽帧信息（Gizmo 层以 three 世界坐标喂给控制器） */
+/** 关节拖拽帧信息（模型网格以 three 世界坐标喂给控制器） */
 export interface JointDragFrame {
   /** 关节中心（three 世界） */
   center: THREE.Vector3;
@@ -82,10 +82,4 @@ export interface JointDragFrame {
   axis: THREE.Vector3;
   /** 按下瞬间的当前目标角（°，拖拽基准） */
   startValueDeg: number;
-}
-
-/** 环形拖拽指针输入 */
-export interface RingPointerInput {
-  /** 指针射线（three 世界） */
-  ray: THREE.Ray;
 }

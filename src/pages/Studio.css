@@ -1,4 +1,4 @@
-/* ===== 3D 仿真工作室（页内独立浅色主题：浅底/大圆角/黑主色/红橙危险动作） ===== */
+/* ===== 虾烤工作台主工作区：全局浅色主题下的数字孪生、控制与调参 ===== */
 .studio {
   --s-bg: #eef0f3;
   --s-panel: #fbfcfd;
@@ -354,6 +354,13 @@
     color 0.16s var(--ease-out);
 }
 
+.studio__scene-tools .studio__tune-toggle {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  color: var(--s-danger);
+}
+
 .studio__scene-tools button:hover {
   color: var(--s-text);
 }
@@ -605,6 +612,251 @@
   background: #fdf1ea;
   border: 1px solid #f2ddcd;
   color: #c2713a;
+}
+
+/* ================= PID 调参检查器 ================= */
+
+.studio__tuning {
+  width: 304px;
+  flex: 0 0 304px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--s-panel);
+  border: 1px solid var(--s-border);
+  border-radius: 18px;
+  box-shadow: var(--s-shadow);
+  overflow-y: auto;
+}
+
+.studio__tuning-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.studio__tuning-head h2 {
+  margin: 2px 0 0;
+  color: var(--s-text);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.studio__tuning-eyebrow {
+  color: var(--s-danger);
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.studio__tuning-close {
+  display: none;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--s-border);
+  border-radius: 9px;
+  background: var(--s-panel-soft);
+  color: var(--s-text-2);
+  cursor: pointer;
+}
+
+.studio__tuning-source {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 11px 48px 11px 12px;
+  border: 1px solid var(--s-border);
+  border-radius: 12px;
+  background: var(--s-panel-soft);
+}
+
+.studio__tuning-source span {
+  color: var(--s-text-3);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+}
+
+.studio__tuning-source strong {
+  overflow: hidden;
+  color: var(--s-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio__tuning-source i {
+  position: absolute;
+  top: 50%;
+  right: 11px;
+  padding: 3px 7px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+  background: rgba(76, 175, 119, 0.12);
+  color: #2f8f5e;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.studio__tuning-joints {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  background: var(--s-panel-soft);
+}
+
+.studio__tuning-joints button {
+  min-width: 0;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--s-text-3);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.studio__tuning-joints button.is-on {
+  background: var(--s-panel);
+  color: var(--s-danger);
+  box-shadow: 0 1px 4px rgba(20, 26, 33, 0.08);
+}
+
+.studio__response {
+  min-height: 150px;
+  display: flex;
+  flex-direction: column;
+  padding: 10px;
+  border: 1px solid var(--s-border);
+  border-radius: 12px;
+  background: var(--s-panel-soft);
+}
+
+.studio__response-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 4px;
+  color: var(--s-text-3);
+  font-size: 9px;
+}
+
+.studio__response-head > span:first-child {
+  margin-right: auto;
+  color: var(--s-text-2);
+  font-weight: 600;
+}
+
+.studio__response-head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.studio__response-head i {
+  width: 11px;
+  height: 2px;
+  border-radius: 2px;
+}
+
+.studio__response-head i.is-sp {
+  background: var(--indigo);
+}
+
+.studio__response-head i.is-pv {
+  background: var(--s-danger);
+}
+
+.studio__response .wave-canvas {
+  min-height: 110px;
+}
+
+.studio__tuning-note {
+  margin: -2px 0 0;
+  color: var(--s-text-3);
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.studio__tuning-params {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  padding-top: 2px;
+}
+
+.studio__tuning-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--s-border);
+}
+
+.studio__tuning-run,
+.studio__tuning-save {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 1px solid var(--s-border);
+  border-radius: 10px;
+  background: var(--s-panel);
+  color: var(--s-text-2);
+  font: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.studio__tuning-run.is-running,
+.studio__tuning-save.is-dirty {
+  border-color: var(--s-danger);
+  background: var(--s-danger);
+  color: #fff;
+}
+
+@media (max-width: 1480px) {
+  .studio__tuning:not(.is-open) {
+    display: none;
+  }
+
+  .studio__tuning.is-open {
+    position: absolute;
+    z-index: 20;
+    top: 14px;
+    right: 14px;
+    bottom: 14px;
+    width: 316px;
+    box-shadow: 0 18px 52px rgba(20, 26, 33, 0.18);
+  }
+
+  .studio__tuning-close,
+  .studio__scene-tools .studio__tune-toggle {
+    display: inline-flex;
+  }
+}
+
+@media (max-width: 720px) {
+  .studio__tuning.is-open {
+    left: 14px;
+    width: auto;
+  }
 }
 
 /* ================= M3 碰撞安全 HUD ================= */

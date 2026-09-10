@@ -62,7 +62,7 @@ function App() {
             <Sidebar />
             <main className="app-content">
               <Routes>
-                <Route path="/" element={<Navigate to="/connect" replace />} />
+                <Route path="/" element={<Navigate to="/studio" replace />} />
                 <Route path="/studio" element={<Studio />} />
                 <Route path="/connect" element={<Connect />} />
                 <Route path="/monitor" element={<Monitor />} />

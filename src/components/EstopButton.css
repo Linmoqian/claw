@@ -9,15 +9,15 @@
   padding: 11px 17px 11px 13px;
   border-radius: 12px;
   border: 1px solid rgba(226, 105, 93, 0.45);
-  background: rgba(84, 31, 27, 0.92);
-  color: #f6c4bd;
+  background: rgba(255, 247, 244, 0.94);
+  color: var(--danger);
   font: inherit;
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.08em;
   cursor: pointer;
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 10px 26px rgba(87, 37, 28, 0.14);
   transition:
     transform 0.15s var(--ease-spring),
     background 0.2s var(--ease-out),
@@ -26,7 +26,7 @@
 
 .estop:hover {
   transform: translateY(-1px);
-  background: rgba(117, 41, 34, 0.96);
+  background: #fff0eb;
 }
 
 .estop:active {

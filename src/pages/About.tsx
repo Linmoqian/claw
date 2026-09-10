@@ -6,10 +6,10 @@ function About() {
           <span className="section-label__title">关于</span>
         </div>
         <div className="about-card">
-          <h1 className="about-card__title">Embodied Intelligence Console</h1>
+          <h1 className="about-card__title">虾烤工作台</h1>
           <p className="about-card__lead">
-            为具身智能体设计的桌面控制台。连接物理机械臂，融合视觉感知、
-            运动控制与 PID 调参，让智能真正“抵达”现实世界。
+            面向不同机械臂的桌面仿真与调参工作台。以机器人模型、能力描述与
+            通信适配器连接数字孪生和真实设备，让参数先在仿真中被验证。
           </p>
           <p className="about-card__tech">
             使用 Tauri 2 + React 19 + TypeScript + Vite 构建。

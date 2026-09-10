@@ -82,9 +82,9 @@ export default function TitleBar() {
   return (
     <header className="titlebar">
       <div className="titlebar__drag" data-tauri-drag-region>
-        <span className="titlebar__title">Claw Atelier</span>
+        <span className="titlebar__title">虾烤工作台</span>
         <span className="titlebar__divider" />
-        <span className="titlebar__model">SO-100 ARM</span>
+        <span className="titlebar__model">ROBOT WORKBENCH · SO-100 配置</span>
         <span className={`titlebar__status ${connected ? "is-online" : ""}`}>
           <i />
           {connected ? (deviceId ?? "控制器在线") : "离线工作台"}

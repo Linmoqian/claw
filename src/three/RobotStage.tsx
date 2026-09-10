@@ -9,7 +9,6 @@ import MobileBase from "./MobileBase";
 import BaseGhost from "./BaseGhost";
 import BaseDragHandle from "./BaseDragHandle";
 import WorkspaceLayer from "./WorkspaceLayer";
-import InteractionGizmos from "../interaction/InteractionGizmos";
 import TcpGizmo from "../interaction/TcpGizmo";
 import { useInteractionStore } from "../stores/interactionStore";
 import type { SimulationLoop } from "../robot/simulation";
@@ -39,10 +38,11 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
   const focusToken = useSceneStore((s) => s.focusToken);
   // 模型加载代次：切换模型时以此 key 重挂 RobotView（重置其内部加载状态）
   const loads = useRobotStore((s) => s.loads);
-  // 交互模式：SELECT 才允许拖转/平移视角，其余模式保留滚轮缩放
+  // 交互模式：SELECT 允许左键旋转；右键平移全局禁用，避免误触手势。
   const interactionMode = useInteractionStore((s) => s.mode);
   // M5 工作区（DXF 线层渲染源）
   const workspace = useWorkspaceStore((s) => s.workspace);
+  const activeJointName = useInteractionStore((s) => s.activeJointName);
 
   // 仿真驱动：渲染循环即仿真循环（step 内含碰撞评估→档位限速）
   useFrame((_, delta) => {
@@ -118,7 +118,7 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
         <shadowMaterial transparent opacity={0.09} />
       </mesh>
 
-      {/* 移动底盘（world 遥测位姿） + 机械臂双实例现实/目标 + 交互 Gizmo */}
+      {/* 移动底盘（world 遥测位姿） + 机械臂双实例现实/目标 */}
       <MobileBase>
         <RobotView key={loads} model={model} sim={sim} assetBase={assetBase} />
         {interactionMode === "tcp" && (
@@ -130,7 +130,6 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
             variant="ghost"
           />
         )}
-        <InteractionGizmos model={model} sim={sim} />
         {interactionMode === "tcp" && <TcpGizmo model={model} sim={sim} />}
       </MobileBase>
 
@@ -146,8 +145,8 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
         makeDefault
         enableDamping
         dampingFactor={0.08}
-        enableRotate={interactionMode === "select"}
-        enablePan={interactionMode === "select"}
+        enableRotate={interactionMode === "select" && !activeJointName}
+        enablePan={false}
         target={INITIAL_TARGET}
         minDistance={0.22}
         maxDistance={2.8}

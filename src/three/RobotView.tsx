@@ -1,6 +1,6 @@
 /** 机器人 3D 视图：按 URDF 运动树构建 three 层级，逐帧应用仿真关节角。 */
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useFrame } from "@react-three/fiber";
+import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
 import { STLLoader } from "three/addons/loaders/STLLoader.js";
 import { rpyToQuaternion } from "../robot/kinematics";
@@ -60,6 +60,18 @@ const GHOST_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 0.1,
   transparent: true,
   opacity: 0.45,
+  depthWrite: false,
+});
+
+/** 选中部件叠加层：不参与拾取，只提供稳定且与原涂装无关的高亮。 */
+const SELECTED_MATERIAL = new THREE.MeshStandardMaterial({
+  color: "#ef8c68",
+  emissive: "#d96245",
+  emissiveIntensity: 0.24,
+  roughness: 0.55,
+  metalness: 0,
+  transparent: true,
+  opacity: 0.34,
   depthWrite: false,
 });
 
@@ -165,7 +177,9 @@ export default function RobotView({
   const showTrail = useSceneStore((s) => s.showTrail);
   const materialStyle = useSceneStore((s) => s.materialStyle);
   const interactionMode = useInteractionStore((s) => s.mode);
+  const selectedLinkName = useInteractionStore((s) => s.selected?.linkName);
   const isGhost = variant === "ghost";
+  const { raycaster, camera, gl } = useThree();
 
   const [loadError, setLoadError] = useState<string | null>(null);
 
@@ -269,6 +283,73 @@ export default function RobotView({
     }
   });
 
+  /**
+   * 部件直操：第一次按下只完成选择；再次按住同一高亮部件时，
+   * 以该关节世界轴建立旋转平面，并持续发布 joint-target 意图。
+   */
+  const beginDirectDrag = (
+    event: ThreeEvent<PointerEvent>,
+    linkName: string,
+  ) => {
+    if (isGhost || interactionMode !== "select") return;
+    event.stopPropagation();
+
+    const wasSelected = selectedLinkName === linkName;
+    const selection = interactionController.pick(linkName);
+    if (!wasSelected || selection?.jointIndex === null || !selection?.jointName) {
+      return;
+    }
+
+    const jointIndex = selection.jointIndex;
+    const axisGroup = axisGroups.current[jointIndex];
+    const joint = active[jointIndex];
+    if (!axisGroup || !joint) return;
+
+    axisGroup.updateWorldMatrix(true, false);
+    const center = new THREE.Vector3();
+    const worldQuaternion = new THREE.Quaternion();
+    const axis = new THREE.Vector3(...joint.def.axis);
+    axisGroup.getWorldPosition(center);
+    axisGroup.getWorldQuaternion(worldQuaternion);
+    axis.applyQuaternion(worldQuaternion).normalize();
+
+    const began = interactionController.beginJointDrag(
+      {
+        jointIndex,
+        jointName: selection.jointName,
+        center,
+        axis,
+        startValueDeg: sim.getSnapshot().targetDeg[jointIndex] ?? 0,
+      },
+      event.ray,
+    );
+    if (!began) return;
+
+    useInteractionStore.setState({ activeJointName: selection.jointName });
+
+    const onMove = (pointerEvent: PointerEvent) => {
+      const rect = gl.domElement.getBoundingClientRect();
+      const ndc = new THREE.Vector2(
+        ((pointerEvent.clientX - rect.left) / rect.width) * 2 - 1,
+        -((pointerEvent.clientY - rect.top) / rect.height) * 2 + 1,
+      );
+      raycaster.setFromCamera(ndc, camera);
+      interactionController.updateDrag(raycaster.ray);
+    };
+
+    const finish = () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", finish);
+      window.removeEventListener("pointercancel", finish);
+      interactionController.endDrag();
+      useInteractionStore.setState({ activeJointName: null });
+    };
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", finish, { once: true });
+    window.addEventListener("pointercancel", finish, { once: true });
+  };
+
   // —— 层级构建（模型与资源就绪后静态展开；toggle 改变时重建） ——
   const visualsByLink = useMemo(() => {
     const map = new Map<string, LoadedVisual[]>();
@@ -325,17 +406,21 @@ export default function RobotView({
               }
               userData={isGhost ? { ghost: true } : { linkName }}
               raycast={isGhost ? (NO_RAYCAST as unknown as THREE.Object3D["raycast"]) : undefined}
-              onClick={
+              onPointerDown={
                 isGhost
                   ? undefined
-                  : (e) => {
-                      // 仅 SELECT 模式且近乎未拖动时视为拾取（避免旋转视角误选）
-                      if (interactionMode === "select" && e.delta < 6) {
-                        interactionController.pick(linkName);
-                      }
-                    }
+                  : (event) => beginDirectDrag(event, linkName)
               }
             />
+            {!isGhost && selectedLinkName === linkName && (
+              <mesh
+                geometry={entry.geometry}
+                material={SELECTED_MATERIAL}
+                scale={1.006}
+                raycast={NO_RAYCAST as unknown as THREE.Object3D["raycast"]}
+                renderOrder={2}
+              />
+            )}
           </group>
         ))}
         {childJoints.map((joint) => {

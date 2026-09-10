@@ -4,7 +4,7 @@
   flex-direction: column;
   width: 232px;
   padding: 18px 12px 12px;
-  background: rgba(13, 18, 21, 0.78);
+  background: rgba(251, 252, 253, 0.84);
   border-right: 1px solid var(--border-hairline);
   overflow: hidden;
   user-select: none;
@@ -23,7 +23,7 @@
   background: linear-gradient(
     180deg,
     transparent,
-    rgba(114, 170, 167, 0.35),
+    rgba(84, 127, 140, 0.25),
     transparent
   );
   opacity: 0.7;
@@ -156,8 +156,8 @@
 .sidebar__item.active {
   background: linear-gradient(
     90deg,
-    rgba(114, 170, 167, 0.14),
-    rgba(114, 170, 167, 0.04)
+    rgba(84, 127, 140, 0.11),
+    rgba(84, 127, 140, 0.035)
   );
   color: var(--text);
   font-weight: 600;
@@ -173,7 +173,7 @@
   width: 2px;
   border-radius: 0 1px 1px 0;
   background: var(--indigo);
-  box-shadow: 0 0 12px rgba(114, 170, 167, 0.35);
+  box-shadow: 0 0 12px rgba(84, 127, 140, 0.24);
 }
 
 .sidebar__icon {

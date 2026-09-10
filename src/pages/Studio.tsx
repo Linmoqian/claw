@@ -1,14 +1,22 @@
-/** 3D 仿真工作室：左控制台（状态 + 关节 + 动作）+ 右 3D 世界（数字孪生台）。 */
+/** 仿真与调参工作区：关节控制、数字孪生和 PID 响应模型处于同一上下文。 */
 import { useEffect, useRef, useState } from "react";
+import { Pause, Play, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
+import PidSlider from "../components/PidSlider";
 import SessionCard from "../components/SessionCard";
-import { CollisionSystem, describeCollision, isRejected } from "../robot/collision";
+import WaveCanvas from "../components/WaveCanvas";
+import {
+  CollisionSystem,
+  describeCollision,
+  isRejected,
+} from "../robot/collision";
 import { formatPose } from "../robot/kinematics";
 import { BaseSim } from "../robot/baseSim";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore, refreshReplayState } from "../stores/bridgeStore";
 import { downloadRecording, frameFromRobotState, parseRecording, RECORDING_VERSION } from "../services/protocol/recording";
+import { useDevice } from "../store/DeviceContext";
 import { useWorldStore } from "../stores/worldStore";
 import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../stores/interactionStore";
@@ -40,6 +48,7 @@ function recorderActive(): boolean {
 }
 
 export default function Studio() {
+  const [tuningOpen, setTuningOpen] = useState(false);
   const model = useReadyModel();
   const status = useRobotStore((s) => s.status);
   const loadError = useRobotStore((s) => s.error);
@@ -58,11 +67,9 @@ export default function Studio() {
   const play = useSimulationStore((s) => s.play);
   const stop = useSimulationStore((s) => s.stop);
 
-  const showJointAxes = useSceneStore((s) => s.showJointAxes);
   const showTcpAxes = useSceneStore((s) => s.showTcpAxes);
   const showTrail = useSceneStore((s) => s.showTrail);
   const materialStyle = useSceneStore((s) => s.materialStyle);
-  const toggleJointAxes = useSceneStore((s) => s.toggleJointAxes);
   const toggleTcpAxes = useSceneStore((s) => s.toggleTcpAxes);
   const toggleTrail = useSceneStore((s) => s.toggleTrail);
   const toggleMaterialStyle = useSceneStore((s) => s.setMaterialStyle);
@@ -133,6 +140,18 @@ export default function Studio() {
   const interactionMode = useInteractionStore((s) => s.mode);
   const selected = useInteractionStore((s) => s.selected);
   const setInteractionMode = useInteractionStore((s) => s.setMode);
+
+  const {
+    motors,
+    selectedId,
+    selectMotor,
+    running: responseRunning,
+    setRunning: setResponseRunning,
+    tuneByMotor,
+    dirtyByMotor,
+    updateTune,
+    saveTunePlan,
+  } = useDevice();
 
   // 首次进入自动加载内置 SO-100 模型
   useEffect(() => {
@@ -344,10 +363,21 @@ export default function Studio() {
     fn();
   };
 
+  // 3D 拾取与调参对象共用关节上下文；未拾取时沿用调参面板选择。
+  useEffect(() => {
+    const jointIndex = selected?.jointIndex;
+    if (jointIndex === null || jointIndex === undefined) return;
+    const motor = motors[jointIndex];
+    if (motor && motor.id !== selectedId) selectMotor(motor.id);
+  }, [motors, selectMotor, selected?.jointIndex, selectedId]);
+
   const ready = model !== null && simRef.current !== null;
   const tcpText = formatPose(snapshot.tcp);
   const validation = useTargetStore((s) => s.validation);
   const progressPct = Math.min(100, Math.max(0, snapshot.progress * 100));
+  const tuningMotor = motors.find((motor) => motor.id === selectedId) ?? motors[0];
+  const selectedTune = tuneByMotor[tuningMotor.id];
+  const tuningDirty = dirtyByMotor[tuningMotor.id];
 
   return (
     <div className="studio">
@@ -690,7 +720,10 @@ export default function Studio() {
       </aside>
 
       {/* 右：3D 世界 */}
-      <section className="studio__stage">
+      <section
+        className="studio__stage"
+        onContextMenu={(event) => event.preventDefault()}
+      >
         {ready ? (
           <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} />
         ) : (          <div className="studio__fallback">
@@ -721,16 +754,7 @@ export default function Studio() {
             aria-pressed={interactionMode === "select"}
           >
             <i aria-hidden="true">↖</i>
-            选择
-          </button>
-          <button
-            type="button"
-            className={interactionMode === "joint" ? "is-on" : ""}
-            onClick={() => setInteractionMode("joint")}
-            aria-pressed={interactionMode === "joint"}
-          >
-            <i aria-hidden="true">⟳</i>
-            关节
+            部件直调
           </button>
           <button
             type="button"
@@ -846,14 +870,6 @@ export default function Studio() {
         <div className="studio__scene-tools">
           <button
             type="button"
-            className={showJointAxes ? "is-on" : ""}
-            onClick={toggleJointAxes}
-            aria-pressed={showJointAxes}
-          >
-            关节轴
-          </button>
-          <button
-            type="button"
             className={showTcpAxes ? "is-on" : ""}
             onClick={toggleTcpAxes}
             aria-pressed={showTcpAxes}
@@ -878,13 +894,21 @@ export default function Studio() {
           >
             {materialStyle === "chalk" ? "浅灰涂装" : "URDF 配色"}
           </button>
+          <button
+            type="button"
+            className="studio__tune-toggle"
+            onClick={() => setTuningOpen(true)}
+          >
+            <SlidersHorizontal size={13} />
+            调参
+          </button>
         </div>
 
         <div className="studio__hint">
           {interactionMode === "select"
-            ? "左键拾取部件 · 拖拽旋转视角 · 滚轮缩放 · 右键平移 · F 聚焦 · R 复位"
+            ? "单击部件高亮 · 再拖拽高亮部件调整关节 · 空白处拖拽旋转视角 · 滚轮缩放"
             : interactionMode === "joint"
-              ? "拖拽关节环设定目标角 · 滚轮缩放 · 松开即生效"
+              ? "拖拽高亮部件调整关节 · 滚轮缩放 · 松开即生效"
               : interactionMode === "tcp"
                 ? "拖拽彩轴平移末端 · 拖彩环转向 · IK 实时解算 · Ghost 预览目标 · 松开生效"
                 : "拖拽底盘在地面上移动 · 松开后底盘限速跟随 · 路径播放时自动转向切线"}
@@ -898,6 +922,113 @@ export default function Studio() {
           <SessionCard />
         </div>
       </section>
+
+      <aside
+        className={`studio__tuning ${tuningOpen ? "is-open" : ""}`}
+        aria-label="PID 调参检查器"
+      >
+        <header className="studio__tuning-head">
+          <div>
+            <span className="studio__tuning-eyebrow">响应模型</span>
+            <h2>PID 调参</h2>
+          </div>
+          <button
+            type="button"
+            className="studio__tuning-close"
+            onClick={() => setTuningOpen(false)}
+            aria-label="关闭调参检查器"
+          >
+            <X size={15} />
+          </button>
+        </header>
+
+        <div className="studio__tuning-source">
+          <span>当前对象</span>
+          <strong>{tuningMotor.code} · {tuningMotor.name}</strong>
+          <i>SIM</i>
+        </div>
+
+        <div className="studio__tuning-joints" role="tablist" aria-label="调参关节">
+          {motors.map((motor) => (
+            <button
+              key={motor.id}
+              type="button"
+              role="tab"
+              className={motor.id === tuningMotor.id ? "is-on" : ""}
+              aria-selected={motor.id === tuningMotor.id}
+              onClick={() => selectMotor(motor.id)}
+            >
+              {motor.code}
+            </button>
+          ))}
+        </div>
+
+        <section className="studio__response" aria-label="PID 响应仿真曲线">
+          <div className="studio__response-head">
+            <span>阶跃响应</span>
+            <span><i className="is-sp" />目标 SP</span>
+            <span><i className="is-pv" />仿真 PV</span>
+          </div>
+          <WaveCanvas
+            motor={tuningMotor}
+            tune={selectedTune}
+            running={responseRunning}
+          />
+        </section>
+
+        <p className="studio__tuning-note">
+          参数仅作用于响应模型；通过仿真验证后，再由机器人适配器决定是否允许下发实机。
+        </p>
+
+        <div className="studio__tuning-params">
+          <PidSlider
+            label="比例"
+            symbol="P"
+            value={selectedTune.kp}
+            min={0}
+            max={50}
+            step={0.1}
+            onChange={(value) => updateTune(tuningMotor.id, { kp: value })}
+          />
+          <PidSlider
+            label="积分"
+            symbol="I"
+            value={selectedTune.ki}
+            min={0}
+            max={5}
+            step={0.01}
+            onChange={(value) => updateTune(tuningMotor.id, { ki: value })}
+          />
+          <PidSlider
+            label="微分"
+            symbol="D"
+            value={selectedTune.kd}
+            min={0}
+            max={10}
+            step={0.05}
+            onChange={(value) => updateTune(tuningMotor.id, { kd: value })}
+          />
+        </div>
+
+        <footer className="studio__tuning-actions">
+          <button
+            type="button"
+            className={`studio__tuning-run ${responseRunning ? "is-running" : ""}`}
+            onClick={() => setResponseRunning(!responseRunning)}
+          >
+            {responseRunning ? <Pause size={14} /> : <Play size={14} />}
+            {responseRunning ? "暂停响应" : "运行响应"}
+          </button>
+          <button
+            type="button"
+            className={`studio__tuning-save ${tuningDirty ? "is-dirty" : ""}`}
+            onClick={() => saveTunePlan(tuningMotor.id)}
+          >
+            <Save size={14} />
+            {tuningDirty ? "保存草案" : "已保存"}
+          </button>
+        </footer>
+      </aside>
     </div>
   );
 }

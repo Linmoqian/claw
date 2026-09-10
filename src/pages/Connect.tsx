@@ -28,7 +28,7 @@ export default function Connect() {
         <div className="connect__hero-copy">
           <span className="connect__eyebrow">
             <Sparkles size={13} />
-            SO-100 MOTOR ATELIER
+            虾烤工作台 · ROBOT ADAPTER
           </span>
           <h1>
             让每一次运动，
@@ -36,8 +36,8 @@ export default function Connect() {
             都贴近你的意图。
           </h1>
           <p>
-            连接机械臂，从关节状态、运动控制到 PID 响应，
-            在同一张安静而精确的工作台上完成调试。
+            载入机器人模型与通信适配器，从数字孪生验证到实机调试，
+            在同一张安静而精确的工作台上完成闭环。
           </p>
           <div className="connect__steps" aria-label="调试流程">
             <span className={connected ? "is-done" : "is-current"}>
@@ -57,7 +57,7 @@ export default function Connect() {
             <i />
             <i />
           </span>
-          <small>5 AXIS + GRIP</small>
+          <small>SO-100 PROFILE · 6 ACTUATORS</small>
         </div>
       </header>
 
@@ -99,7 +99,7 @@ export default function Connect() {
                 <li className="port-list__empty">
                   <Search size={18} />
                   <span>尚未发现设备</span>
-                  <small>请连接 SO-100 控制器后开始扫描</small>
+                  <small>请连接已适配的机器人控制器后开始扫描</small>
                 </li>
               )}
               {ports.map((port) => (
@@ -142,7 +142,7 @@ export default function Connect() {
             </span>
             <div>
               <strong>设备链路稳定</strong>
-              <p>现在可以进入关节状态页检查读数，或前往调参工作区。</p>
+              <p>现在可以进入“仿真与调参”，对比数字孪生与实机反馈。</p>
             </div>
             <button
               type="button"

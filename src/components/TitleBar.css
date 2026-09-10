@@ -6,10 +6,11 @@
   justify-content: space-between;
   height: 42px;
   width: 100%;
-  background: rgba(10, 14, 17, 0.86);
+  background: rgba(251, 252, 253, 0.9);
   color: var(--text);
   border-bottom: 1px solid var(--border-hairline);
   backdrop-filter: blur(18px);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
   user-select: none;
   -webkit-app-region: drag;
 }

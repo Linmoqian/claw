@@ -116,7 +116,7 @@ export class SimulationLoop {
     this.updateTcp();
   }
 
-  /** 用户拖动滑块/关节环：只写目标（现状经速率追赶，不瞬移）。
+  /** 用户拖动滑块/高亮部件：只写目标（现状经速率追赶，不瞬移）。
    * M3：目标/扫掠路径命中自碰撞或 stop 档时拒绝写入，返回命中状态（供徽标回灌） */
   setJointTarget(index: number, deg: number): CollisionStatus {
     const joint = this.model.active[index];

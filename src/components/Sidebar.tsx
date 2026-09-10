@@ -6,7 +6,6 @@ import {
   Cpu,
   ToggleRight,
   SlidersHorizontal,
-  Gauge,
   Activity,
   ShieldAlert,
   Info,
@@ -24,12 +23,11 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/studio", label: "3D 仿真", Icon: Box, group: "observe" },
+  { to: "/studio", label: "仿真与调参", Icon: Box, group: "observe" },
   { to: "/connect", label: "设备连接", Icon: Plug, group: "observe" },
   { to: "/monitor", label: "关节状态", Icon: Cpu, group: "observe" },
   { to: "/control", label: "基础控制", Icon: ToggleRight, group: "tune" },
   { to: "/mode", label: "控制模式", Icon: SlidersHorizontal, group: "tune" },
-  { to: "/pid", label: "PID 调参", Icon: Gauge, group: "tune" },
   { to: "/scope", label: "实时曲线", Icon: Activity, group: "tune" },
   { to: "/safety", label: "故障与安全", Icon: ShieldAlert, group: "system" },
   { to: "/about", label: "关于应用", Icon: Info, group: "system" },
@@ -37,11 +35,11 @@ const NAV_ITEMS: NavItem[] = [
 
 const GROUP_LABELS = {
   observe: "工作台",
-  tune: "运动与调参",
-  system: "系统",
+  tune: "运动控制",
+  system: "诊断与系统",
 };
 
-const STORAGE_KEY = "claw:sidebar:collapsed";
+const STORAGE_KEY = "xiakao:sidebar:collapsed";
 
 function readCollapsed(): boolean {
   try {
@@ -77,8 +75,8 @@ export default function Sidebar() {
           <i />
         </span>
         <span className="sidebar__brand-copy">
-          <strong>Claw</strong>
-          <small>Motor Atelier</small>
+          <strong>虾烤</strong>
+          <small>Robot Workbench</small>
         </span>
       </div>
       <nav className="sidebar__nav" aria-label="主导航">

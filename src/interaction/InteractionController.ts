@@ -19,6 +19,8 @@ interface ActiveDrag {
   jointIndex: number;
   jointName: string;
   frame: JointDragFrame;
+  /** 已累计的目标角，避免逐帧增量反复叠加到同一个起始值。 */
+  currentValueDeg: number;
   /** 上次指针在旋转平面上的落点（three 世界） */
   prevHit: Vector3;
 }
@@ -74,10 +76,6 @@ export class InteractionController {
     return this.mode;
   }
 
-  isDragging(): boolean {
-    return this.drag !== null;
-  }
-
   /** 拖拽中切换模式视为取消（不再发新意图） */
   setMode(mode: ToolMode): void {
     if (this.mode === mode) return;
@@ -114,14 +112,16 @@ export class InteractionController {
     this.onSelection?.(null);
   }
 
-  /* ================= JOINT 旋转环拖拽 ================= */
+  /* ================= 关节部件直接拖拽 ================= */
 
-  /** 开始拖拽（JOINT 模式）：初始射线须先命中旋转平面，否则拒绝 */
+  /** 开始拖拽：SELECT 直操或兼容 JOINT 模式，初始射线须命中旋转平面。 */
   beginJointDrag(
     args: JointDragFrame & { jointIndex: number; jointName: string },
     ray: Ray,
   ): boolean {
-    if (this.mode !== "joint" || this.drag) return false;
+    if ((this.mode !== "select" && this.mode !== "joint") || this.drag) {
+      return false;
+    }
     const hit = rayPlaneHit(ray, args.center, args.axis);
     if (!hit) return false;
     this.drag = {
@@ -132,6 +132,7 @@ export class InteractionController {
         axis: args.axis.clone(),
         startValueDeg: args.startValueDeg,
       },
+      currentValueDeg: args.startValueDeg,
       prevHit: hit,
     };
     this.onSession?.("begin");
@@ -151,13 +152,13 @@ export class InteractionController {
       hit,
     );
     drag.prevHit.copy(hit);
-    const valueDeg = drag.frame.startValueDeg + radiansToDegrees(deltaRad);
+    drag.currentValueDeg += radiansToDegrees(deltaRad);
     this.onIntent?.({
       kind: "joint-target",
       source: "mouse",
       jointIndex: drag.jointIndex,
       jointName: drag.jointName,
-      valueDeg,
+      valueDeg: drag.currentValueDeg,
     });
   }
 
