@@ -801,3 +801,94 @@
     -webkit-backdrop-filter: none;
   }
 }
+
+/* 数据链路卡扩展：连接行 / 录制组 / 回放控制 */
+.studio__replay-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.studio__link-chip.is-live {
+  background: rgba(220, 38, 38, 0.12);
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.studio__link-url {
+  width: 148px;
+  padding: 3px 8px;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 8px;
+  font-size: 12px;
+  color: #334155;
+  background: rgba(255, 255, 255, 0.7);
+}
+
+.studio__link-url:focus {
+  outline: 1.5px solid #3b82f6;
+  outline-offset: 0;
+}
+
+.studio__link-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #475569;
+  cursor: pointer;
+}
+
+.studio__link-check input {
+  accent-color: #dc2626;
+}
+
+.studio__link-btn.is-live {
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+}
+
+.studio__link-btn.is-rec {
+  background: rgba(220, 38, 38, 0.14);
+  color: #dc2626;
+  font-weight: 600;
+  animation: studio-rec-pulse 1.2s ease-in-out infinite;
+}
+
+.studio__live-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: rgba(220, 38, 38, 0.12);
+  color: #b91c1c;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.studio__replay-track {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio__replay-track input[type="range"] {
+  flex: 1;
+  accent-color: #0d9488;
+}
+
+.studio__replay-time {
+  font-size: 12px;
+  color: #475569;
+  white-space: nowrap;
+}
+
+@keyframes studio-rec-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.55; }
+}
+
+@media (prefers-reduced-motion) {
+  .studio__link-btn.is-rec {
+    animation: none;
+  }
+}

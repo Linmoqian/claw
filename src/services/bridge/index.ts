@@ -2,3 +2,4 @@
 export * from "./robotBridge";
 export * from "./simulationBridge";
 export * from "./websocketRobotBridge";
+export * from "./replayBridge";

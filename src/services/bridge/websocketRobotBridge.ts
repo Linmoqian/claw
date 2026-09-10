@@ -2,24 +2,30 @@
  * websocketRobotBridge —— TWIN/LIVE 模式的 RobotBridge 实现。
  * 内部持有 ConnectionManager（自动重连/心跳/速率/延迟）：
  * 收到 robot_state 消息 → parseMessage 校验 → 升维 RobotState → 订阅回调。
- * 控制方向：M4 之前保留 sendCommand 拒绝语义（TWIN 只读）。
- */
+ * 控制方向：TWIN（writable=false，默认）只读；LIVE（writable=true）
+ * 经 sendCommand 下发统一指令（经 M4 会话门禁后的目标）。 */
 import type { RobotState } from "../../core/world/state";
 import { ConnectionManager } from "../connection/connectionManager";
-import { parseMessage } from "../protocol/message";
+import { MSG_TYPES, PROTOCOL_VERSION, parseMessage, serializeMessage } from "../protocol/message";
 import type { RobotStateMessageData } from "../protocol/robot";
 import { robotStateFromMessage } from "../protocol/robot";
+import type { RobotCommand } from "../protocol/command";
 import { createWebSocketTransportFactory } from "../transport/websocket";
 import type { BridgeOptions, BridgeStatus, RobotBridge } from "./robotBridge";
 
 export class WebSocketRobotBridge implements RobotBridge {
   readonly kind = "websocket";
+  /** LIVE 标记（writable 构造参数；UI 判断能否下发控制用） */
+  readonly live: boolean;
   private readonly manager: ConnectionManager;
   private readonly robotListeners = new Set<
     (state: RobotState, timestampMs: number) => void
   >();
+  /** 控制指令序号（网关可回执对账） */
+  private seq = 0;
 
-  constructor(options: BridgeOptions) {
+  constructor(options: BridgeOptions & { writable?: boolean }) {
+    this.live = options.writable ?? false;
     this.manager = new ConnectionManager(
       createWebSocketTransportFactory(),
       options.url,
@@ -69,8 +75,19 @@ export class WebSocketRobotBridge implements RobotBridge {
     return () => this.robotListeners.delete(cb);
   }
 
-  /** TWIN 只读：控制指令在 M4（CommandArbiter + LIVE）才放行 */
-  async sendCommand(): Promise<void> {
-    throw new Error("TWIN 模式禁止下发控制指令（LIVE 阶段接入 CommandBus）");
+  /** TWIN 只读；LIVE 经统一信封下发控制指令 */
+  async sendCommand(command: RobotCommand): Promise<void> {
+    if (!this.live) {
+      throw new Error("TWIN 模式禁止下发控制指令（连接时勾选 LIVE）");
+    }
+    this.seq += 1;
+    this.manager.send(
+      serializeMessage({
+        version: PROTOCOL_VERSION,
+        type: MSG_TYPES.command,
+        timestamp: Date.now(),
+        data: { command, seq: this.seq },
+      }),
+    );
   }
 }

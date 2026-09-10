@@ -71,6 +71,13 @@ let sim: SimulationLoop | null = null;
 let baseSim: BaseSim | null = null;
 let dismissTimer: number | null = null;
 
+/** 目标提交钩子（LIVE 模式下同步下发真机；Studio 接线时注入） */
+let onTargetCommitted: ((qDeg: number[]) => void) | null = null;
+
+export function setTargetCommittedHook(fn: ((qDeg: number[]) => void) | null): void {
+  onTargetCommitted = fn;
+}
+
 function clearTimer(): void {
   if (dismissTimer !== null) {
     window.clearTimeout(dismissTimer);
@@ -221,6 +228,8 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
     }
     set({ session: { ...s, phase: "done" } });
     scheduleDismiss(set);
+    // LIVE 钩子：提交成功的目标同步下发真机（SIM/TWIN 为 no-op）
+    if (sim) onTargetCommitted?.(sim.getSnapshot().targetDeg);
   },
 
   cancel: (source) => {

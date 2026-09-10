@@ -7,11 +7,12 @@ import { CollisionSystem, describeCollision, isRejected } from "../robot/collisi
 import { formatPose } from "../robot/kinematics";
 import { BaseSim } from "../robot/baseSim";
 import { SimulationLoop } from "../robot/simulation";
-import { useBridgeStore } from "../stores/bridgeStore";
+import { useBridgeStore, refreshReplayState } from "../stores/bridgeStore";
+import { downloadRecording, frameFromRobotState, parseRecording, RECORDING_VERSION } from "../services/protocol/recording";
 import { useWorldStore } from "../stores/worldStore";
 import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../stores/interactionStore";
-import { useSessionStore, arbiter } from "../stores/sessionStore";
+import { useSessionStore, arbiter, setTargetCommittedHook } from "../stores/sessionStore";
 import { useTargetStore } from "../stores/targetStore";
 import { useReadyModel, useRobotStore } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
@@ -21,6 +22,22 @@ import "./Studio.css";
 
 /** 仿真速度档位 */
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2];
+
+/** 录制采样频率（Hz；与 worldStore 低频纪律一致） */
+const RECORD_HZ = 20;
+
+/** 录制控制器（非响应式：interval 拉取 worldStore + sim 关节） */
+interface RecorderState {
+  timer: number | null;
+  frames: import("../services/protocol/recording").RecFrame[];
+  t0: number;
+  jointsProvider: (() => Record<string, number>) | null;
+}
+const recorder: RecorderState = { timer: null, frames: [], t0: 0, jointsProvider: null };
+
+function recorderActive(): boolean {
+  return recorder.timer !== null;
+}
 
 export default function Studio() {
   const model = useReadyModel();
@@ -55,9 +72,52 @@ export default function Studio() {
   // 数据桥：SIM ↔ MOCK 真数据（TWIN 观察态），100ms 低频刷新健康快照
   const bridgeInfo = useBridgeStore((s) => s.info);
   const bridgeError = useBridgeStore((s) => s.lastError);
+  const isLive = useBridgeStore((s) => s.isLive);
+  const replay = useBridgeStore((s) => s.replay);
   const refreshBridge = useBridgeStore((s) => s.refresh);
   const connectMock = useBridgeStore((s) => s.connectMock);
+  const connectRemote = useBridgeStore((s) => s.connectRemote);
+  const enterReplay = useBridgeStore((s) => s.enterReplay);
+  const replayControl = useBridgeStore((s) => s.replayControl);
+  const exitReplay = useBridgeStore((s) => s.exitReplay);
   const backToSim = useBridgeStore((s) => s.backToSim);
+  const [liveUrl, setLiveUrl] = useState("");
+  const [liveChecked, setLiveChecked] = useState(false);
+  const [recordingSec, setRecordingSec] = useState<number | null>(null);
+  /** 已录完待用的帧序列（停止录制后写入；回放/导出用） */
+  const [recordedFrames, setRecordedFrames] = useState<import("../services/protocol/recording").RecFrame[] | null>(null);
+
+  /** 录制启停：interval 拉取 worldStore（底盘位姿）+ sim（关节角） → 帧 */
+  const toggleRecord = () => {
+    if (recorder.timer !== null) {
+      window.clearInterval(recorder.timer);
+      recorder.timer = null;
+      setRecordingSec(null);
+      setRecordedFrames(recorder.frames.length > 0 ? [...recorder.frames] : null);
+      return;
+    }
+    const simNow = simRef.current;
+    const modelNow = model;
+    recorder.frames = [];
+    recorder.t0 = performance.now();
+    recorder.timer = window.setInterval(() => {
+      const robot = useWorldStore.getState().world.robot;
+      if (!robot) return;
+      const t = (performance.now() - recorder.t0) / 1000;
+      // 关节优先取遥测（TWIN/LIVE），SIM 下用仿真现实角补齐
+      const joints: Record<string, number> =
+        Object.keys(robot.joints).length > 0
+          ? { ...robot.joints }
+          : Object.fromEntries(
+              (modelNow?.active ?? []).map((j, i) => [
+                j.code,
+                simNow?.currentDegrees[i] ?? 0,
+              ]),
+            );
+      recorder.frames.push(frameFromRobotState(t, robot, joints));
+      setRecordingSec(t);
+    }, 1000 / RECORD_HZ);
+  };
 
   // M5 工作区与底座
   const workspace = useWorkspaceStore((s) => s.workspace);
@@ -111,6 +171,8 @@ export default function Studio() {
       (window as unknown as Record<string, unknown>).__baseSim = baseSim;
       (window as unknown as Record<string, unknown>).__worldStore =
         useWorldStore;
+      (window as unknown as Record<string, unknown>).__bridgeStore =
+        useBridgeStore;
     }
     bind(sim);
     // M4 会话层：仿真预览通道接入（滑块/拖拽的 Preview→Commit）
@@ -182,14 +244,58 @@ export default function Studio() {
     return () => window.clearInterval(id);
   }, [syncTick]);
 
-  // TWIN 真数据模式：停用底盘仿真写出（遥测独占 worldStore），SIM 恢复
+  // TWIN 禁用底盘写出 + 回放进度刷新（复用同一 100ms 节拍）
   useEffect(() => {
-    if (baseSimRef.current) {
-      baseSimRef.current.enabled = bridgeInfo.kind === "simulation";
-    }
-  }, [bridgeInfo.kind]);
+    const id = window.setInterval(() => {
+      if (baseSimRef.current) {
+        baseSimRef.current.enabled = useBridgeStore.getState().info.kind === "simulation";
+      }
+      refreshReplayState();
+    }, 100);
+    return () => window.clearInterval(id);
+  }, []);
 
-  // 底座路径播放状态同步（30Hz 快照自 baseSim 轮询太重，播放按钮状态低频足够）
+  // TWIN/LIVE/回放：遥测关节角 → 仿真现实侧直写（观察态，臂跟真机/录像）
+  useEffect(() => {
+    if (!model) return;
+    const byName = new Map<string, number>();
+    const byCode = new Map<string, number>();
+    model.active.forEach((j, i) => {
+      byName.set(j.def.name, i);
+      byCode.set(j.code, i);
+    });
+    const unsub = useWorldStore.subscribe((s) => {
+      const sim = simRef.current;
+      const joints = s.world.robot?.joints;
+      if (!sim || !joints) return;
+      // SIM 桥不驱动臂（仿真自走；worldStore.joints 可能残留旧遥测）
+      if (useBridgeStore.getState().bridge.kind === "simulation") return;
+      const q = model.active.map(() => 0);
+      let hit = 0;
+      for (const [k, v] of Object.entries(joints)) {
+        const i = byName.get(k) ?? byCode.get(k);
+        if (i !== undefined && Number.isFinite(v)) {
+          q[i] = v;
+          hit++;
+        }
+      }
+      if (hit > 0) sim.applyTelemetry(q);
+    });
+    return unsub;
+  }, [model]);
+
+  // LIVE 钩子：会话提交的关节目标同步下发真机（SIM/TWIN 不生效）
+  useEffect(() => {
+    setTargetCommittedHook((qDeg) => {
+      const bs = useBridgeStore.getState();
+      if (!bs.isLive) return;
+      bs.sendCommand({ kind: "joint_target", qDeg })
+        .catch((e) => useBridgeStore.setState({ lastError: String(e) }));
+    });
+    return () => setTargetCommittedHook(null);
+  }, []);
+
+  // 底座路径播放状态同步（200ms 低频轮询，避免高频 setState）
   useEffect(() => {
     const id = window.setInterval(() => {
       setBasePlaying(baseSimRef.current?.isPlaying ?? false);
@@ -271,29 +377,163 @@ export default function Studio() {
           </div>
         </header>
 
-        {/* 数据链路卡：SIM ↔ MOCK 真数据（TWIN 观察态） */}
+        {/* 数据链路卡：SIM / TWIN / LIVE / 回放 四态 + 录制组 */}
         <div className="studio__link">
           <div className="studio__link-row">
             <span className="studio__link-label">数据链路</span>
-            <span className={`studio__link-chip is-${bridgeInfo.status}`}>
-              {bridgeInfo.kind === "simulation"
-                ? "SIM"
-                : bridgeInfo.status === "connected"
-                  ? "LINK ✓"
-                  : bridgeInfo.status === "connecting"
-                    ? "重连中…"
-                    : "已断开"}
+            <span
+              className={`studio__link-chip is-${replay ? "connected" : bridgeInfo.status}${isLive ? " is-live" : ""}`}
+            >
+              {replay
+                ? "回放"
+                : bridgeInfo.kind === "simulation"
+                  ? "SIM"
+                  : bridgeInfo.status === "connected"
+                    ? isLive
+                      ? "LIVE ✓"
+                      : "LINK ✓"
+                    : bridgeInfo.status === "connecting"
+                      ? "重连中…"
+                      : "已断开"}
             </span>
           </div>
-          {bridgeInfo.kind === "simulation" ? (
-            <button
-              type="button"
-              className="studio__link-btn"
-              onClick={() => void connectMock()}
-            >
-              接入 MOCK 数据源
-            </button>
+
+          {/* —— 回放态：控制条 —— */}
+          {replay ? (
+            <>
+              <div className="studio__replay-track">
+                <input
+                  type="range"
+                  min={0}
+                  max={Math.max(replay.duration, 0.01)}
+                  step={0.05}
+                  value={replay.position}
+                  onChange={(e) => replayControl("seek", Number(e.target.value))}
+                  aria-label="回放进度"
+                />
+                <span className="studio__replay-time tnum">
+                  {replay.position.toFixed(1)}/{replay.duration.toFixed(1)}s
+                </span>
+              </div>
+              <div className="studio__replay-row">
+                <button
+                  type="button"
+                  className="studio__link-btn"
+                  onClick={() => replayControl(replay.playing ? "pause" : "play")}
+                >
+                  {replay.playing ? "⏸ 暂停" : "▶ 播放"}
+                </button>
+                {[0.5, 1, 2].map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    className={`studio__link-btn ${replay.rate === r ? "is-on" : ""}`}
+                    onClick={() => replayControl("rate", r)}
+                  >
+                    {r}×
+                  </button>
+                ))}
+                <button type="button" className="studio__link-btn" onClick={() => void exitReplay()}>
+                  退出回放
+                </button>
+              </div>
+            </>
+          ) : bridgeInfo.kind === "simulation" ? (
+            /* —— SIM 态：连接组 + 录制组 —— */
+            <>
+              <div className="studio__replay-row">
+                <button type="button" className="studio__link-btn" onClick={() => void connectMock()}>
+                  接入 MOCK
+                </button>
+                <input
+                  className="studio__link-url"
+                  type="text"
+                  placeholder="ws://真机地址:端口"
+                  value={liveUrl}
+                  onChange={(e) => setLiveUrl(e.target.value)}
+                />
+                <label className="studio__link-check">
+                  <input
+                    type="checkbox"
+                    checked={liveChecked}
+                    onChange={(e) => setLiveChecked(e.target.checked)}
+                  />
+                  LIVE
+                </label>
+                <button
+                  type="button"
+                  className={`studio__link-btn ${liveChecked ? "is-live" : ""}`}
+                  disabled={!liveUrl.trim().startsWith("ws")}
+                  onClick={() => void connectRemote(liveUrl.trim(), liveChecked)}
+                >
+                  连接
+                </button>
+              </div>
+              <div className="studio__replay-row">
+                <button
+                  type="button"
+                  className={`studio__link-btn ${recordingSec !== null ? "is-rec" : ""}`}
+                  onClick={toggleRecord}
+                >
+                  {recordingSec !== null
+                    ? `■ 停止 ${recordingSec.toFixed(0)}s`
+                    : "● 录制"}
+                </button>
+                {recordedFrames && !recorderActive() && (
+                  <>
+                    <button
+                      type="button"
+                      className="studio__link-btn"
+                      onClick={() => void enterReplay(recordedFrames)}
+                    >
+                      ▶ 回放
+                    </button>
+                    <button
+                      type="button"
+                      className="studio__link-btn"
+                      onClick={() =>
+                        downloadRecording(
+                          {
+                            version: RECORDING_VERSION,
+                            kind: "claw-recording",
+                            fps: RECORD_HZ,
+                            recordedAt: Date.now(),
+                            frames: recordedFrames,
+                          },
+                          `claw-rec-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
+                        )
+                      }
+                    >
+                      导出
+                    </button>
+                  </>
+                )}
+                <label className="studio__link-btn">
+                  导入回放
+                  <input
+                    type="file"
+                    accept=".json"
+                    hidden
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      try {
+                        const rec = parseRecording(await file.text());
+                        if (recorderActive()) toggleRecord();
+                        await enterReplay(rec.frames);
+                      } catch (err) {
+                        useBridgeStore.setState({
+                          lastError: `导入失败：${err instanceof Error ? err.message : String(err)}`,
+                        });
+                      }
+                    }}
+                  />
+                </label>
+              </div>
+            </>
           ) : (
+            /* —— TWIN/LIVE 态 —— */
             <>
               <div className="studio__link-meta tnum">
                 <span>
@@ -306,6 +546,7 @@ export default function Studio() {
                     ? `${bridgeInfo.latencyMs} ms`
                     : "—ms"}
                 </span>
+                {isLive && <span className="studio__live-badge">可下发</span>}
               </div>
               <button
                 type="button"

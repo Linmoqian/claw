@@ -227,6 +227,7 @@ export class SimulationLoop {
   goHome(): void {
     this.mode = "homing";
     this.targetDeg = this.model.active.map(() => 0);
+    this.previewDeg = null;
     this.clearTcpTarget();
   }
 
@@ -234,6 +235,7 @@ export class SimulationLoop {
   play(): void {
     this.trajTime = 0;
     this.mode = "play";
+    this.previewDeg = null;
     this.clearTcpTarget();
   }
 
@@ -241,7 +243,21 @@ export class SimulationLoop {
   stop(): void {
     this.mode = "manual";
     this.targetDeg = [...this.currentDeg];
+    this.previewDeg = null;
     this.clearTcpTarget();
+  }
+
+  /** 遥测直写（TWIN/LIVE/回放观察态）：现实即遥测，目标跟随现实
+   * （仿真不自走；用户目标在 LIVE 下经 sendCommand 下发真机，遥测回显） */
+  applyTelemetry(qDeg: number[]): void {
+    const n = Math.min(qDeg.length, this.currentDeg.length);
+    for (let i = 0; i < n; i++) {
+      this.currentDeg[i] = clampDeg(qDeg[i] ?? 0, this.model.active[i]);
+      this.targetDeg[i] = this.currentDeg[i];
+    }
+    this.mode = "manual";
+    this.previewDeg = null;
+    this.updateTcp();
   }
 
   /** 当前仿真模式 */
