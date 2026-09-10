@@ -1,6 +1,6 @@
 /** 3D 舞台：Canvas + 环境光 + 网格地面 + OrbitControls + 机器人视图。 */
 import { useEffect, useRef } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useFrame } from "@react-three/fiber";
 import { Grid, OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
@@ -35,6 +35,11 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
   const loads = useRobotStore((s) => s.loads);
   // 交互模式：SELECT 才允许拖转/平移视角，其余模式保留滚轮缩放
   const interactionMode = useInteractionStore((s) => s.mode);
+
+  // 仿真驱动：渲染循环即仿真循环（step 内含碰撞评估→档位限速）
+  useFrame((_, delta) => {
+    sim.step(delta);
+  });
 
   // 记录初始视角（相机位置 + 目标点），供"重置视角"恢复
   useEffect(() => {

@@ -63,6 +63,9 @@ const GHOST_MATERIAL = new THREE.MeshStandardMaterial({
   depthWrite: false,
 });
 
+/** 首帧 effect 未就绪时的轴向量回退（X 轴） */
+const FALLBACK_AXIS = new THREE.Vector3(1, 0, 0);
+
 /** 末端轨迹线（play 模式采样，世界坐标手算转发避免 alloc） */
 function TcpTrail({ sim }: { sim: SimulationLoop }) {
   const showTrail = useSceneStore((s) => s.showTrail);
@@ -256,12 +259,13 @@ export default function RobotView({
     const q = isGhost ? sim.targetDegrees : sim.currentDegrees;
     for (let i = 0; i < active.length; i++) {
       const group = axisGroups.current[i];
-      if (!group) continue;
-      tmpQuats.current[i].setFromAxisAngle(
-        axisVectors.current[i],
+      const tmpQuat = tmpQuats.current[i];
+      if (!group || !tmpQuat) continue;
+      tmpQuat.setFromAxisAngle(
+        axisVectors.current[i] ?? FALLBACK_AXIS,
         THREE.MathUtils.degToRad(q[i]),
       );
-      group.quaternion.copy(tmpQuats.current[i]);
+      group.quaternion.copy(tmpQuat);
     }
   });
 
