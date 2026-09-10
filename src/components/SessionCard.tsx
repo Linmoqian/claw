@@ -17,13 +17,15 @@ export default function SessionCard() {
   if (!session) return null;
 
   const { phase, source, summary, reason } = session;
-  // 摘要文本：J3 → -45.0° / TCP (0.12, 0.00, 0.18)
+  // 摘要文本：J3 → -45.0° / TCP (0.12, 0.00, 0.18) / 底盘 (0.35, -0.20)
   const summaryText =
     summary?.kind === "joint-target"
       ? `${summary.jointCode ?? "?"} → ${(summary.valueDeg ?? 0).toFixed(1)}°`
       : summary?.kind === "tcp-pose" && summary.position
         ? `TCP (${summary.position.x.toFixed(2)}, ${summary.position.y.toFixed(2)}, ${summary.position.z.toFixed(2)})`
-        : "…";
+        : summary?.kind === "base-pose" && summary.base
+          ? `底盘 (${summary.base.x.toFixed(2)}, ${summary.base.y.toFixed(2)})`
+          : "…";
 
   const phaseLabel =
     phase === "preview"

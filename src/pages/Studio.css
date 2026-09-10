@@ -722,3 +722,82 @@
   pointer-events: auto;
   max-width: 420px;
 }
+
+/* M5 工作区卡：悬浮 3D 左下（场景工具条下方） */
+.studio__workspace {
+  position: absolute;
+  left: 14px;
+  bottom: 118px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(18px) saturate(1.4);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.1),
+    inset 0 0 0 1px rgba(15, 23, 42, 0.06);
+  z-index: 5;
+}
+
+.studio__workspace-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.studio__workspace-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #1e293b;
+}
+
+.studio__workspace-src {
+  font-size: 12px;
+  color: #475569;
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.studio__workspace-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border: none;
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.06);
+  color: #334155;
+  font-size: 12px;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.studio__workspace-btn:hover {
+  background: rgba(15, 23, 42, 0.12);
+}
+
+.studio__workspace-btn.is-play {
+  background: rgba(13, 148, 136, 0.14);
+  color: #0f766e;
+  font-weight: 600;
+}
+
+.studio__workspace-error {
+  margin: 0;
+  font-size: 11px;
+  color: #dc2626;
+  max-width: 230px;
+}
+
+@media (prefers-reduced-transparency) {
+  .studio__workspace {
+    background: #ffffff;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+}

@@ -24,6 +24,8 @@ interactionController.onIntent = (intent: InputIntent) => {
     st.previewJoint("mouse", intent.jointIndex, intent.jointName, intent.valueDeg);
   } else if (intent.kind === "tcp-pose") {
     st.previewTcp("mouse", intent);
+  } else if (intent.kind === "base-pose") {
+    st.previewBase("mouse", intent.x, intent.y);
   }
 };
 

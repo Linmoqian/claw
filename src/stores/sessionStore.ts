@@ -12,20 +12,23 @@ import { Quaternion, Vector3 } from "three";
 import { CommandArbiter, labelOf, type SessionPhase } from "../command/arbiter";
 import type { ControlSource } from "../interaction/types";
 import { describeCollision } from "../robot/collision";
+import type { BaseSim } from "../robot/baseSim";
 import type { SimulationLoop } from "../robot/simulation";
 import { useTargetStore } from "./targetStore";
 
 /** 结束态会话卡的自动消失时长（ms） */
 const DISMISS_MS = 2600;
 
-/** 会话摘要：单关节目标或 TCP 位姿 */
+/** 会话摘要：单关节目标 / TCP 位姿 / 底盘目标 */
 export interface SessionSummary {
-  kind: "joint-target" | "tcp-pose";
+  kind: "joint-target" | "tcp-pose" | "base-pose";
   /** 关节级：J 代号与目标角 */
   jointCode?: string;
   valueDeg?: number;
   /** TCP 级：目标位置（m） */
   position?: { x: number; y: number; z: number };
+  /** 底盘级：目标平面坐标（m） */
+  base?: { x: number; y: number };
 }
 
 export interface CommandSession {
@@ -42,12 +45,15 @@ export interface CommandSession {
 interface SessionStoreState {
   session: CommandSession | null;
   /** 结束态卡的自动消失计时句柄 */
-  bindSim: (loop: SimulationLoop | null) => void;
+  /** 绑定仿真回路（关节/TCP 预览）与底盘仿真（base 预览） */
+  bindSim: (loop: SimulationLoop | null, base?: BaseSim | null) => void;
   /** 开始用户会话：仲裁 → 开启预览；被拒时入 blocked 卡（短暂） */
   begin: (source: ControlSource) => boolean;
   /** 预览帧（滑块 input / 拖拽 move）：写 sim 预览通道；拒绝状态回填 reason */
   previewJoint: (source: ControlSource, jointIndex: number, jointCode: string, deg: number) => void;
   previewTcp: (source: ControlSource, pose: { position: { x: number; y: number; z: number }; quaternion: { x: number; y: number; z: number; w: number } }) => void;
+  /** 底盘拖拽预览（world 平面 xy；底盘无碰撞门禁，预览总有效） */
+  previewBase: (source: ControlSource, x: number, y: number) => void;
   /** 提交（松开/change/确认）：sim.commitPreview；拒绝则保留预览并置 rejected */
   commit: (source: ControlSource) => void;
   /** 取消（ESC/切模式）：清预览，静默收场 */
@@ -62,6 +68,7 @@ interface SessionStoreState {
 export const arbiter = new CommandArbiter();
 
 let sim: SimulationLoop | null = null;
+let baseSim: BaseSim | null = null;
 let dismissTimer: number | null = null;
 
 function clearTimer(): void {
@@ -83,8 +90,9 @@ function scheduleDismiss(set: (partial: Partial<SessionStoreState>) => void): vo
 export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   session: null,
 
-  bindSim: (loop) => {
+  bindSim: (loop, base) => {
     sim = loop;
+    baseSim = base ?? null;
     if (!loop) {
       arbiter.systemCommand();
       clearTimer();
@@ -157,10 +165,31 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
     });
   },
 
+  previewBase: (source, x, y) => {
+    if (arbiter.check(source).allowed === false) return;
+    const s = get().session;
+    if (!baseSim || !s || s.phase !== "preview") return;
+    baseSim.setPreviewBase(x, y);
+    set({
+      session: {
+        ...s,
+        summary: { kind: "base-pose", base: { x, y } },
+      },
+    });
+  },
+
   commit: (source) => {
     const s = get().session;
     if (!s || s.source !== source) return;
     if (s.phase !== "preview") return;
+    // 底盘会话：无碰撞门禁，预览即提交
+    if (s.summary?.kind === "base-pose") {
+      baseSim?.commitPreview();
+      arbiter.release(source);
+      set({ session: { ...s, phase: "done" } });
+      scheduleDismiss(set);
+      return;
+    }
     // 预览从未成功（全程被拒）：目标不生效，直接拒绝收场
     if (s.previewRejected) {
       sim?.clearPreview();
@@ -198,6 +227,7 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
     const s = get().session;
     if (!s || s.source !== source) return;
     sim?.clearPreview();
+    baseSim?.clearPreview();
     arbiter.release(source);
     set({ session: null });
   },

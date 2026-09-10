@@ -1,12 +1,15 @@
 /** 3D 仿真工作室：左控制台（状态 + 关节 + 动作）+ 右 3D 世界（数字孪生台）。 */
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
 import SessionCard from "../components/SessionCard";
 import { CollisionSystem, describeCollision, isRejected } from "../robot/collision";
 import { formatPose } from "../robot/kinematics";
+import { BaseSim } from "../robot/baseSim";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore } from "../stores/bridgeStore";
+import { useWorldStore } from "../stores/worldStore";
+import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../stores/interactionStore";
 import { useSessionStore, arbiter } from "../stores/sessionStore";
 import { useTargetStore } from "../stores/targetStore";
@@ -27,6 +30,7 @@ export default function Studio() {
   const loadSo100 = useRobotStore((s) => s.loadSo100);
 
   const simRef = useRef<SimulationLoop | null>(null);
+  const baseSimRef = useRef<BaseSim | null>(null);
   const bind = useSimulationStore((s) => s.bind);
   const syncTick = useSimulationStore((s) => s.syncTick);
   const speed = useSimulationStore((s) => s.speed);
@@ -55,6 +59,16 @@ export default function Studio() {
   const connectMock = useBridgeStore((s) => s.connectMock);
   const backToSim = useBridgeStore((s) => s.backToSim);
 
+  // M5 工作区与底座
+  const workspace = useWorkspaceStore((s) => s.workspace);
+  const workspaceSource = useWorkspaceStore((s) => s.source);
+  const workspacePath = useWorkspaceStore((s) => s.path);
+  const loadDemo = useWorkspaceStore((s) => s.loadDemo);
+  const clearWorkspace = useWorkspaceStore((s) => s.clear);
+  const loadDxfText = useWorkspaceStore((s) => s.loadDxfText);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
+  const [basePlaying, setBasePlaying] = useState(false);
+
   // 交互系统：模式机 / 拾取 / 统一 Intent 发布（拖拽意图经 interactionStore 路由到会话层）
   const interactionMode = useInteractionStore((s) => s.mode);
   const selected = useInteractionStore((s) => s.selected);
@@ -77,6 +91,16 @@ export default function Studio() {
     const collision = CollisionSystem.create(model);
     const sim = new SimulationLoop(model, collision);
     simRef.current = sim;
+    // M5 底盘仿真：现实位姿写出 → worldStore（MobileBase/臂联动）
+    const baseSim = baseSimRef.current ?? new BaseSim();
+    baseSimRef.current = baseSim;
+    baseSim.onPose = (p) => {
+      useWorldStore.getState().updateRobotPose({
+        position: { x: p.x, y: p.y, z: 0 },
+        orientation: { x: 0, y: 0, z: Math.sin(p.yaw / 2), w: Math.cos(p.yaw / 2) },
+      });
+    };
+    baseSim.teleport({ x: 0, y: 0, yaw: 0 });
     sim.speed = useSimulationStore.getState().speed;
     // DEV 调试探针：控制台直戳仿真/碰撞实例（生产构建排除）
     if (import.meta.env.DEV) {
@@ -84,10 +108,13 @@ export default function Studio() {
       (window as unknown as Record<string, unknown>).__collision = collision;
       (window as unknown as Record<string, unknown>).__sessionStore =
         useSessionStore;
+      (window as unknown as Record<string, unknown>).__baseSim = baseSim;
+      (window as unknown as Record<string, unknown>).__worldStore =
+        useWorldStore;
     }
     bind(sim);
     // M4 会话层：仿真预览通道接入（滑块/拖拽的 Preview→Commit）
-    useSessionStore.getState().bindSim(sim);
+    useSessionStore.getState().bindSim(sim, baseSim);
     // 目标世界接线：限位来源 + 执行器（系统命令/轨迹直通，用户输入走会话层）
     useTargetStore.getState().bindModel(model);
     const unreg = useTargetStore.getState().registerExecutor((intent) => {
@@ -154,6 +181,21 @@ export default function Studio() {
     const id = window.setInterval(syncTick, 33);
     return () => window.clearInterval(id);
   }, [syncTick]);
+
+  // TWIN 真数据模式：停用底盘仿真写出（遥测独占 worldStore），SIM 恢复
+  useEffect(() => {
+    if (baseSimRef.current) {
+      baseSimRef.current.enabled = bridgeInfo.kind === "simulation";
+    }
+  }, [bridgeInfo.kind]);
+
+  // 底座路径播放状态同步（30Hz 快照自 baseSim 轮询太重，播放按钮状态低频足够）
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      setBasePlaying(baseSimRef.current?.isPlaying ?? false);
+    }, 200);
+    return () => window.clearInterval(id);
+  }, []);
 
   // 轨迹锁：播放期间仲裁器拒绝一切用户会话（先停止轨迹再手动）
   useEffect(() => {
@@ -409,7 +451,7 @@ export default function Studio() {
       {/* 右：3D 世界 */}
       <section className="studio__stage">
         {ready ? (
-          <RobotStage model={model} sim={simRef.current!} assetBase={assetBase} />
+          <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} />
         ) : (          <div className="studio__fallback">
             {status === "error" ? (
               <>
@@ -460,12 +502,72 @@ export default function Studio() {
           </button>
           <button
             type="button"
-            disabled
-            title="BASE 拖拽随 X-line 底盘与规划器接入"
+            className={interactionMode === "base" ? "is-on" : ""}
+            onClick={() => setInteractionMode("base")}
+            aria-pressed={interactionMode === "base"}
           >
             <i aria-hidden="true">⌖</i>
             底座
           </button>
+        </div>
+
+        {/* M5 工作区卡：DXF 加载 / 示例 / 路径播放（悬浮左下） */}
+        <div className="studio__workspace">
+          <div className="studio__workspace-row">
+            <span className="studio__workspace-label">工作区</span>
+            <span className="studio__workspace-src">
+              {workspace ? (workspaceSource ?? "已加载") : "未加载"}
+            </span>
+            <label className="studio__workspace-btn">
+              载入 DXF
+              <input
+                type="file"
+                accept=".dxf"
+                hidden
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) return;
+                  const text = await file.text();
+                  const r = loadDxfText(text, file.name);
+                  setWorkspaceError(r.ok ? null : (r.reason ?? "解析失败"));
+                }}
+              />
+            </label>
+            {!workspace ? (
+              <button type="button" className="studio__workspace-btn" onClick={loadDemo}>
+                内置示例
+              </button>
+            ) : (
+              <button type="button" className="studio__workspace-btn" onClick={clearWorkspace}>
+                清除
+              </button>
+            )}
+          </div>
+          {workspacePath.length > 0 && (
+            <div className="studio__workspace-row">
+              <span className="studio__workspace-label">底座路径</span>
+              <span className="studio__workspace-src tnum">
+                {workspacePath.length} 点
+              </span>
+              <button
+                type="button"
+                className={`studio__workspace-btn ${basePlaying ? "is-play" : ""}`}
+                onClick={() => {
+                  const b = baseSimRef.current;
+                  if (!b) return;
+                  useSessionStore.getState().systemCommand();
+                  if (b.isPlaying) b.stopPath();
+                  else b.playPath(workspacePath);
+                }}
+              >
+                {basePlaying ? "停止底座" : "播放路径"}
+              </button>
+            </div>
+          )}
+          {workspaceError && (
+            <p className="studio__workspace-error">{workspaceError}</p>
+          )}
         </div>
 
         {/* 链接状态 HUD（悬浮于 3D 左上） */}
@@ -542,7 +644,9 @@ export default function Studio() {
             ? "左键拾取部件 · 拖拽旋转视角 · 滚轮缩放 · 右键平移 · F 聚焦 · R 复位"
             : interactionMode === "joint"
               ? "拖拽关节环设定目标角 · 滚轮缩放 · 松开即生效"
-              : "拖拽彩轴平移末端 · 拖彩环转向 · IK 实时解算 · Ghost 预览目标 · 松开生效"}
+              : interactionMode === "tcp"
+                ? "拖拽彩轴平移末端 · 拖彩环转向 · IK 实时解算 · Ghost 预览目标 · 松开生效"
+                : "拖拽底盘在地面上移动 · 松开后底盘限速跟随 · 路径播放时自动转向切线"}
         </div>
         {validation.reason && (
           <div className="studio__vbadge">{validation.reason}</div>

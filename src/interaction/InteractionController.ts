@@ -35,6 +35,12 @@ interface TcpActiveDrag {
   prevHit: Vector3;
 }
 
+/** BASE 拖拽状态：地面平面（three y≈0）射线交点 → 底盘目标 XY */
+interface BaseActiveDrag {
+  /** 底盘当前中心（three 世界，拖拽命中半径判定用） */
+  center: Vector3;
+}
+
 /** TCP 拖拽活动轴广播（UI 徽标用） */
 export interface TcpDragState {
   kind: "translate" | "rotate";
@@ -47,6 +53,7 @@ export class InteractionController {
   private selected: SelectedEntity | null = null;
   private drag: ActiveDrag | null = null;
   private tcpDrag: TcpActiveDrag | null = null;
+  private baseDrag: BaseActiveDrag | null = null;
 
   /** 输入意图出口（wire 到 targetStore，见 interactionStore） */
   onIntent: ((intent: InputIntent) => void) | null = null;
@@ -76,6 +83,7 @@ export class InteractionController {
     if (this.mode === mode) return;
     if (this.drag) this.cancelDrag();
     if (this.tcpDrag) this.cancelTcpDrag();
+    if (this.baseDrag) this.cancelBaseDrag();
     this.mode = mode;
   }
 
@@ -255,6 +263,45 @@ export class InteractionController {
     this.cancelTcpDrag();
   }
 
+  /* ================= BASE 底盘拖拽（M5） ================= */
+
+  /** 开始底盘拖拽：射线与地面平面交点落在底盘命中半径内（three y=0） */
+  beginBaseDrag(ray: Ray, baseCenter: Vector3): boolean {
+    if (this.mode !== "base" || this.baseDrag) return false;
+    const hit = rayPlaneHit(ray, baseCenter, UP_Y);
+    if (!hit) return false;
+    if (hit.distanceTo(baseCenter) > BASE_GRAB_RADIUS) return false;
+    this.baseDrag = { center: baseCenter.clone() };
+    this.onSession?.("begin");
+    return true;
+  }
+
+  /** 拖动更新：射线与地面交点 → BasePoseIntent（world 平面：y = -z_three） */
+  updateBaseDrag(ray: Ray): void {
+    if (!this.baseDrag) return;
+    const hit = rayPlaneHit(ray, this.baseDrag.center, UP_Y);
+    if (!hit) return;
+    this.onIntent?.({
+      kind: "base-pose",
+      source: "mouse",
+      x: hit.x,
+      y: -hit.z,
+      yaw: 0,
+    });
+  }
+
+  endBaseDrag(): void {
+    if (!this.baseDrag) return;
+    this.baseDrag = null;
+    this.onSession?.("commit");
+  }
+
+  cancelBaseDrag(): void {
+    if (!this.baseDrag) return;
+    this.baseDrag = null;
+    this.onSession?.("cancel");
+  }
+
   /** 位姿意图出口（统一形态，future LIVE 将路由到 Preview/Consensus） */
   private emitTcpPose(position: Vector3, quaternion: Quaternion): void {
     this.onIntent?.({
@@ -292,3 +339,8 @@ function closestPair(
   const pRay = ray.origin.clone().addScaledVector(v, tRay);
   return { tLine, dist: pLine.distanceTo(pRay) };
 }
+/** 地面法向（three Y-up） */
+const UP_Y = new Vector3(0, 1, 0);
+
+/** 底盘拖拽命中半径（m，含底盘外扩手柄余量） */
+const BASE_GRAB_RADIUS = 0.22;

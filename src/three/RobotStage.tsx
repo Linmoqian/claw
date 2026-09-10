@@ -6,14 +6,19 @@ import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import RobotView from "./RobotView";
 import MobileBase from "./MobileBase";
+import BaseGhost from "./BaseGhost";
+import BaseDragHandle from "./BaseDragHandle";
+import WorkspaceLayer from "./WorkspaceLayer";
 import InteractionGizmos from "../interaction/InteractionGizmos";
 import TcpGizmo from "../interaction/TcpGizmo";
 import { useInteractionStore } from "../stores/interactionStore";
 import type { SimulationLoop } from "../robot/simulation";
+import type { BaseSim } from "../robot/baseSim";
 import type { RobotModel } from "../robot/types";
 import { useRobotStore } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
 import { useWorldStore } from "../stores/worldStore";
+import { useWorkspaceStore } from "../cad/workspaceStore";
 
 /** 初始视角目标点（机器人基座附近，模型高度中段） */
 const INITIAL_TARGET = new THREE.Vector3(0, 0.22, 0);
@@ -24,10 +29,11 @@ const WORLD_AXES_POSITION: [number, number, number] = [0.52, 0.001, 0.42];
 interface StageContentProps {
   model: RobotModel;
   sim: SimulationLoop;
+  baseSim: BaseSim;
   assetBase: string;
 }
 
-function StageContent({ model, sim, assetBase }: StageContentProps) {
+function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const resetViewToken = useSceneStore((s) => s.resetViewToken);
   const focusToken = useSceneStore((s) => s.focusToken);
@@ -35,10 +41,13 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
   const loads = useRobotStore((s) => s.loads);
   // 交互模式：SELECT 才允许拖转/平移视角，其余模式保留滚轮缩放
   const interactionMode = useInteractionStore((s) => s.mode);
+  // M5 工作区（DXF 线层渲染源）
+  const workspace = useWorkspaceStore((s) => s.workspace);
 
   // 仿真驱动：渲染循环即仿真循环（step 内含碰撞评估→档位限速）
   useFrame((_, delta) => {
     sim.step(delta);
+    baseSim.step(delta);
   });
 
   // 记录初始视角（相机位置 + 目标点），供"重置视角"恢复
@@ -124,6 +133,12 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
         <InteractionGizmos model={model} sim={sim} />
         {interactionMode === "tcp" && <TcpGizmo model={model} sim={sim} />}
       </MobileBase>
+
+      {/* M5：DXF 工作区线层 + 底盘预览/目标标记 + BASE 拖拽手柄 */}
+      {workspace && <WorkspaceLayer workspace={workspace} />}
+      <BaseGhost baseSim={baseSim} />
+      <BaseDragHandle />
+
       <axesHelper position={WORLD_AXES_POSITION} args={[0.16]} />
 
       <OrbitControls
@@ -146,11 +161,12 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
 interface RobotStageProps {
   model: RobotModel;
   sim: SimulationLoop;
+  baseSim: BaseSim;
   assetBase: string;
 }
 
 /** 3D 画布容器（分帧不触发 React 重渲染，状态由 non-reactive JS 对象驱动） */
-export default function RobotStage({ model, sim, assetBase }: RobotStageProps) {
+export default function RobotStage({ model, sim, baseSim, assetBase }: RobotStageProps) {
   return (
     <Canvas
       shadows
@@ -158,7 +174,7 @@ export default function RobotStage({ model, sim, assetBase }: RobotStageProps) {
       camera={{ position: [0.88, 0.72, 0.95], fov: 42, near: 0.01, far: 60 }}
       gl={{ antialias: true }}
     >
-      <StageContent model={model} sim={sim} assetBase={assetBase} />
+      <StageContent model={model} sim={sim} baseSim={baseSim} assetBase={assetBase} />
     </Canvas>
   );
 }
