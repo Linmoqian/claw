@@ -1,4 +1,5 @@
-/** 关节控制卡片：代号/名称/当前角 + 限位滑块 + 目标角对照 + 拾取高亮。 */
+/** 关节控制卡片：代号/名称/当前角 + 限位滑块 + 目标角对照 + 拾取高亮。
+ * M4：滑块拖动 = 预览（input 逐帧 → Ghost），松开 = 提交（change → 现实追赶）。 */
 import type { CSSProperties } from "react";
 import type { ActiveJoint } from "../robot/types";
 import "./JointCard.css";
@@ -9,9 +10,14 @@ type Props = {
   valueDeg: number;
   /** 目标角（Intent 入闸后的下发值；拖动/回零时与当前值分岔） */
   targetDeg: number;
+  /** 预览角（M4 会话预览期；滑块位置优先跟随它） */
+  previewDeg: number | null;
   /** 3D 拾取联动高亮 */
   selected: boolean;
-  onChange: (panelIndex: number, deg: number) => void;
+  /** 预览帧（滑块 input：拖动中逐帧） */
+  onPreview: (panelIndex: number, deg: number) => void;
+  /** 提交（滑块 change：松开/键盘确认时） */
+  onCommit: (panelIndex: number, deg: number) => void;
 };
 
 /** 无 <limit> 的关节（continuous）滑块回退范围 */
@@ -22,16 +28,19 @@ export default function JointCard({
   panelIndex,
   valueDeg,
   targetDeg,
+  previewDeg,
   selected,
-  onChange,
+  onPreview,
+  onCommit,
 }: Props) {
   const hasLimits =
     Number.isFinite(joint.minDeg) && Number.isFinite(joint.maxDeg);
   const min = hasLimits ? joint.minDeg : -LIMITLESS_FALLBACK;
   const max = hasLimits ? joint.maxDeg : LIMITLESS_FALLBACK;
-  // 滑块位置跟随目标角（拖动滑块时即所得）
-  const slid = Math.min(100, Math.max(0, ((targetDeg - min) / (max - min)) * 100));
-  const hasGap = Math.abs(targetDeg - valueDeg) > 0.15;
+  // 滑块位置：预览期跟预览角（拖动即所得），否则跟目标角
+  const shown = previewDeg ?? targetDeg;
+  const slid = Math.min(100, Math.max(0, ((shown - min) / (max - min)) * 100));
+  const hasGap = Math.abs(shown - valueDeg) > 0.15;
 
   return (
     <div className={`joint-card${selected ? " is-selected" : ""}`}>
@@ -50,13 +59,16 @@ export default function JointCard({
         min={min}
         max={max}
         step={0.1}
-        value={targetDeg}
-        onChange={(e) => onChange(panelIndex, Number(e.target.value))}
+        value={shown}
+        onInput={(e) => onPreview(panelIndex, Number(e.currentTarget.value))}
+        onPointerUp={() => onCommit(panelIndex, shown)}
+        onKeyUp={() => onCommit(panelIndex, shown)}
         aria-label={`${joint.code} ${joint.name} 角度`}
       />
       {hasGap && (
         <div className="joint-card__target tnum">
-          → {targetDeg.toFixed(1)}°
+          → {shown.toFixed(1)}°
+          {previewDeg !== null && <i className="joint-card__pv">预览</i>}
         </div>
       )}
       <div className="joint-card__limits tnum">

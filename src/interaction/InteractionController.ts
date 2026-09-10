@@ -50,6 +50,8 @@ export class InteractionController {
 
   /** 输入意图出口（wire 到 targetStore，见 interactionStore） */
   onIntent: ((intent: InputIntent) => void) | null = null;
+  /** 拖拽会话生命周期出口（M4：begin=申请控制权 / commit=提交预览 / cancel=丢弃） */
+  onSession: ((phase: "begin" | "commit" | "cancel") => void) | null = null;
   /** 拾取出口 */
   onSelection: ((sel: SelectedEntity | null) => void) | null = null;
   /** TCP 拖拽活动轴出口（UI 徽标用） */
@@ -124,6 +126,7 @@ export class InteractionController {
       },
       prevHit: hit,
     };
+    this.onSession?.("begin");
     return true;
   }
 
@@ -150,14 +153,17 @@ export class InteractionController {
     });
   }
 
-  /** 释放：目标已随拖动逐帧生效，此处仅清态 */
+  /** 释放：目标已随拖动逐帧预览，此处提交（现实从松开点开始追赶） */
   endDrag(): void {
     this.drag = null;
+    this.onSession?.("commit");
   }
 
-  /** 取消：不清除已发布意图（M4 预览-提交后才引入撤销语义） */
+  /** 取消：丢弃预览（M4 起 ESC / 模式切换时目标回退） */
   cancelDrag(): void {
+    if (!this.drag) return;
     this.drag = null;
+    this.onSession?.("cancel");
   }
 
   /* ================= TCP 6DoF 拖拽 ================= */
@@ -230,13 +236,23 @@ export class InteractionController {
   }
 
   endTcpDrag(): void {
+    if (!this.tcpDrag) return;
     this.tcpDrag = null;
     this.onTcpDrag?.(null);
+    this.onSession?.("commit");
   }
 
   cancelTcpDrag(): void {
+    if (!this.tcpDrag) return;
     this.tcpDrag = null;
     this.onTcpDrag?.(null);
+    this.onSession?.("cancel");
+  }
+
+  /** 取消一切活动拖拽（ESC / 模型卸载；触发对应会话收场） */
+  cancelActiveDrag(): void {
+    this.cancelDrag();
+    this.cancelTcpDrag();
   }
 
   /** 位姿意图出口（统一形态，future LIVE 将路由到 Preview/Consensus） */

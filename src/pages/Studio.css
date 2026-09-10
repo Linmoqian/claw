@@ -707,3 +707,18 @@
     backdrop-filter: none;
   }
 }
+
+/* M4 会话卡容器：视口底部中央（hint 之上） */
+.studio__session {
+  position: absolute;
+  left: 50%;
+  bottom: 58px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  z-index: 6;
+}
+
+.studio__session .session-card {
+  pointer-events: auto;
+  max-width: 420px;
+}

@@ -119,3 +119,16 @@
   color: #3c7de0;
   letter-spacing: 0.03em;
 }
+
+/* M4 预览角标记：目标行内小标签 */
+.joint-card__pv {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 600;
+  line-height: 1.4;
+}

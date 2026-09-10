@@ -2,11 +2,13 @@
 import { useEffect, useRef } from "react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
+import SessionCard from "../components/SessionCard";
 import { CollisionSystem, describeCollision, isRejected } from "../robot/collision";
 import { formatPose } from "../robot/kinematics";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore } from "../stores/bridgeStore";
-import { useInteractionStore } from "../stores/interactionStore";
+import { useInteractionStore, interactionController } from "../stores/interactionStore";
+import { useSessionStore, arbiter } from "../stores/sessionStore";
 import { useTargetStore } from "../stores/targetStore";
 import { useReadyModel, useRobotStore } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
@@ -53,11 +55,10 @@ export default function Studio() {
   const connectMock = useBridgeStore((s) => s.connectMock);
   const backToSim = useBridgeStore((s) => s.backToSim);
 
-  // 交互系统：模式机 / 拾取 / 统一 Intent 发布
+  // 交互系统：模式机 / 拾取 / 统一 Intent 发布（拖拽意图经 interactionStore 路由到会话层）
   const interactionMode = useInteractionStore((s) => s.mode);
   const selected = useInteractionStore((s) => s.selected);
   const setInteractionMode = useInteractionStore((s) => s.setMode);
-  const publishIntent = useTargetStore((s) => s.publish);
 
   // 首次进入自动加载内置 SO-100 模型
   useEffect(() => {
@@ -81,9 +82,13 @@ export default function Studio() {
     if (import.meta.env.DEV) {
       (window as unknown as Record<string, unknown>).__sim = sim;
       (window as unknown as Record<string, unknown>).__collision = collision;
+      (window as unknown as Record<string, unknown>).__sessionStore =
+        useSessionStore;
     }
     bind(sim);
-    // 目标世界接线：限位来源 + 执行器（M4 起由 CommandArbiter 接管）
+    // M4 会话层：仿真预览通道接入（滑块/拖拽的 Preview→Commit）
+    useSessionStore.getState().bindSim(sim);
+    // 目标世界接线：限位来源 + 执行器（系统命令/轨迹直通，用户输入走会话层）
     useTargetStore.getState().bindModel(model);
     const unreg = useTargetStore.getState().registerExecutor((intent) => {
       const loop = simRef.current;
@@ -131,6 +136,7 @@ export default function Studio() {
     });
     return () => {
       unreg();
+      useSessionStore.getState().bindSim(null);
       useTargetStore.getState().bindModel(null);
       bind(null);
       simRef.current?.dispose();
@@ -149,6 +155,23 @@ export default function Studio() {
     return () => window.clearInterval(id);
   }, [syncTick]);
 
+  // 轨迹锁：播放期间仲裁器拒绝一切用户会话（先停止轨迹再手动）
+  useEffect(() => {
+    arbiter.setTrajectoryLock(mode === "play");
+  }, [mode]);
+
+  // ESC：取消活动拖拽/预览会话（M4；输入框聚焦时跳过）
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      interactionController.cancelActiveDrag();
+      const st = useSessionStore.getState();
+      const s = st.session;
+      if (s && s.phase === "preview") st.cancel(s.source);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   // 100ms 桥健康快照：状态/速率/延迟 UI 数字（遵守 10~20Hz 纪律）
   useEffect(() => {
     const id = window.setInterval(refreshBridge, 100);
@@ -166,6 +189,12 @@ export default function Studio() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [requestFocus, requestResetView]);
+
+  // 系统命令包装：先中止活动会话（仲裁器清场）再执行仿真动作
+  const runSystem = (fn: () => void) => () => {
+    useSessionStore.getState().systemCommand();
+    fn();
+  };
 
   const ready = model !== null && simRef.current !== null;
   const tcpText = formatPose(snapshot.tcp);
@@ -275,16 +304,21 @@ export default function Studio() {
               panelIndex={i}
               valueDeg={snapshot.currentDeg[i] ?? 0}
               targetDeg={snapshot.targetDeg[i] ?? 0}
+              previewDeg={snapshot.previewDeg?.[i] ?? null}
               selected={selected?.jointIndex === i}
-              onChange={(idx, deg) =>
-                publishIntent({
-                  kind: "joint-target",
-                  source: "slider",
-                  jointIndex: idx,
-                  jointName: model?.active[idx]?.def.name ?? "",
-                  valueDeg: deg,
-                })
-              }
+              onPreview={(idx, deg) => {
+                const st = useSessionStore.getState();
+                const active =
+                  st.session?.source === "slider" && st.session.phase === "preview";
+                if (!active && !st.begin("slider")) return;
+                st.previewJoint(
+                  "slider",
+                  idx,
+                  model?.active[idx]?.code ?? `J${idx + 1}`,
+                  deg,
+                );
+              }}
+              onCommit={() => useSessionStore.getState().commit("slider")}
             />
           ))}
         </div>
@@ -339,7 +373,7 @@ export default function Studio() {
           <button
             type="button"
             className="studio__btn studio__btn-danger"
-            onClick={stop}
+            onClick={runSystem(stop)}
           >
             <i aria-hidden="true">■</i>
             STOP
@@ -347,7 +381,7 @@ export default function Studio() {
           <button
             type="button"
             className={`studio__btn ${mode === "homing" ? "is-active" : ""}`}
-            onClick={goHome}
+            onClick={runSystem(goHome)}
           >
             回零位
           </button>
@@ -361,7 +395,7 @@ export default function Studio() {
           <button
             type="button"
             className={`studio__btn ${mode === "play" ? "is-play" : ""}`}
-            onClick={() => (mode === "play" ? stop() : play())}
+            onClick={runSystem(mode === "play" ? stop : play)}
             aria-pressed={mode === "play"}
           >
             {mode === "play" ? "停止轨迹" : "播放轨迹"}
@@ -513,6 +547,11 @@ export default function Studio() {
         {validation.reason && (
           <div className="studio__vbadge">{validation.reason}</div>
         )}
+
+        {/* M4 命令会话卡：预览/提交/被拒状态（底部中央，hint 之上） */}
+        <div className="studio__session">
+          <SessionCard />
+        </div>
       </section>
     </div>
   );

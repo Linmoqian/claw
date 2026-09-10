@@ -79,10 +79,11 @@ export default function TcpGizmo({ model, sim }: TcpGizmoProps) {
   const { raycaster, camera, gl } = useThree();
   const groupRef = useRef<THREE.Group>(null);
 
-  // 每帧 FK：现实末端位姿（URDF 坐标）→ Gizmo 基点
+  // 每帧 FK：操纵基点跟预览末端（拖拽跟手），无预览时跟现实末端（URDF 坐标）
   // 注意：只取位置；手柄/环保持在世界轴姿态（与拖拽增量计算的世界轴一致）
   useFrame(() => {
-    const poses = computeLinkPoses(model, [...sim.currentDegrees]);
+    const q = [...(sim.previewDegrees ?? sim.currentDegrees)];
+    const poses = computeLinkPoses(model, q);
     const tcp = computeTcpPose(model, poses);
     const g = groupRef.current;
     if (!g) return;
@@ -184,9 +185,10 @@ export default function TcpGizmo({ model, sim }: TcpGizmoProps) {
   );
 }
 
-/** 末端当前位姿（begin 时快照，避免闭包持有过期引用） */
+/** 末端操纵位姿（begin 时快照）：预览期跟预览构型，否则跟现实（拖拽跟手） */
 function currentTcpPose(model: RobotModel, sim: SimulationLoop) {
-  const poses = computeLinkPoses(model, [...sim.currentDegrees]);
+  const q = [...(sim.previewDegrees ?? sim.currentDegrees)];
+  const poses = computeLinkPoses(model, q);
   return computeTcpPose(model, poses);
 }
 

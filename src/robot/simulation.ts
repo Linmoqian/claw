@@ -27,6 +27,8 @@ export interface SimSnapshot {
   currentDeg: number[];
   /** 当前目标角（°，手动模式下与 current 分岔） */
   targetDeg: number[];
+  /** 预览角（°，M4 会话预览期 Ghost/滑块显示；无活动预览为 null） */
+  previewDeg: number[] | null;
   /** TCP 世界位置（URDF/ROS 坐标，米） */
   tcp: Pose;
   /** TCP 拖拽目标位姿（无 TCP 意图时为 null；Ghost/对照显示用） */
@@ -61,6 +63,8 @@ export class SimulationLoop {
   /** M3 碰撞查询器（null = 无碰撞系统，全部放行） */
   private collision: CollisionSystem | null;
   private lastCollision: CollisionStatus = COLLISION_CLEAR;
+  /** M4 预览角（null = 无活动预览会话；Ghost 优先读它） */
+  private previewDeg: number[] | null = null;
 
   constructor(model: RobotModel, collision: CollisionSystem | null = null) {
     this.model = model;
@@ -152,6 +156,49 @@ export class SimulationLoop {
     return null;
   }
 
+  /* ================= M4 预览通道（Preview→Commit 会话的 Ghost 侧） ================= */
+
+  /** 单关节预览：限位钳制 + 入闸校验，只写 previewDeg 不动 target；返回 null=可提交 */
+  previewJointTarget(index: number, deg: number): CollisionStatus | null {
+    const joint = this.model.active[index];
+    if (!joint) return null;
+    const candidate = [...(this.previewDeg ?? this.targetDeg)];
+    candidate[index] = clampDeg(deg, joint);
+    const rejected = this.checkCandidate(candidate);
+    if (rejected) return rejected;
+    this.previewDeg = candidate;
+    return null;
+  }
+
+  /** TCP 位姿预览：IK 解算入 previewDeg（不动 target）；返回结果（collision 字段 = 拒绝状态） */
+  previewTcpTarget(position: Vector3, quaternion: Quaternion): IkResult {
+    const result = solveIk(this.model, {
+      target: { position: position.clone(), quaternion: quaternion.clone() },
+      q0Deg: [...(this.previewDeg ?? this.currentDeg)],
+    });
+    const rejected = this.checkCandidate(result.qDeg);
+    if (!rejected) this.previewDeg = [...result.qDeg];
+    else result.collision = rejected;
+    return result;
+  }
+
+  /** 清除预览（会话取消/提交后） */
+  clearPreview(): void {
+    this.previewDeg = null;
+  }
+
+  /** 提交预览：previewDeg → target（逐关节链路复用入闸校验；成功后清预览）
+   * 返回 null = 已提交；CollisionStatus = 提交被拒（预览保留供用户调整） */
+  commitPreview(): CollisionStatus | null {
+    if (!this.previewDeg) return null;
+    const rejected = this.checkCandidate(this.previewDeg);
+    if (rejected) return rejected;
+    this.targetDeg = [...this.previewDeg];
+    this.mode = "manual";
+    this.previewDeg = null;
+    return null;
+  }
+
   /** TCP 位姿意图：DLS IK 解算 → 碰撞入闸 → 写关节目标；返回结果供校验徽标 */
   setTcpTargetPose(position: Vector3, quaternion: Quaternion): IkResult {
     const result = solveIk(this.model, {
@@ -212,9 +259,14 @@ export class SimulationLoop {
     return this.currentDeg;
   }
 
-  /** 渲染层逐帧读取目标角（Ghost 用，不创建新对象） */
+  /** 渲染层逐帧读取目标角（Ghost 用，不创建新对象；预览期返回预览角） */
   get targetDegrees(): readonly number[] {
-    return this.targetDeg;
+    return this.previewDeg ?? this.targetDeg;
+  }
+
+  /** 渲染层读取预览角（无活动预览为 null；TcpGizmo 拖拽基点用） */
+  get previewDegrees(): readonly number[] | null {
+    return this.previewDeg;
   }
 
   /** 释放碰撞系统资源（Studio 卸载时调用） */
@@ -231,6 +283,7 @@ export class SimulationLoop {
       speed: this.speed,
       currentDeg: [...this.currentDeg],
       targetDeg: [...this.targetDeg],
+      previewDeg: this.previewDeg ? [...this.previewDeg] : null,
       tcp: {
         position: this.tcp.position.clone(),
         quaternion: this.tcp.quaternion.clone(),
