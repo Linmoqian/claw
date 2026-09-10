@@ -4,6 +4,27 @@ import { createHash } from "node:crypto";
 
 const PORT = 15551;
 const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+const SI_UNITS = Object.freeze({
+  position: "m",
+  joint_position: "rad",
+  linear_velocity: "m/s",
+  angular_velocity: "rad/s",
+  time: "s",
+});
+let sequence = 0;
+
+function envelope(type, data, frameId) {
+  return {
+    protocol_version: 2,
+    units: SI_UNITS,
+    frame_id: frameId,
+    timestamp: Date.now() / 1000,
+    sequence: ++sequence,
+    type,
+    source: "robot_mock",
+    data,
+  };
+}
 
 const srv = createServer((req, res) => {
   res.writeHead(426).end("websocket only");
@@ -19,24 +40,24 @@ srv.on("upgrade", (req, socket) => {
   console.log("[mock-ws] client connected");
   let i = 0;
   const t = setInterval(() => {
-    const joints = {};
-    ["J1", "J2", "J3", "J4", "J5", "J6"].forEach((k, idx) => {
-      joints[k] = Math.sin((i / 20 + idx) * 0.7) * 40;
-    });
-    const msg = {
-      version: 1,
-      type: "robot_state",
-      timestamp: Date.now(),
-      data: {
-        pose: {
+    const positionRad = [0, 1, 2, 3, 4, 5].map((idx) =>
+      Math.sin((i / 20 + idx) * 0.7) * 0.7);
+    const robotState = envelope("robot_state", {
+      pose: {
+        position_m: {
           x: Math.cos(i / 80) * 0.3,
           y: Math.sin(i / 80) * 0.3,
-          yaw: i / 80 + Math.PI / 2,
+          z: 0,
         },
-        joints,
+        yaw_rad: i / 80 + Math.PI / 2,
       },
-    };
-    sendText(socket, JSON.stringify(msg));
+    }, "world");
+    const jointState = envelope("joint_state", {
+      names: ["J1", "J2", "J3", "J4", "J5", "J6"],
+      position_rad: positionRad,
+    }, "robot_base");
+    sendText(socket, JSON.stringify(robotState));
+    sendText(socket, JSON.stringify(jointState));
     i++;
   }, 50);
 

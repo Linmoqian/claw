@@ -13,6 +13,7 @@ import {
 } from "../robot/collision";
 import { formatPose } from "../robot/kinematics";
 import { BaseSim } from "../robot/baseSim";
+import { degreesToRadians, radiansToDegrees } from "../robot/model";
 import { SimulationLoop } from "../robot/simulation";
 import { useBridgeStore, refreshReplayState } from "../stores/bridgeStore";
 import { downloadRecording, frameFromRobotState, parseRecording, RECORDING_VERSION } from "../services/protocol/recording";
@@ -294,7 +295,7 @@ export default function Studio() {
       for (const [k, v] of Object.entries(joints)) {
         const i = byName.get(k) ?? byCode.get(k);
         if (i !== undefined && Number.isFinite(v)) {
-          q[i] = v;
+          q[i] = radiansToDegrees(v);
           hit++;
         }
       }
@@ -308,7 +309,10 @@ export default function Studio() {
     setTargetCommittedHook((qDeg) => {
       const bs = useBridgeStore.getState();
       if (!bs.isLive) return;
-      bs.sendCommand({ kind: "joint_target", qDeg })
+      bs.sendCommand({
+        kind: "joint_target",
+        position_rad: qDeg.map(degreesToRadians),
+      })
         .catch((e) => useBridgeStore.setState({ lastError: String(e) }));
     });
     return () => setTargetCommittedHook(null);

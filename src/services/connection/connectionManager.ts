@@ -4,6 +4,15 @@
  * 与协议类型解耦：只解析 ping/pong 做健康探测，业务消息原样上抛。
  */
 import type { ConnectionStatus } from "../../core/world/state";
+import {
+  MSG_TYPES,
+  makePing,
+  makePong,
+  parseMessage,
+  serializeMessage,
+  type MessageEnvelope,
+  type PongData,
+} from "../protocol/message";
 import type { Transport, TransportFactory } from "../transport/types";
 
 export interface ConnectionInfo {
@@ -69,6 +78,7 @@ export class ConnectionManager {
   private lastMessageAt: number | null = null;
   private lastError: string | null = null;
   private readonly messageTimes: number[] = [];
+  /** 最近一次 ping 的 Unix 秒时间戳。 */
   private pendingPingTs: number | null = null;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
@@ -242,10 +252,9 @@ export class ConnectionManager {
     if (interval <= 0) return;
     this.heartbeatTimer = setInterval(() => {
       if (this.status !== "connected") return;
-      this.pendingPingTs = Date.now();
-      this.transport?.send(
-        JSON.stringify({ version: 1, type: "ping", timestamp: this.pendingPingTs }),
-      );
+      const ping = makePing({ frameId: "system", source: "xiakao_workbench" });
+      this.pendingPingTs = ping.timestamp;
+      this.transport?.send(serializeMessage(ping));
     }, interval);
   }
 
@@ -266,22 +275,21 @@ export class ConnectionManager {
 
 /** 心跳句柄：返回 true 表示已消费（pong 或应答 ping），不外抛 */
   private handleProbe(text: string): boolean {
-    if (text.length > 256) return false; // 业务大消息直接外抛
+    if (text.length > 1024) return false; // 业务大消息直接外抛
     const obj = this.tryParseProbe(text);
     if (obj === null) return false;
-    if (obj.type === "pong") {
-      if (
-        this.pendingPingTs !== null &&
-        typeof obj.timestamp === "number"
-      ) {
-        this.latencyMs = Date.now() - obj.timestamp;
+    if (obj.type === MSG_TYPES.pong) {
+      const data = obj.data as Partial<PongData>;
+      if (this.pendingPingTs !== null && data.ping_timestamp === this.pendingPingTs) {
+        this.latencyMs = Math.max(0, Date.now() - data.ping_timestamp * 1000);
       }
       return true;
     }
-    if (obj.type === "ping") {
-      this.transport?.send(
-        JSON.stringify({ version: 1, type: "pong", timestamp: obj.timestamp ?? Date.now() }),
-      );
+    if (obj.type === MSG_TYPES.ping) {
+      this.transport?.send(serializeMessage(makePong(obj.timestamp, {
+        frameId: "system",
+        source: "xiakao_workbench",
+      })));
       return true;
     }
     return false;
@@ -289,11 +297,9 @@ export class ConnectionManager {
 
   private tryParseProbe(
     text: string,
-  ): { type?: unknown; timestamp?: unknown } | null {
+  ): MessageEnvelope | null {
     try {
-      const parsed = JSON.parse(text) as unknown;
-      if (parsed === null || typeof parsed !== "object") return null;
-      return parsed as { type?: unknown; timestamp?: unknown };
+      return parseMessage(text);
     } catch {
       return null;
     }

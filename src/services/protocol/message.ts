@@ -1,10 +1,22 @@
 /**
- * protocol/message —— 统一消息包（envelope）与编解码。
- * 所有 WebSocket 消息共享此信封；version 字段是协议演化的安全带。
+ * protocol/message —— v2 统一消息包与编解码。
+ * Wire 仅使用 SI 单位；时间戳为 Unix 秒，进入应用后再转 epoch ms。
+ *
+ * Created on 2026-09-10
+ * @author:  https://github.com/Linmoqian
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2 as const;
 
-/** 已注册消息类型（未知类型：解析不报错，由消费者决定忽略并记 warning） */
+export const SI_UNITS = Object.freeze({
+  position: "m",
+  joint_position: "rad",
+  linear_velocity: "m/s",
+  angular_velocity: "rad/s",
+  time: "s",
+} as const);
+
+export type ProtocolUnits = typeof SI_UNITS;
+
 export const MSG_TYPES = {
   robotState: "robot_state",
   jointState: "joint_state",
@@ -19,13 +31,23 @@ export const MSG_TYPES = {
 export type MsgType = (typeof MSG_TYPES)[keyof typeof MSG_TYPES];
 
 export interface MessageEnvelope<T = unknown> {
-  version: number;
+  protocol_version: typeof PROTOCOL_VERSION;
+  units: ProtocolUnits;
+  frame_id: string;
+  /** Unix 秒。 */
+  timestamp: number;
+  /** 数据源内严格单调递增的消息序号。 */
+  sequence: number;
   type: string;
-  /** epoch ms；device_status 等无时间语义的消息可缺省 */
-  timestamp?: number;
-  /** 数据源标识（如 "x_line_bot" / "total_station"） */
   source?: string;
   data: T;
+}
+
+export interface EnvelopeOptions {
+  frameId?: string;
+  sequence?: number;
+  source?: string;
+  timestamp?: number;
 }
 
 export type ProtocolErrorCode =
@@ -43,73 +65,111 @@ export class ProtocolError extends Error {
   }
 }
 
-/** 序列化发出 */
+let localSequence = 0;
+
+export function unixSecondsNow(): number {
+  return Date.now() / 1000;
+}
+
+export function unixSecondsToEpochMs(timestamp: number): number {
+  return timestamp * 1000;
+}
+
 export function serializeMessage(envelope: MessageEnvelope): string {
   return JSON.stringify(envelope);
 }
 
-/** 便捷构造一个标准信封 */
 export function makeEnvelope<T>(
   type: MsgType,
   data: T,
-  source?: string,
+  options: EnvelopeOptions = {},
 ): MessageEnvelope<T> {
   return {
-    version: PROTOCOL_VERSION,
+    protocol_version: PROTOCOL_VERSION,
+    units: SI_UNITS,
+    frame_id: options.frameId ?? "world",
+    timestamp: options.timestamp ?? unixSecondsNow(),
+    sequence: options.sequence ?? ++localSequence,
     type,
-    timestamp: Date.now(),
-    source,
+    source: options.source,
     data,
   };
 }
 
-/** 解析入站文本：结构校验，不校验业务字段（业务字段由各消息模块宽松处理） */
+function hasSiUnits(value: unknown): value is ProtocolUnits {
+  if (value === null || typeof value !== "object") return false;
+  const units = value as Record<string, unknown>;
+  return Object.entries(SI_UNITS).every(([key, unit]) => units[key] === unit);
+}
+
+/** 严格解析 v2；缺字段、错误单位和任何其他版本均拒绝。 */
 export function parseMessage(raw: string): MessageEnvelope {
   let obj: unknown;
   try {
     obj = JSON.parse(raw);
   } catch {
-    throw new ProtocolError(
-      "PROTOCOL_PARSE_FAILED",
-      "message is not valid JSON",
-    );
+    throw new ProtocolError("PROTOCOL_PARSE_FAILED", "message is not valid JSON");
   }
   if (obj === null || typeof obj !== "object") {
-    throw new ProtocolError(
-      "PROTOCOL_INVALID_ENVELOPE",
-      "message must be a JSON object",
-    );
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "message must be a JSON object");
   }
   const env = obj as Record<string, unknown>;
+  if (env.protocol_version !== PROTOCOL_VERSION) {
+    throw new ProtocolError(
+      "PROTOCOL_VERSION_MISMATCH",
+      `sender version ${String(env.protocol_version)} != supported ${PROTOCOL_VERSION}`,
+    );
+  }
   if (typeof env.type !== "string" || env.type.length === 0) {
-    throw new ProtocolError(
-      "PROTOCOL_INVALID_ENVELOPE",
-      "missing string field 'type'",
-    );
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing string field 'type'");
   }
-  if (typeof env.version !== "number") {
-    throw new ProtocolError(
-      "PROTOCOL_VERSION_MISMATCH",
-      "missing numeric field 'version'",
-    );
+  if (!hasSiUnits(env.units)) {
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing or invalid SI 'units'");
   }
-  if (env.version > PROTOCOL_VERSION) {
-    throw new ProtocolError(
-      "PROTOCOL_VERSION_MISMATCH",
-      `sender version ${env.version} > supported ${PROTOCOL_VERSION}`,
-    );
+  if (typeof env.frame_id !== "string" || env.frame_id.length === 0) {
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing string field 'frame_id'");
+  }
+  if (
+    typeof env.timestamp !== "number" ||
+    !Number.isFinite(env.timestamp) ||
+    env.timestamp < 0
+  ) {
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing finite field 'timestamp'");
+  }
+  if (!Number.isSafeInteger(env.sequence) || (env.sequence as number) < 0) {
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing non-negative integer 'sequence'");
+  }
+  if (!Object.prototype.hasOwnProperty.call(env, "data")) {
+    throw new ProtocolError("PROTOCOL_INVALID_ENVELOPE", "missing field 'data'");
   }
   return {
-    version: env.version,
+    protocol_version: PROTOCOL_VERSION,
+    units: SI_UNITS,
+    frame_id: env.frame_id,
+    timestamp: env.timestamp,
+    sequence: env.sequence as number,
     type: env.type,
-    timestamp:
-      typeof env.timestamp === "number" ? env.timestamp : undefined,
     source: typeof env.source === "string" ? env.source : undefined,
-    data: env.data ?? {},
+    data: env.data,
   };
 }
 
-/** 心跳包（ConnectionManager 主动探测延迟用） */
-export function makePing(): MessageEnvelope<Record<string, never>> {
-  return makeEnvelope(MSG_TYPES.ping, {});
+export interface PingData {
+  sent_at: number;
+}
+
+export interface PongData {
+  ping_timestamp: number;
+}
+
+export function makePing(options: EnvelopeOptions = {}): MessageEnvelope<PingData> {
+  const timestamp = options.timestamp ?? unixSecondsNow();
+  return makeEnvelope(MSG_TYPES.ping, { sent_at: timestamp }, { ...options, timestamp });
+}
+
+export function makePong(
+  pingTimestamp: number,
+  options: EnvelopeOptions = {},
+): MessageEnvelope<PongData> {
+  return makeEnvelope(MSG_TYPES.pong, { ping_timestamp: pingTimestamp }, options);
 }

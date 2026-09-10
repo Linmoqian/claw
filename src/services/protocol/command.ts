@@ -1,16 +1,19 @@
 /**
- * protocol/command —— 机器人控制指令（LIVE 阶段经 SafetyGuard 后发出）。
- * 统一成代数类型，禁止 UI 直接逐关节戳电机。
+ * protocol/command —— LIVE 控制命令的 SI wire 契约。
+ *
+ * Created on 2026-09-10
+ * @author:  https://github.com/Linmoqian
  */
+import type { CommandLifecycle } from "../../core/runtime/state";
+
 export type RobotCommand =
-  | { kind: "joint_target"; qDeg: number[] }
-  | { kind: "velocity"; linear: number; angular: number }
-  | { kind: "pose_target"; x: number; y: number; z: number; yaw: number }
+  | { kind: "joint_target"; position_rad: number[] }
+  | { kind: "velocity"; linear_mps: number; angular_radps: number }
+  | { kind: "pose_target"; position_m: { x: number; y: number; z: number }; yaw_rad: number }
   | { kind: "stop" };
 
-/** command 消息线上载荷 */
 export interface CommandMessageData {
+  command_id: string;
+  lifecycle: Extract<CommandLifecycle, "DISPATCHED">;
   command: RobotCommand;
-  /** 请求序号（网关可回执），可选 */
-  seq?: number;
 }

@@ -1,14 +1,20 @@
 /**
  * websocketRobotBridge —— TWIN/LIVE 模式的 RobotBridge 实现。
  * 内部持有 ConnectionManager（自动重连/心跳/速率/延迟）：
- * 收到 robot_state 消息 → parseMessage 校验 → 升维 RobotState → 订阅回调。
+ * 收到 robot_state / joint_state → parseMessage 校验 → 合成 RobotState → 订阅回调。
  * 控制方向：TWIN（writable=false，默认）只读；LIVE（writable=true）
  * 经 sendCommand 下发统一指令（经 M4 会话门禁后的目标）。 */
-import type { RobotState } from "../../core/world/state";
+import { makeRobotState, type RobotState } from "../../core/world/state";
 import { ConnectionManager } from "../connection/connectionManager";
-import { MSG_TYPES, PROTOCOL_VERSION, parseMessage, serializeMessage } from "../protocol/message";
-import type { RobotStateMessageData } from "../protocol/robot";
-import { robotStateFromMessage } from "../protocol/robot";
+import {
+  MSG_TYPES,
+  makeEnvelope,
+  parseMessage,
+  serializeMessage,
+  unixSecondsToEpochMs,
+} from "../protocol/message";
+import type { JointStateMessageData, RobotStateMessageData } from "../protocol/robot";
+import { jointsFromMessage, robotStateFromMessage } from "../protocol/robot";
 import type { RobotCommand } from "../protocol/command";
 import { createWebSocketTransportFactory } from "../transport/websocket";
 import type { BridgeOptions, BridgeStatus, RobotBridge } from "./robotBridge";
@@ -21,6 +27,8 @@ export class WebSocketRobotBridge implements RobotBridge {
   private readonly robotListeners = new Set<
     (state: RobotState, timestampMs: number) => void
   >();
+  private robotState = makeRobotState();
+  private readonly inboundSequence = new Map<string, number>();
   /** 控制指令序号（网关可回执对账） */
   private seq = 0;
 
@@ -42,9 +50,23 @@ export class WebSocketRobotBridge implements RobotBridge {
       } catch {
         return; // 坏包静默丢弃（错误计数在 ConnectionManager 外层统计）
       }
-      if (envelope.type !== "robot_state") return;
-      const robot = robotStateFromMessage(envelope.data as RobotStateMessageData);
-      for (const cb of this.robotListeners) cb(robot, envelope.timestamp ?? Date.now());
+      const source = envelope.source ?? "anonymous";
+      const previousSequence = this.inboundSequence.get(source);
+      if (previousSequence !== undefined && envelope.sequence <= previousSequence) return;
+      this.inboundSequence.set(source, envelope.sequence);
+      if (envelope.type === MSG_TYPES.robotState) {
+        const observed = robotStateFromMessage(envelope.data as RobotStateMessageData);
+        this.robotState = { ...observed, joints: this.robotState.joints };
+      } else if (envelope.type === MSG_TYPES.jointState) {
+        this.robotState = {
+          ...this.robotState,
+          joints: jointsFromMessage(envelope.data as JointStateMessageData),
+        };
+      } else {
+        return;
+      }
+      const timestampMs = unixSecondsToEpochMs(envelope.timestamp);
+      for (const cb of this.robotListeners) cb(this.robotState, timestampMs);
     });
   }
 
@@ -81,13 +103,11 @@ export class WebSocketRobotBridge implements RobotBridge {
       throw new Error("TWIN 模式禁止下发控制指令（连接时勾选 LIVE）");
     }
     this.seq += 1;
-    this.manager.send(
-      serializeMessage({
-        version: PROTOCOL_VERSION,
-        type: MSG_TYPES.command,
-        timestamp: Date.now(),
-        data: { command, seq: this.seq },
-      }),
-    );
+    const commandId = `ui-${Date.now()}-${this.seq}`;
+    this.manager.send(serializeMessage(makeEnvelope(
+      MSG_TYPES.command,
+      { command_id: commandId, lifecycle: "DISPATCHED", command },
+      { frameId: "robot_base", sequence: this.seq, source: "xiakao_workbench" },
+    )));
   }
 }

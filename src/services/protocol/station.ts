@@ -16,10 +16,10 @@ export interface StationPositionMessageData {
 
 export function stationFromMessage(
   data: StationPositionMessageData,
-  envelopeTimestamp?: number,
+  envelopeTimestampMs?: number,
 ): StationPosition {
   return {
-    timestamp: envelopeTimestamp ?? Date.now(),
+    timestamp: envelopeTimestampMs ?? Date.now(),
     targetId: data.robot_id,
     position: {
       x: data.x,

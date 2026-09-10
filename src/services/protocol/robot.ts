@@ -1,34 +1,31 @@
 /**
- * protocol/robot —— robot_state 消息定义与 2D → 3D 升维。
- * 兼容蓝图 2D 线格式（pose:{x,y,yaw} + velocity:{linear,angular}），
- * 也允许 sender 直接发完整 3D Pose（orientation 四元数 / z / 角速度分量）。
+ * protocol/robot —— v2 SI 机器人位姿、速度与关节状态。
+ * 字段名携带单位，避免度/弧度及线速度/角速度歧义。
+ *
+ * Created on 2026-09-10
+ * @author:  https://github.com/Linmoqian
  */
-import type { Orientation, Pose, Twist } from "../../core/world/pose";
+import type { Orientation, Position, Pose, Twist } from "../../core/world/pose";
 import { yawQuaternion } from "../../core/world/pose";
 import type { RobotState } from "../../core/world/state";
 
-/** 线上格式：所有字段可选，逐字段回退（粘旧服务器不炸） */
 export interface RobotStateMessageData {
   pose?: {
-    x?: number;
-    y?: number;
-    z?: number;
-    yaw?: number;
-    orientation?: Orientation;
+    position_m?: Partial<Position>;
+    orientation_xyzw?: Orientation;
+    yaw_rad?: number;
   };
-  velocity?: {
-    /** 前进线速度 m/s（2D 消息 → linear.x） */
-    linear?: number;
-    /** 航向角速度 rad/s（2D 消息 → angular.z） */
-    angular?: number;
-    x?: number;
-    y?: number;
-    z?: number;
-    rx?: number;
-    ry?: number;
-    rz?: number;
+  twist?: {
+    linear_mps?: Partial<Position>;
+    angular_radps?: Partial<Position>;
   };
-  joints?: Record<string, number>;
+}
+
+export interface JointStateMessageData {
+  names: string[];
+  position_rad: number[];
+  velocity_radps?: number[];
+  effort_nm?: number[];
 }
 
 function finiteOr(v: unknown, fallback: number): number {
@@ -37,41 +34,49 @@ function finiteOr(v: unknown, fallback: number): number {
 
 function validQuaternion(o: Orientation | undefined): Orientation | null {
   if (!o) return null;
-  for (const k of ["x", "y", "z", "w"] as const) {
-    if (!Number.isFinite(o[k])) return null;
-  }
-  return o;
+  return [o.x, o.y, o.z, o.w].every(Number.isFinite) ? o : null;
 }
 
-/** 消息 → 内部 RobotState（所有缺省字段回退 0） */
 export function robotStateFromMessage(data: RobotStateMessageData): RobotState {
   const p = data.pose ?? {};
-  const rawQ = validQuaternion(p.orientation);
-  const orientation = rawQ ?? yawQuaternion(finiteOr(p.yaw, 0));
-  const position = {
-    x: finiteOr(p.x, 0),
-    y: finiteOr(p.y, 0),
-    z: finiteOr(p.z, 0),
+  const positionM = p.position_m ?? {};
+  const orientation =
+    validQuaternion(p.orientation_xyzw) ?? yawQuaternion(finiteOr(p.yaw_rad, 0));
+  const linearMps = data.twist?.linear_mps ?? {};
+  const angularRadps = data.twist?.angular_radps ?? {};
+  const pose: Pose = {
+    position: {
+      x: finiteOr(positionM.x, 0),
+      y: finiteOr(positionM.y, 0),
+      z: finiteOr(positionM.z, 0),
+    },
+    orientation,
   };
-
-  const v = data.velocity ?? {};
-  const twist: Twist = {
+  const velocity: Twist = {
     linear: {
-      x: finiteOr(v.linear ?? v.x, 0),
-      y: finiteOr(v.y, 0),
-      z: finiteOr(v.z, 0),
+      x: finiteOr(linearMps.x, 0),
+      y: finiteOr(linearMps.y, 0),
+      z: finiteOr(linearMps.z, 0),
     },
     angular: {
-      x: finiteOr(v.rx, 0),
-      y: finiteOr(v.ry, 0),
-      z: finiteOr(v.angular ?? v.rz, 0),
+      x: finiteOr(angularRadps.x, 0),
+      y: finiteOr(angularRadps.y, 0),
+      z: finiteOr(angularRadps.z, 0),
     },
   };
+  return { pose, velocity, joints: {} };
+}
 
-  const pose: Pose = { position, orientation };
-  return {
-    pose,
-    velocity: twist,
-    joints: data.joints ?? {},
-  };
+export function jointsFromMessage(data: JointStateMessageData): Record<string, number> {
+  if (!Array.isArray(data.names) || !Array.isArray(data.position_rad)) return {};
+  const joints: Record<string, number> = {};
+  const count = Math.min(data.names.length, data.position_rad.length);
+  for (let i = 0; i < count; i += 1) {
+    const name = data.names[i];
+    const value = data.position_rad[i];
+    if (typeof name === "string" && name.length > 0 && Number.isFinite(value)) {
+      joints[name] = value;
+    }
+  }
+  return joints;
 }

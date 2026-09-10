@@ -11,7 +11,15 @@ const ROBOT_PORT = Number(process.env.ROBOT_PORT ?? 15551);
 const STATION_PORT = Number(process.env.STATION_PORT ?? 15552);
 const ROBOT_HZ = Number(process.env.ROBOT_HZ ?? 50);
 const STATION_HZ = Number(process.env.STATION_HZ ?? 10);
-const PROTOCOL_VERSION = 1;
+const PROTOCOL_VERSION = 2;
+const SI_UNITS = Object.freeze({
+  position: "m",
+  joint_position: "rad",
+  linear_velocity: "m/s",
+  angular_velocity: "rad/s",
+  time: "s",
+});
+let sequence = 0;
 
 /** 椭圆闭环轨迹参数 */
 const LOOP = {
@@ -22,10 +30,13 @@ const LOOP = {
   periodSec: 8,
 };
 
-const envelope = (type, data, source) => ({
-  version: PROTOCOL_VERSION,
+const envelope = (type, data, source, frameId = "world") => ({
+  protocol_version: PROTOCOL_VERSION,
+  units: SI_UNITS,
+  frame_id: frameId,
   type,
-  timestamp: Date.now(),
+  timestamp: Date.now() / 1000,
+  sequence: ++sequence,
   source,
   data,
 });
@@ -60,7 +71,12 @@ function startStreamServer(port, name, sampler, hz) {
     ws.on("message", (raw) => {
       const msg = safeParse(String(raw));
       if (msg?.type === "ping") {
-        ws.send(JSON.stringify(envelope("pong", {}, name)));
+        ws.send(JSON.stringify(envelope(
+          "pong",
+          { ping_timestamp: msg.timestamp },
+          name,
+          "system",
+        )));
       }
     });
     ws.on("close", () => {
@@ -77,8 +93,12 @@ function startStreamServer(port, name, sampler, hz) {
     if (stopped) return;
     const now = performance.now();
     if (now >= next && wss.clients.size > 0) {
-      const text = JSON.stringify(sampler());
-      for (const client of wss.clients) client.send(text);
+      const sampled = sampler();
+      const messages = Array.isArray(sampled) ? sampled : [sampled];
+      for (const message of messages) {
+        const text = JSON.stringify(message);
+        for (const client of wss.clients) client.send(text);
+      }
       next += tickMs;
       if (next < now - 10 * tickMs) next = now; // 空闲后追上
     }
@@ -92,14 +112,33 @@ function startStreamServer(port, name, sampler, hz) {
 const robot = startStreamServer(ROBOT_PORT, "robot", () => {
   const t = Date.now() / 1000;
   const p = robotPoseAt(t);
-  return envelope(
-    "robot_state",
-    {
-      pose: { x: p.x, y: p.y, yaw: p.yaw },
-      velocity: { linear: p.linear, angular: p.angular },
-    },
-    "x_line_bot_mock",
-  );
+  return [
+    envelope(
+      "robot_state",
+      {
+        pose: {
+          position_m: { x: p.x, y: p.y, z: 0 },
+          yaw_rad: p.yaw,
+        },
+        twist: {
+          linear_mps: { x: p.linear, y: 0, z: 0 },
+          angular_radps: { x: 0, y: 0, z: p.angular },
+        },
+      },
+      "x_line_bot_mock",
+      "world",
+    ),
+    envelope(
+      "joint_state",
+      {
+        names: ["J1", "J2", "J3", "J4", "J5", "J6"],
+        position_rad: [0, 1, 2, 3, 4, 5].map((offset) =>
+          Math.sin((t + offset) * 0.7) * 0.7),
+      },
+      "x_line_bot_mock",
+      "robot_base",
+    ),
+  ];
 }, ROBOT_HZ);
 
 const station = startStreamServer(STATION_PORT, "station", () => {
