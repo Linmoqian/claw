@@ -15,6 +15,9 @@ interface LoadedVisual {
   geometry: THREE.BufferGeometry;
 }
 
+/** 同一模型的 STL 资源缓存（current/ghost 双实例共享内存），key 用 def name */
+const visualsCache = new Map<string, LoadedVisual[]>();
+
 /** 末端轨迹采样上限（演示轨迹 10s×20Hz = 200 点，留足余量） */
 const TRAIL_MAX_POINTS = 640;
 const TRAIL_SAMPLE_SEC = 0.05;
@@ -43,7 +46,22 @@ interface RobotViewProps {
   model: RobotModel;
   sim: SimulationLoop;
   assetBase: string;
+  /** "current"=现实实体（默认）；"ghost"=目标预览（半透明、无阴影、不参与拾取） */
+  variant?: "current" | "ghost";
 }
+
+/** Ghost 实例熄灭火线拾取（Raycast 分组约束） */
+const NO_RAYCAST = () => undefined as unknown as THREE.Intersection[];
+
+/** Ghost 半透明预览材质（模块级共享） */
+const GHOST_MATERIAL = new THREE.MeshStandardMaterial({
+  color: "#9db4d4",
+  roughness: 0.6,
+  metalness: 0.1,
+  transparent: true,
+  opacity: 0.45,
+  depthWrite: false,
+});
 
 /** 末端轨迹线（play 模式采样，世界坐标手算转发避免 alloc） */
 function TcpTrail({ sim }: { sim: SimulationLoop }) {
@@ -134,17 +152,30 @@ function TcpAxes() {
 }
 
 /** 渲染主体：加载 STL → 构建 link/joint 层级 → 逐帧驱动关节 */
-export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
+export default function RobotView({
+  model,
+  sim,
+  assetBase,
+  variant = "current",
+}: RobotViewProps) {
   const showTcpAxes = useSceneStore((s) => s.showTcpAxes);
   const showTrail = useSceneStore((s) => s.showTrail);
   const materialStyle = useSceneStore((s) => s.materialStyle);
   const interactionMode = useInteractionStore((s) => s.mode);
+  const isGhost = variant === "ghost";
 
-  const [visuals, setVisuals] = useState<LoadedVisual[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  // 资源加载：URDF visual 网格（STL）异步拉取；模型切换由上层 key 重挂载重置状态
+  // 资源缓存键（渲染期常量；模型切换由上层 key 重挂载，实例内 model 恒定）
+  const cacheKey = `so:${model.def.name}:${assetBase}`;
+  // 缓存命中：直接作为初始状态（避免 effect 内同步 setState）；Ghost/重挂载实例零开销
+  const [visuals, setVisuals] = useState<LoadedVisual[] | null>(
+    () => visualsCache.get(cacheKey) ?? null,
+  );
+
+  // 资源加载：cache miss 时异步拉取 URDF visual 网格（STL）
   useEffect(() => {
+    if (visualsCache.get(cacheKey)) return;
     let alive = true;
     const loader = new STLLoader();
     (async () => {
@@ -161,6 +192,7 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
           entries.push({ linkName: link.name, visual, geometry });
         }
       }
+      visualsCache.set(cacheKey, entries);
       if (alive) setVisuals(entries);
     })().catch((err: unknown) => {
       if (alive) {
@@ -170,10 +202,13 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
     return () => {
       alive = false;
     };
-  }, [model, assetBase]);
+  }, [model, assetBase, cacheKey]);
 
-  // 材质表：URDF 配色 / chalk 浅灰涂装
-  const materials = useMemo(() => {
+  // 材质表：URDF 配色 / chalk 浅灰涂装；ghost 覆盖为半透明双层预览
+  const materials: Record<string, THREE.MeshStandardMaterial> = useMemo(() => {
+    if (isGhost) {
+      return { ghost: GHOST_MATERIAL };
+    }
     const map: Record<string, THREE.MeshStandardMaterial> = {};
     Object.entries(model.def.materials).forEach(([name, color]) => {
       map[name] = new THREE.MeshStandardMaterial({
@@ -198,7 +233,7 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
       }
     }
     return map;
-  }, [model, materialStyle]);
+  }, [model, materialStyle, isGhost]);
 
   // 每帧驱动：可动关节轴组 + 预分配临时对象（避免 GC）
   const axisGroups = useRef<THREE.Group[]>([]);
@@ -217,7 +252,8 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
   };
 
   useFrame(() => {
-    const q = sim.currentDegrees;
+    // ghost 实例跟随目标角（预览），current 实例跟随现实角
+    const q = isGhost ? sim.targetDegrees : sim.currentDegrees;
     for (let i = 0; i < active.length; i++) {
       const group = axisGroups.current[i];
       if (!group) continue;
@@ -274,19 +310,27 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
             quaternion={rpyToQuaternion(entry.visual.originRpy)}
           >
             <mesh
-              castShadow
-              receiveShadow
+              castShadow={!isGhost}
+              receiveShadow={!isGhost}
               geometry={entry.geometry}
               material={
-                materials[entry.visual.materialName ?? ""] ?? getFallbackMaterial()
+                isGhost
+                  ? materials.ghost
+                  : materials[entry.visual.materialName ?? ""] ??
+                    getFallbackMaterial()
               }
-              userData={{ linkName }}
-              onClick={(e) => {
-                // 仅 SELECT 模式且近乎未拖动时视为拾取（避免旋转视角误选）
-                if (interactionMode === "select" && e.delta < 6) {
-                  interactionController.pick(linkName);
-                }
-              }}
+              userData={isGhost ? { ghost: true } : { linkName }}
+              raycast={isGhost ? (NO_RAYCAST as unknown as THREE.Object3D["raycast"]) : undefined}
+              onClick={
+                isGhost
+                  ? undefined
+                  : (e) => {
+                      // 仅 SELECT 模式且近乎未拖动时视为拾取（避免旋转视角误选）
+                      if (interactionMode === "select" && e.delta < 6) {
+                        interactionController.pick(linkName);
+                      }
+                    }
+              }
             />
           </group>
         ))}
@@ -312,7 +356,7 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
             </group>
           );
         })}
-        {linkName === model.eeLink && showTcpAxes && <TcpAxes />}
+        {linkName === model.eeLink && showTcpAxes && !isGhost && <TcpAxes />}
       </group>
     );
   };
@@ -320,7 +364,7 @@ export default function RobotView({ model, sim, assetBase }: RobotViewProps) {
   return (
     <>
       {renderLink(rootLink)}
-      {showTrail && <TcpTrail sim={sim} />}
+      {showTrail && !isGhost && <TcpTrail sim={sim} />}
     </>
   );
 }

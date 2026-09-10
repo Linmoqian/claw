@@ -4,6 +4,7 @@
  * UI 只下达意图（"J3 到 40°"），不参与运动计算。
  */
 import { Quaternion, Vector3 } from "three";
+import { solveIk, type IkResult } from "./ik";
 import { computeLinkPoses, computeTcpPose, type Pose } from "./kinematics";
 import { sampleTrajectory, so100DemoLoop, type TrajPoint } from "./trajectory";
 import type { RobotModel } from "./types";
@@ -17,10 +18,14 @@ export interface SimSnapshot {
   speed: number;
   /** 当前显示角（°，active 关节顺序） */
   currentDeg: number[];
-  /** 当前目标角（°，手动模式下与 current 同步） */
+  /** 当前目标角（°，手动模式下与 current 分岔） */
   targetDeg: number[];
   /** TCP 世界位置（URDF/ROS 坐标，米） */
   tcp: Pose;
+  /** TCP 拖拽目标位姿（无 TCP 意图时为 null；Ghost/对照显示用） */
+  tcpTarget: Pose | null;
+  /** 最近一次 IK 结果（奇异/限位徽标） */
+  ik: IkResult | null;
   /** 轨迹循环进度 0..1 */
   progress: number;
 }
@@ -37,6 +42,8 @@ export class SimulationLoop {
   private mode: SimMode = "manual";
   private currentDeg: number[];
   private targetDeg: number[];
+  private tcpTarget: Pose | null = null;
+  private lastIk: IkResult | null = null;
   private traj: TrajPoint[];
   private trajTime = 0;
   private tcp: Pose = { position: new Vector3(), quaternion: new Quaternion() };
@@ -65,7 +72,7 @@ export class SimulationLoop {
         this.targetDeg[i] = this.currentDeg[i];
       }
     } else {
-      // 手动/回零：current 向 target 以速率上限渐近（拖动时 setJointTarget 会瞬移同步）
+      // 手动/回零：current 向 target 以速率上限渐近（目标与现状保持分离）
       const rate = this.mode === "homing" ? HOMING_RATE_DEG_S : MANUAL_RATE_DEG_S;
       const stepDeg = rate * dt;
       for (let i = 0; i < n; i++) {
@@ -79,32 +86,63 @@ export class SimulationLoop {
     this.updateTcp();
   }
 
-  /** 用户拖动滑块：瞬移同步（手动模式），并进入手动模式 */
+  /** 用户拖动滑块/关节环：只写目标（现状经速率追赶，不瞬移） */
   setJointTarget(index: number, deg: number): void {
     const joint = this.model.active[index];
     if (!joint) return;
     this.mode = "manual";
     this.targetDeg[index] = clampDeg(deg, joint);
-    this.currentDeg[index] = this.targetDeg[index];
+  }
+
+  /** 多关节目标批量设置（TCP IK 解算结果 / 外部意图） */
+  setJointTargets(degs: number[]): void {
+    this.mode = "manual";
+    this.model.active.forEach((joint, i) => {
+      const v = degs[i];
+      if (v !== undefined) {
+        this.targetDeg[i] = clampDeg(v, joint);
+      }
+    });
+  }
+
+  /** TCP 位姿意图：DLS IK 解算 → 写关节目标；返回结果供校验徽标 */
+  setTcpTargetPose(position: Vector3, quaternion: Quaternion): IkResult {
+    const result = solveIk(this.model, {
+      target: { position: position.clone(), quaternion: quaternion.clone() },
+      q0Deg: [...this.currentDeg],
+    });
+    this.lastIk = result;
+    this.tcpTarget = { position: position.clone(), quaternion: quaternion.clone() };
+    this.setJointTargets(result.qDeg);
     this.updateTcp();
+    return result;
+  }
+
+  /** 清除 TCP 位姿意图（回零/停止等外部接管时） */
+  clearTcpTarget(): void {
+    this.tcpTarget = null;
+    this.lastIk = null;
   }
 
   /** 回零：全部关节匀速回到 0（homing 动画，可被 STOP 打断） */
   goHome(): void {
     this.mode = "homing";
     this.targetDeg = this.model.active.map(() => 0);
+    this.clearTcpTarget();
   }
 
   /** 播放演示轨迹（从 0 开始循环） */
   play(): void {
     this.trajTime = 0;
     this.mode = "play";
+    this.clearTcpTarget();
   }
 
   /** 停止一切主动运动：目标冻结为当前值（纯仿真语义，非硬件急停） */
   stop(): void {
     this.mode = "manual";
     this.targetDeg = [...this.currentDeg];
+    this.clearTcpTarget();
   }
 
   /** 当前仿真模式 */
@@ -117,9 +155,14 @@ export class SimulationLoop {
     return this.tcp.position;
   }
 
-  /** 供渲染层逐帧读取（不创建新对象，避开 GC） */
+  /** 渲染层逐帧读取当前角（不创建新对象，避开 GC） */
   get currentDegrees(): readonly number[] {
     return this.currentDeg;
+  }
+
+  /** 渲染层逐帧读取目标角（Ghost 用，不创建新对象） */
+  get targetDegrees(): readonly number[] {
+    return this.targetDeg;
   }
 
   /** UI 低频拉取快照 */
@@ -134,6 +177,19 @@ export class SimulationLoop {
         position: this.tcp.position.clone(),
         quaternion: this.tcp.quaternion.clone(),
       },
+      tcpTarget: this.tcpTarget
+        ? {
+            position: this.tcpTarget.position.clone(),
+            quaternion: this.tcpTarget.quaternion.clone(),
+          }
+        : null,
+      ik: this.lastIk
+        ? {
+            ...this.lastIk,
+            qDeg: [...this.lastIk.qDeg],
+            atLimit: [...this.lastIk.atLimit],
+          }
+        : null,
       progress: total > 0 ? this.trajTime / total : 0,
     };
   }

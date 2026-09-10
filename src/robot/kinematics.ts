@@ -21,16 +21,17 @@ export function rpyToQuaternion(rpy: Vec3, target = new Quaternion()): Quaternio
   return target.copy(qz).multiply(qy).multiply(qx);
 }
 
-/** 递归正运动学（BFS）：world(child) = world(parent) × T(jointOrigin) × T_joint(q) */
+/** 递归正运动学（BFS）：world(child) = world(parent) × T(jointOrigin) × T_joint(q)
+ * qDeg 按 active 数组顺序（与 SimulationLoop.currentDeg/快照语义一致） */
 export function computeLinkPoses(
   model: RobotModel,
   qDeg: number[],
 ): Map<string, Pose> {
   const def = model.def;
-  // 可动关节 index → 当前角（rad）；prismatic/fixed 恒 0
+  // 可动关节 URDF index → 当前角（rad）；prismatic/fixed 恒 0
   const qRadByJoint = new Map<number, number>();
-  model.active.forEach((a) => {
-    qRadByJoint.set(a.index, degreesToRadians(qDeg[a.index] ?? 0));
+  model.active.forEach((a, i) => {
+    qRadByJoint.set(a.index, degreesToRadians(qDeg[i] ?? 0));
   });
 
   const poses = new Map<string, Pose>();

@@ -7,6 +7,7 @@ import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import RobotView from "./RobotView";
 import MobileBase from "./MobileBase";
 import InteractionGizmos from "../interaction/InteractionGizmos";
+import TcpGizmo from "../interaction/TcpGizmo";
 import { useInteractionStore } from "../stores/interactionStore";
 import type { SimulationLoop } from "../robot/simulation";
 import type { RobotModel } from "../robot/types";
@@ -103,10 +104,20 @@ function StageContent({ model, sim, assetBase }: StageContentProps) {
         <shadowMaterial transparent opacity={0.09} />
       </mesh>
 
-      {/* 移动底盘（world 遥测位姿） + 机械臂（URDF 运动树） + 交互 Gizmo */}
+      {/* 移动底盘（world 遥测位姿） + 机械臂双实例现实/目标 + 交互 Gizmo */}
       <MobileBase>
         <RobotView key={loads} model={model} sim={sim} assetBase={assetBase} />
+        {interactionMode === "tcp" && (
+          <RobotView
+            key={`${loads}-ghost`}
+            model={model}
+            sim={sim}
+            assetBase={assetBase}
+            variant="ghost"
+          />
+        )}
         <InteractionGizmos model={model} sim={sim} />
+        {interactionMode === "tcp" && <TcpGizmo model={model} sim={sim} />}
       </MobileBase>
       <axesHelper position={WORLD_AXES_POSITION} args={[0.16]} />
 

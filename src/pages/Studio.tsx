@@ -1,5 +1,6 @@
 /** 3D 仿真工作室：左控制台（状态 + 关节 + 动作）+ 右 3D 世界（数字孪生台）。 */
 import { useEffect, useRef } from "react";
+import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
 import { formatPose } from "../robot/kinematics";
 import { SimulationLoop } from "../robot/simulation";
@@ -78,6 +79,29 @@ export default function Studio() {
     const unreg = useTargetStore.getState().registerExecutor((intent) => {
       if (intent.kind === "joint-target") {
         sim.setJointTarget(intent.jointIndex, intent.valueDeg);
+      } else if (intent.kind === "tcp-pose") {
+        const r = sim.setTcpTargetPose(
+          new Vector3(intent.position.x, intent.position.y, intent.position.z),
+          new Quaternion(
+            intent.quaternion.x,
+            intent.quaternion.y,
+            intent.quaternion.z,
+            intent.quaternion.w,
+          ),
+        );
+        useTargetStore.getState().setValidation({
+          valid: true,
+          jointLimit: r.atLimit.length > 0,
+          collision: false,
+          singularity: r.singular,
+          reachable: r.ok,
+          safetyDistance: null,
+          reason: r.singular
+            ? "IK 收敛于近奇异构型"
+            : r.atLimit.length > 0
+              ? `IK 触及关节限位: ${r.atLimit.map((i) => `J${i + 1}`).join(", ")}`
+              : undefined,
+        });
       }
     });
     return () => {
@@ -119,6 +143,7 @@ export default function Studio() {
 
   const ready = model !== null && simRef.current !== null;
   const tcpText = formatPose(snapshot.tcp);
+  const validation = useTargetStore((s) => s.validation);
   const progressPct = Math.min(100, Math.max(0, snapshot.progress * 100));
 
   return (
@@ -266,6 +291,15 @@ export default function Studio() {
               <i>m</i>
             </span>
           </div>
+          {snapshot.tcpTarget && interactionMode === "tcp" && (
+            <div className="studio__tcp-row is-target">
+              <span className="studio__tcp-label">TCP 目标</span>
+              <span className="studio__tcp-value tnum">
+                {formatPose(snapshot.tcpTarget).xyz}
+                <i>m</i>
+              </span>
+            </div>
+          )}
           <div className="studio__tcp-row">
             <span className="studio__tcp-label">RPY</span>
             <span className="studio__tcp-value tnum">
@@ -355,7 +389,12 @@ export default function Studio() {
             <i aria-hidden="true">⟳</i>
             关节
           </button>
-          <button type="button" disabled title="TCP 拖拽在下一阶段（IK）接入">
+          <button
+            type="button"
+            className={interactionMode === "tcp" ? "is-on" : ""}
+            onClick={() => setInteractionMode("tcp")}
+            aria-pressed={interactionMode === "tcp"}
+          >
             <i aria-hidden="true">✥</i>
             TCP
           </button>
@@ -428,8 +467,11 @@ export default function Studio() {
             ? "左键拾取部件 · 拖拽旋转视角 · 滚轮缩放 · 右键平移 · F 聚焦 · R 复位"
             : interactionMode === "joint"
               ? "拖拽关节环设定目标角 · 滚轮缩放 · 松开即生效"
-              : "此工具在后续阶段接入"}
+              : "拖拽彩轴平移末端 · 拖彩环转向 · IK 实时解算 · Ghost 预览目标 · 松开生效"}
         </div>
+        {validation.reason && interactionMode === "tcp" && (
+          <div className="studio__vbadge">{validation.reason}</div>
+        )}
       </section>
     </div>
   );

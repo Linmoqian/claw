@@ -19,6 +19,8 @@ const emptySnapshot = (): SimSnapshot => ({
     position: new Vector3(),
     quaternion: new Quaternion(),
   },
+  tcpTarget: null,
+  ik: null,
   progress: 0,
 });
 

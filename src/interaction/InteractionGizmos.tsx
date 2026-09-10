@@ -114,16 +114,16 @@ export default function InteractionGizmos({
       const pp = poses.get(joint.def.parent);
       if (!pp) return;
       const frame = frameCache.current[index];
-      rpyToQuaternion(joint.def.originRpy, tmpQ);
       // 中心：parent 位姿 × joint origin 平移
       frame.center
         .copy(new THREE.Vector3(...joint.def.originXyz))
         .applyQuaternion(pp.quaternion)
         .add(pp.position);
-      // 轴：parent 旋转 × origin 旋转 × 声明轴
+      // 轴：R_parent · R_origin · 声明轴（组合四元数后一次施转）
+      const originQ = rpyToQuaternion(joint.def.originRpy);
+      tmpQ.copy(pp.quaternion).multiply(originQ);
       frame.axis
         .copy(new THREE.Vector3(...joint.def.axis))
-        .applyQuaternion(pp.quaternion)
         .applyQuaternion(tmpQ)
         .normalize();
       frame.align.setFromUnitVectors(Z_AXIS, frame.axis);

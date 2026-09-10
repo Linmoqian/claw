@@ -587,3 +587,22 @@
 .studio__pick-joint {
   color: var(--s-text-2);
 }
+
+/* ================= 目标读数 / 校验徽标 ================= */
+
+.studio__tcp-row.is-target .studio__tcp-value {
+  color: #3c7de0;
+}
+
+.studio__vbadge {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 5px 12px;
+  font-size: 11px;
+  border-radius: 999px;
+  background: #fdf1ea;
+  border: 1px solid #f2ddcd;
+  color: #c2713a;
+}

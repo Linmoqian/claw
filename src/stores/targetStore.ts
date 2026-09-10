@@ -25,6 +25,8 @@ interface TargetStoreState {
   bindModel: (m: RobotModel | null) => void;
   /** 注册目标执行器（返回退订函数） */
   registerExecutor: (fn: (intent: InputIntent) => void) => () => void;
+  /** 执行器反馈校验结果（IK/碰撞等下游信息回灌 UI 徽标） */
+  setValidation: (v: ValidationResult) => void;
   reset: () => void;
 }
 
@@ -74,6 +76,8 @@ export const useTargetStore = create<TargetStoreState>()((set) => ({
     executors.add(fn);
     return () => executors.delete(fn);
   },
+
+  setValidation: (validation) => set({ validation }),
 
   reset: () =>
     set({
