@@ -9,6 +9,16 @@ function parseVec3(text: string | null, fallback: Vec3): Vec3 {
   return [parts[0], parts[1], parts[2]];
 }
 
+/** 规范化 mesh 路径：package://<pkg>/meshes/x.STL → assets/x.STL（内置模型库约定 STL 在模型目录 assets/ 下；相对路径原样保留） */
+function normalizeMeshFile(raw: string | null): string | null {
+  if (!raw) return null;
+  if (raw.startsWith("package://")) {
+    const parts = raw.slice("package://".length).split("/");
+    return `assets/${parts[parts.length - 1]}`;
+  }
+  return raw;
+}
+
 /** URDF rgba "0.1 0.2 0.3 1.0" → css hex */
 function parseRgba(text: string | null): string | null {
   if (!text) return null;
@@ -60,7 +70,7 @@ export function parseUrdf(xml: string): RobotDef {
       const geometryOrigin = visualEl.querySelector("geometry");
       const mesh = geometryOrigin?.querySelector("mesh") ?? null;
       visuals.push({
-        meshFile: mesh?.getAttribute("filename") ?? null,
+        meshFile: normalizeMeshFile(mesh?.getAttribute("filename") ?? null),
         materialName:
           visualEl.querySelector("material")?.getAttribute("name") ?? null,
         originXyz: parseOriginXyz(visualEl, [0, 0, 0]),

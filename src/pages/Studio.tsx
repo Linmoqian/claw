@@ -23,7 +23,12 @@ import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../stores/interactionStore";
 import { useSessionStore, arbiter, setTargetCommittedHook } from "../stores/sessionStore";
 import { useTargetStore } from "../stores/targetStore";
-import { useReadyModel, useRobotStore } from "../stores/robotStore";
+import {
+  DEFAULT_ROBOT_ID,
+  ROBOT_CATALOG,
+  useReadyModel,
+  useRobotStore,
+} from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
 import { useSimulationStore } from "../stores/simulationStore";
 import RobotStage from "../three/RobotStage";
@@ -54,7 +59,8 @@ export default function Studio() {
   const status = useRobotStore((s) => s.status);
   const loadError = useRobotStore((s) => s.error);
   const assetBase = useRobotStore((s) => s.assetBase);
-  const loadSo100 = useRobotStore((s) => s.loadSo100);
+  const currentId = useRobotStore((s) => s.currentId);
+  const loadRobot = useRobotStore((s) => s.loadRobot);
 
   const simRef = useRef<SimulationLoop | null>(null);
   const baseSimRef = useRef<BaseSim | null>(null);
@@ -154,10 +160,10 @@ export default function Studio() {
     saveTunePlan,
   } = useDevice();
 
-  // 首次进入自动加载内置 SO-100 模型
+  // 首次进入自动加载默认机型（后续可从工具条下拉切换）
   useEffect(() => {
-    if (status === "idle") void loadSo100();
-  }, [status, loadSo100]);
+    if (status === "idle") void loadRobot(DEFAULT_ROBOT_ID);
+  }, [status, loadRobot]);
 
   // 模型就绪 → 碰撞系统 + 仿真回路（SimulationLoop 非响应式，只挂在 ref 上）
   useEffect(() => {
@@ -730,7 +736,8 @@ export default function Studio() {
       >
         {ready ? (
           <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} />
-        ) : (          <div className="studio__fallback">
+        ) : (
+          <div className="studio__fallback">
             {status === "error" ? (
               <>
                 <strong>模型加载失败</strong>
@@ -738,13 +745,23 @@ export default function Studio() {
                 <button
                   type="button"
                   className="studio__btn"
-                  onClick={() => void loadSo100()}
+                  onClick={() =>
+                    void loadRobot(currentId ?? DEFAULT_ROBOT_ID)
+                  }
                 >
                   重试
                 </button>
               </>
             ) : (
-              <strong>正在装配 SO-100 数字孪生体…</strong>
+              <strong>
+                正在装配{" "}
+                {
+                  ROBOT_CATALOG.find(
+                    (r) => r.id === (currentId ?? DEFAULT_ROBOT_ID),
+                  )?.label
+                }{" "}
+                数字孪生体…
+              </strong>
             )}
           </div>
         )}
@@ -778,6 +795,23 @@ export default function Studio() {
             <i aria-hidden="true">⌖</i>
             底座
           </button>
+
+          {/* 机型选择：public/models 内置机械臂目录（切换后碰撞/仿真/视图自动重建） */}
+          <label className="studio__model-pick">
+            <i aria-hidden="true">⚙</i>
+            <select
+              value={currentId ?? DEFAULT_ROBOT_ID}
+              onChange={(e) => void loadRobot(e.target.value)}
+              disabled={status === "loading"}
+              aria-label="选择机械臂机型"
+            >
+              {ROBOT_CATALOG.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
 
         {/* M5 工作区卡：DXF 加载 / 示例 / 路径播放（悬浮左下） */}

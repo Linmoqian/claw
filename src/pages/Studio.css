@@ -567,6 +567,43 @@
   cursor: not-allowed;
 }
 
+/* 机型选择：嵌入工具条的紧凑下拉，外观与按钮一致 */
+.studio__model-pick {
+  display: flex;
+  align-items: center;
+  column-gap: 5px;
+  padding-left: 9px;
+  margin-left: 2px;
+  border-left: 1px solid var(--s-border);
+  color: var(--s-text-2);
+}
+
+.studio__model-pick i {
+  font-style: normal;
+  font-size: 13px;
+}
+
+.studio__model-pick select {
+  padding: 5px 4px 5px 0;
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  border: none;
+  background: transparent;
+  color: var(--s-text-2);
+  cursor: pointer;
+  outline: none;
+}
+
+.studio__model-pick select:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.studio__model-pick select option {
+  background: var(--s-panel);
+  color: var(--s-text);
+}
+
 @media (prefers-reduced-transparency: reduce) {
   .studio__modes {
     background: var(--s-panel);
