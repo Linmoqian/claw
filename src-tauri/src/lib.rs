@@ -1,32 +1,132 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 //
-// 设备通讯后端：基于 scservo-rs（独立 crate）封装 Feetech SCServo 协议，
-// 通过 Tauri command 暴露给前端。状态（串口会话）用 Mutex 管理，由 Tauri State 共享。
+// 设备通讯后端：通过常驻 Python 子进程（scservo_sdk 官方 SDK）封装 Feetech SCServo 协议，
+// 经 stdin/stdout JSON 行协议转发 Tauri command。串口会话状态保持在桥进程内，
+// 请求由 Mutex 串行化（半双工总线本就串行），桥随 stdin EOF 自行退出，无残留进程。
+//
+// Created on 2026-09-11
+// @author:  https://github.com/Linmoqian
 
 use serde::Serialize;
+use std::io::{BufRead, BufReader, Write};
+use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
 use tauri::State;
 
-use scservo_rs::{
-    ADDR_GOAL_POSITION, ADDR_PRESENT_POSITION, ADDR_TORQUE_ENABLE, Endian, GroupSyncRead,
-    PacketHandler, PortHandler,
-};
+/// 嵌入的 Python 桥脚本（构建期编入二进制，运行时写到临时目录执行，dev/prod 均无路径问题）
+const BRIDGE_SCRIPT: &str = include_str!("../python/servo_bridge.py");
 
-/// 一个已连接的设备会话。PortHandler 持有打开的串口；PacketHandler 是 Copy。
-struct Session {
-    port: PortHandler,
-    ph: PacketHandler,
-}
-
-/// 全局设备状态。同一时刻至多一个会话（串口半双工，本就串行）。
-#[derive(Default)]
-struct DeviceState {
-    session: Option<Session>,
-}
+/// 全局设备状态：None = 未连接。同一时刻至多一个会话（串口半双工，本就串行）。
+type DeviceState = Mutex<Option<Bridge>>;
 
 /// 便利：把 Mutex PoisonError / 任意 Display 错误转成 String（Tauri command 错误类型）。
 fn to_err<E: std::fmt::Display>(e: E) -> String {
     e.to_string()
+}
+
+/// 常驻 Python 桥：一问一答（请求串行化后无粘包/乱序问题）。
+struct Bridge {
+    child: Child,
+    stdin: ChildStdin,
+    reader: BufReader<ChildStdout>,
+}
+
+impl Bridge {
+    /// 解析 Python 解释器：SERVO_PYTHON 环境变量 → 常见 conda 安装路径 → PATH 上的 python
+    fn resolve_python() -> String {
+        if let Ok(p) = std::env::var("SERVO_PYTHON") {
+            if !p.is_empty() {
+                return p;
+            }
+        }
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        for cand in [
+            format!("{home}\\anaconda3\\python.exe"),
+            format!("{home}\\miniconda3\\python.exe"),
+        ] {
+            if std::path::Path::new(&cand).exists() {
+                return cand;
+            }
+        }
+        "python".into()
+    }
+
+    /// 启动桥进程（脚本写到临时目录，UTF-8 模式运行）
+    fn spawn() -> Result<Self, String> {
+        let script = std::env::temp_dir().join("claw_servo_bridge.py");
+        std::fs::write(&script, BRIDGE_SCRIPT).map_err(|e| format!("写入桥脚本失败：{e}"))?;
+        let mut child = Command::new(Self::resolve_python())
+            .arg("-X")
+            .arg("utf8")
+            .arg(&script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .spawn()
+            .map_err(|e| {
+                format!("启动 Python 桥失败（{e}）；可用环境变量 SERVO_PYTHON 指定解释器路径")
+            })?;
+        let stdin = child.stdin.take().ok_or("无法获取桥 stdin")?;
+        let stdout = child.stdout.take().ok_or("无法获取桥 stdout")?;
+        Ok(Self {
+            child,
+            stdin,
+            reader: BufReader::new(stdout),
+        })
+    }
+
+    /// 发送请求并等待一行 JSON 响应（调用方保证串行访问）
+    fn call(&mut self, req: &serde_json::Value) -> Result<serde_json::Value, String> {
+        let mut line = serde_json::to_string(req).map_err(to_err)?;
+        line.push('\n');
+        self.stdin
+            .write_all(line.as_bytes())
+            .map_err(|e| format!("桥通信失败：{e}"))?;
+        self.stdin.flush().map_err(|e| format!("桥通信失败：{e}"))?;
+        let mut resp = String::new();
+        self.reader
+            .read_line(&mut resp)
+            .map_err(|e| format!("桥无响应：{e}"))?;
+        if resp.trim().is_empty() {
+            return Err("桥进程已退出".into());
+        }
+        serde_json::from_str(&resp).map_err(|e| format!("桥响应解析失败：{e}"))
+    }
+
+    fn kill(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+/// 统一桥响应：ok=false 时把 error 提为 Err，ok=true 时返回 data
+fn require_ok(resp: serde_json::Value) -> Result<serde_json::Value, String> {
+    if resp["ok"].as_bool().unwrap_or(false) {
+        Ok(resp["data"].clone())
+    } else {
+        Err(resp["error"]
+            .as_str()
+            .unwrap_or("桥返回未知错误")
+            .to_string())
+    }
+}
+
+/// 已连接时向桥转发请求；桥级故障（进程死/管道断）时回收会话，避免后续命令继续打在死桥上
+fn with_bridge(state: &State<DeviceState>, req: serde_json::Value) -> Result<serde_json::Value, String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    let bridge = guard.as_mut().ok_or("设备未连接")?;
+    let resp = bridge.call(&req);
+    if resp.is_err() {
+        if let Some(mut b) = guard.take() {
+            b.kill();
+        }
+    }
+    resp
+}
+
+/// 舵机命令便捷链：转发 + 校验 ok
+fn servo_call(state: &State<DeviceState>, req: serde_json::Value) -> Result<serde_json::Value, String> {
+    require_ok(with_bridge(state, req)?)
 }
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
@@ -37,103 +137,87 @@ fn greet(name: &str) -> String {
 
 // —— 串口管理 ——
 
-/// 列出系统可用串口名。对应前端 scanPorts。
+/// 列出系统可用串口名（本地枚举，无需经过桥）。对应前端 scanPorts。
 #[tauri::command]
 fn list_serial_ports() -> Result<Vec<String>, String> {
     let ports = serialport::available_ports().map_err(to_err)?;
     Ok(ports.into_iter().map(|p| p.port_name).collect())
 }
 
-/// 打开串口并建立会话。baud 走 scservo-rs 白名单校验。
+/// 启动 Python 桥并打开串口。baud 走 SDK 白名单校验（桥内）。
 /// 返回端口名，前端可用作设备标识。
 #[tauri::command]
-fn serial_connect(
-    state: State<'_, Mutex<DeviceState>>,
-    port: String,
-    baud: u32,
-) -> Result<String, String> {
-    let mut s = state.lock().map_err(to_err)?;
-    if s.session.is_some() {
+fn serial_connect(state: State<DeviceState>, port: String, baud: u32) -> Result<String, String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    if guard.is_some() {
         return Err("设备已连接，请先断开".into());
     }
-    let mut handler = PortHandler::new(&port);
-    handler.set_baudrate(baud).map_err(to_err)?;
-    handler.open().map_err(to_err)?;
-    s.session = Some(Session {
-        port: handler,
-        ph: PacketHandler::new(Endian::Little),
-    });
-    Ok(port)
+    let mut bridge = Bridge::spawn()?;
+    let req = serde_json::json!({"cmd": "connect", "port": port, "baud": baud});
+    match bridge.call(&req).and_then(require_ok) {
+        Ok(_) => {
+            *guard = Some(bridge);
+            Ok(port)
+        }
+        // 连接失败：桥已含失败状态，直接回收，下次连接重新冷启动
+        Err(e) => {
+            bridge.kill();
+            Err(e)
+        }
+    }
 }
 
-/// 关闭串口、释放会话。
+/// 关闭串口、回收桥进程。
 #[tauri::command]
-fn serial_disconnect(state: State<'_, Mutex<DeviceState>>) -> Result<(), String> {
-    let mut s = state.lock().map_err(to_err)?;
-    // take() 后 Session drop，PortHandler 随之释放串口
-    s.session.take();
+fn serial_disconnect(state: State<DeviceState>) -> Result<(), String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    if let Some(mut bridge) = guard.take() {
+        // 先请求关串口（拿得到响应最好），无论成败都回收进程
+        let _ = bridge.call(&serde_json::json!({"cmd": "disconnect"}));
+        bridge.kill();
+    }
     Ok(())
 }
 
 /// 当前是否有活动会话。
 #[tauri::command]
-fn serial_is_connected(state: State<'_, Mutex<DeviceState>>) -> bool {
-    state
-        .lock()
-        .map(|s| s.session.is_some())
-        .unwrap_or(false)
+fn serial_is_connected(state: State<DeviceState>) -> bool {
+    state.lock().map(|g| g.is_some()).unwrap_or(false)
 }
 
 // —— 单点控制 ——
 
 #[tauri::command]
-fn servo_ping(state: State<'_, Mutex<DeviceState>>, id: u8) -> Result<u16, String> {
-    let mut s = state.lock().map_err(to_err)?;
-    let sess = s.session.as_mut().ok_or("设备未连接")?;
-    let (model, _hw) = sess.ph.ping(&mut sess.port, id).map_err(to_err)?;
-    Ok(model)
+fn servo_ping(state: State<DeviceState>, id: u8) -> Result<u16, String> {
+    let data = servo_call(&state, serde_json::json!({"cmd": "ping", "id": id}))?;
+    data.as_u64()
+        .map(|v| v as u16)
+        .ok_or_else(|| "桥返回数据异常".into())
 }
 
 #[tauri::command]
-fn servo_set_torque(
-    state: State<'_, Mutex<DeviceState>>,
-    id: u8,
-    on: bool,
-) -> Result<(), String> {
-    let mut s = state.lock().map_err(to_err)?;
-    let sess = s.session.as_mut().ok_or("设备未连接")?;
-    let val: u8 = if on { 1 } else { 0 };
-    sess.ph
-        .write_1byte_tx_rx(&mut sess.port, id, ADDR_TORQUE_ENABLE, val)
-        .map_err(to_err)?;
+fn servo_set_torque(state: State<DeviceState>, id: u8, on: bool) -> Result<(), String> {
+    servo_call(
+        &state,
+        serde_json::json!({"cmd": "set_torque", "id": id, "on": on}),
+    )?;
     Ok(())
 }
 
 #[tauri::command]
-fn servo_read_position(
-    state: State<'_, Mutex<DeviceState>>,
-    id: u8,
-) -> Result<u16, String> {
-    let mut s = state.lock().map_err(to_err)?;
-    let sess = s.session.as_mut().ok_or("设备未连接")?;
-    let (pos, _hw) = sess
-        .ph
-        .read_2byte_tx_rx(&mut sess.port, id, ADDR_PRESENT_POSITION)
-        .map_err(to_err)?;
-    Ok(pos)
+fn servo_read_position(state: State<DeviceState>, id: u8) -> Result<u16, String> {
+    let data = servo_call(&state, serde_json::json!({"cmd": "read_position", "id": id}))?;
+    data.as_u64()
+        .map(|v| v as u16)
+        .ok_or_else(|| "桥返回数据异常".into())
 }
 
 #[tauri::command]
-fn servo_write_position(
-    state: State<'_, Mutex<DeviceState>>,
-    id: u8,
-    position: u16,
-) -> Result<(), String> {
-    let mut s = state.lock().map_err(to_err)?;
-    let sess = s.session.as_mut().ok_or("设备未连接")?;
-    sess.ph
-        .write_2byte_tx_rx(&mut sess.port, id, ADDR_GOAL_POSITION, position)
-        .map_err(to_err)?;
+fn servo_write_position(state: State<DeviceState>, id: u8, position: u16) -> Result<(), String> {
+    servo_call(
+        &state,
+        serde_json::json!({"cmd": "write_position", "id": id, "position": position}),
+    )?;
     Ok(())
 }
 
@@ -152,59 +236,32 @@ struct MotorReading {
 }
 
 #[tauri::command]
-fn servo_sync_read_positions(
-    state: State<'_, Mutex<DeviceState>>,
-    ids: Vec<u8>,
-) -> Result<Vec<MotorReading>, String> {
-    let mut s = state.lock().map_err(to_err)?;
+fn servo_sync_read_positions(state: State<DeviceState>, ids: Vec<u8>) -> Result<Vec<MotorReading>, String> {
     if ids.is_empty() {
         return Ok(vec![]);
     }
-    let sess = s.session.as_mut().ok_or("设备未连接")?;
-
-    let mut gsr = GroupSyncRead::new(ADDR_PRESENT_POSITION, 2, Endian::Little);
-    for &id in &ids {
-        gsr.add_param(id);
-    }
-
-    match gsr.tx_rx_packet(&mut sess.port, &sess.ph) {
-        Ok(()) => Ok(ids
-            .iter()
-            .map(|&id| match gsr.get_data(id, ADDR_PRESENT_POSITION, 2) {
-                Some(pos) => MotorReading {
-                    id,
-                    position: pos as u16,
-                    ok: true,
-                    error: String::new(),
-                },
-                None => MotorReading {
-                    id,
-                    position: 0,
-                    ok: false,
-                    error: "no data".into(),
-                },
+    let data = servo_call(
+        &state,
+        serde_json::json!({"cmd": "sync_read_positions", "ids": ids}),
+    )?;
+    let arr = data.as_array().ok_or("桥返回数据异常")?;
+    arr.iter()
+        .map(|item| {
+            Ok(MotorReading {
+                id: item["id"].as_u64().ok_or("缺少 id")? as u8,
+                position: item["position"].as_u64().unwrap_or(0) as u16,
+                ok: item["ok"].as_bool().unwrap_or(false),
+                error: item["error"].as_str().unwrap_or("").to_string(),
             })
-            .collect()),
-        Err(e) => {
-            let msg = e.to_string();
-            Ok(ids
-                .iter()
-                .map(|&id| MotorReading {
-                    id,
-                    position: 0,
-                    ok: false,
-                    error: msg.clone(),
-                })
-                .collect())
-        }
-    }
+        })
+        .collect()
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .manage(Mutex::new(DeviceState::default()))
+        .manage(Mutex::new(None::<Bridge>))
         .invoke_handler(tauri::generate_handler![
             greet,
             list_serial_ports,
