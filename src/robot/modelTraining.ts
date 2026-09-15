@@ -40,6 +40,12 @@ export interface PerceptionTrainingEpoch {
   validationAccuracy: number;
 }
 
+export interface PerceptionTrainingSample {
+  split: "train" | "validation";
+  label: number;
+  features: number[];
+}
+
 export interface PerceptionTrainingResult {
   algorithm: "softmax-regression";
   classLabels: string[];
@@ -50,6 +56,7 @@ export interface PerceptionTrainingResult {
   finalLoss: number;
   validationAccuracy: number;
   confusion: number[][];
+  samples: PerceptionTrainingSample[];
   weights: number[][];
   bias: number[];
   config: Required<PerceptionTrainingConfig>;
@@ -71,6 +78,12 @@ export interface DecisionTrainingEpoch {
   safetyRate: number;
 }
 
+export interface DecisionTrainingSample {
+  split: "train" | "validation";
+  input: number[];
+  target: number[];
+}
+
 export interface DecisionTrainingResult {
   algorithm: "mlp-behavior-cloning";
   featureNames: string[];
@@ -83,6 +96,7 @@ export interface DecisionTrainingResult {
   validationMse: number;
   validationSuccessRate: number;
   validationSafetyRate: number;
+  samples: DecisionTrainingSample[];
   weightsInputHidden: number[][];
   biasHidden: number[];
   weightsHiddenOutput: number[][];
@@ -218,6 +232,18 @@ export function runPerceptionTraining(
     finalLoss: finalEpoch?.loss ?? 0,
     validationAccuracy: round(validationAccuracy),
     confusion: confusionMatrix(split.validation, weights, bias),
+    samples: [
+      ...split.train.map((sample) => ({
+        split: "train" as const,
+        label: sample.label,
+        features: [...sample.features],
+      })),
+      ...split.validation.map((sample) => ({
+        split: "validation" as const,
+        label: sample.label,
+        features: [...sample.features],
+      })),
+    ],
     weights: weights.map((row) => row.map(round)),
     bias: bias.map(round),
     config,
@@ -330,12 +356,144 @@ export function runDecisionNetworkTraining(
     validationMse: round(validation.mse),
     validationSuccessRate: round(validation.successRate),
     validationSafetyRate: round(validation.safetyRate),
+    samples: [
+      ...split.train.map((sample) => ({
+        split: "train" as const,
+        input: [...sample.input],
+        target: [...sample.target],
+      })),
+      ...split.validation.map((sample) => ({
+        split: "validation" as const,
+        input: [...sample.input],
+        target: [...sample.target],
+      })),
+    ],
     weightsInputHidden: network.inputHidden.map((row) => row.map(round)),
     biasHidden: network.hiddenBias.map(round),
     weightsHiddenOutput: network.hiddenOutput.map((row) => row.map(round)),
     biasOutput: network.outputBias.map(round),
     config,
   };
+}
+
+/** 将感知模型参数与训练摘要序列化为可复用 JSON。 */
+export function serializePerceptionModel(
+  result: PerceptionTrainingResult,
+  exportedAt = new Date().toISOString(),
+): string {
+  return JSON.stringify(
+    {
+      format: "xiakao.model",
+      formatVersion: 1,
+      modelType: "perception",
+      exportedAt,
+      algorithm: result.algorithm,
+      classes: result.classLabels.map((label, id) => ({ id, label })),
+      featureNames: result.featureNames,
+      parameters: {
+        weights: result.weights,
+        bias: result.bias,
+      },
+      training: {
+        config: result.config,
+        trainSamples: result.trainSamples,
+        validationSamples: result.validationSamples,
+        finalLoss: result.finalLoss,
+        validationAccuracy: result.validationAccuracy,
+        confusion: result.confusion,
+        history: result.history,
+      },
+    },
+    null,
+    2,
+  );
+}
+
+/** 将决策网络结构、权重与训练摘要序列化为可复用 JSON。 */
+export function serializeDecisionModel(
+  result: DecisionTrainingResult,
+  exportedAt = new Date().toISOString(),
+): string {
+  return JSON.stringify(
+    {
+      format: "xiakao.model",
+      formatVersion: 1,
+      modelType: "decision",
+      exportedAt,
+      algorithm: result.algorithm,
+      architecture: {
+        inputSize: result.featureNames.length,
+        hiddenUnits: result.hiddenUnits,
+        outputSize: result.outputNames.length,
+        activationHidden: "relu",
+        activationOutput: "tanh",
+      },
+      featureNames: result.featureNames,
+      outputNames: result.outputNames,
+      parameters: {
+        inputHidden: result.weightsInputHidden,
+        hiddenBias: result.biasHidden,
+        hiddenOutput: result.weightsHiddenOutput,
+        outputBias: result.biasOutput,
+      },
+      training: {
+        config: result.config,
+        trainSamples: result.trainSamples,
+        validationSamples: result.validationSamples,
+        finalLoss: result.finalLoss,
+        validationMse: result.validationMse,
+        validationSuccessRate: result.validationSuccessRate,
+        validationSafetyRate: result.validationSafetyRate,
+        history: result.history,
+      },
+    },
+    null,
+    2,
+  );
+}
+
+/** 导出感知训练/验证样本，保留标签和特征名，中文可直接用表格工具打开。 */
+export function serializePerceptionData(
+  result: PerceptionTrainingResult,
+): string {
+  const header = ["split", "label_id", "label", ...result.featureNames];
+  const rows = result.samples.map((sample) => [
+    sample.split,
+    sample.label,
+    result.classLabels[sample.label] ?? "未知",
+    ...sample.features.map(formatCsvNumber),
+  ]);
+  return toCsv([header, ...rows]);
+}
+
+/** 导出决策网络状态-动作样本，保留 train/validation 划分。 */
+export function serializeDecisionData(result: DecisionTrainingResult): string {
+  const header = [
+    "split",
+    ...result.featureNames,
+    ...result.outputNames.map((name) => `target_${name}`),
+  ];
+  const rows = result.samples.map((sample) => [
+    sample.split,
+    ...sample.input.map(formatCsvNumber),
+    ...sample.target.map(formatCsvNumber),
+  ]);
+  return toCsv([header, ...rows]);
+}
+
+function toCsv(rows: readonly (readonly (string | number)[])[]): string {
+  return `\ufeff${rows
+    .map((row) => row.map(csvCell).join(","))
+    .join("\r\n")}\r\n`;
+}
+
+function csvCell(value: string | number): string {
+  const text = String(value);
+  return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function formatCsvNumber(value: number): string {
+  return value.toFixed(8);
 }
 
 function resolvePerceptionConfig(

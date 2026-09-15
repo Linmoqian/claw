@@ -270,6 +270,41 @@
   background: var(--accent-deep);
 }
 
+.model-training__export-actions {
+  display: flex;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.model-training__export {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 6px;
+  min-height: 30px;
+  padding: 0 9px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--inset);
+  font: inherit;
+  font-size: 10px;
+  cursor: pointer;
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    color 0.2s var(--ease-out),
+    transform 0.2s var(--ease-out);
+}
+
+.model-training__export:hover {
+  transform: translateY(-1px);
+  border-color: var(--border-strong);
+  color: var(--text);
+  background: var(--surface-soft);
+}
+
 .model-training__result {
   margin-top: 16px;
   padding-top: 15px;

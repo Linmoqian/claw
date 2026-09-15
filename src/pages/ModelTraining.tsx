@@ -10,11 +10,13 @@ import {
   BrainCircuit,
   CheckCircle2,
   Database,
+  Download,
   Eye,
   Network,
   Play,
   RotateCcw,
   ShieldCheck,
+  Table2,
 } from "lucide-react";
 import {
   DECISION_FEATURE_NAMES,
@@ -23,6 +25,10 @@ import {
   PERCEPTION_FEATURE_NAMES,
   runDecisionNetworkTraining,
   runPerceptionTraining,
+  serializeDecisionData,
+  serializeDecisionModel,
+  serializePerceptionData,
+  serializePerceptionModel,
   type DecisionTrainingConfig,
   type DecisionTrainingResult,
   type PerceptionTrainingConfig,
@@ -60,6 +66,26 @@ function formatPercent(value: number): string {
 
 function formatNumber(value: number): string {
   return value.toFixed(4);
+}
+
+function downloadText(
+  filename: string,
+  content: string,
+  mimeType: string,
+): void {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+function exportFileStamp(): string {
+  return new Date().toISOString().replace(/[.:]/g, "-");
 }
 
 function RangeField({
@@ -119,7 +145,44 @@ function TrainingButton({
   );
 }
 
-function PerceptionResult({ result }: { result: PerceptionTrainingResult }) {
+function ExportActions({
+  onExportModel,
+  onExportData,
+}: {
+  onExportModel: () => void;
+  onExportData: () => void;
+}) {
+  return (
+    <div className="model-training__export-actions">
+      <button
+        type="button"
+        className="model-training__export"
+        onClick={onExportModel}
+      >
+        <Download size={13} />
+        模型 JSON
+      </button>
+      <button
+        type="button"
+        className="model-training__export"
+        onClick={onExportData}
+      >
+        <Table2 size={13} />
+        数据 CSV
+      </button>
+    </div>
+  );
+}
+
+function PerceptionResult({
+  result,
+  onExportModel,
+  onExportData,
+}: {
+  result: PerceptionTrainingResult;
+  onExportModel: () => void;
+  onExportData: () => void;
+}) {
   const latest = result.history[result.history.length - 1];
   return (
     <div className="model-training__result">
@@ -173,11 +236,23 @@ function PerceptionResult({ result }: { result: PerceptionTrainingResult }) {
           </tbody>
         </table>
       </div>
+      <ExportActions
+        onExportModel={onExportModel}
+        onExportData={onExportData}
+      />
     </div>
   );
 }
 
-function DecisionResult({ result }: { result: DecisionTrainingResult }) {
+function DecisionResult({
+  result,
+  onExportModel,
+  onExportData,
+}: {
+  result: DecisionTrainingResult;
+  onExportModel: () => void;
+  onExportData: () => void;
+}) {
   const latest = result.history[result.history.length - 1];
   return (
     <div className="model-training__result">
@@ -219,6 +294,10 @@ function DecisionResult({ result }: { result: DecisionTrainingResult }) {
           <small>{DECISION_OUTPUT_NAMES.join(" · ")}</small>
         </div>
       </div>
+      <ExportActions
+        onExportModel={onExportModel}
+        onExportData={onExportData}
+      />
     </div>
   );
 }
@@ -261,6 +340,7 @@ export default function ModelTraining() {
     if (running) return;
     setRunning("perception");
     setNotice(null);
+    setPerceptionResult(null);
     const result = runPerceptionTraining(perceptionControls);
     setPerceptionResult(result);
     setRunning(null);
@@ -273,12 +353,53 @@ export default function ModelTraining() {
     if (running) return;
     setRunning("decision");
     setNotice(null);
+    setDecisionResult(null);
     const result = runDecisionNetworkTraining(decisionControls);
     setDecisionResult(result);
     setRunning(null);
     setNotice(
       `决策网络训练完成 · 安全动作率 ${formatPercent(result.validationSafetyRate)}`,
     );
+  };
+
+  const exportPerceptionModel = () => {
+    if (!perceptionResult) return;
+    downloadText(
+      `perception-model-${exportFileStamp()}.json`,
+      serializePerceptionModel(perceptionResult),
+      "application/json;charset=utf-8",
+    );
+    setNotice("感知模型 JSON 已导出");
+  };
+
+  const exportPerceptionData = () => {
+    if (!perceptionResult) return;
+    downloadText(
+      `perception-data-${exportFileStamp()}.csv`,
+      serializePerceptionData(perceptionResult),
+      "text/csv;charset=utf-8",
+    );
+    setNotice("感知训练数据 CSV 已导出");
+  };
+
+  const exportDecisionModel = () => {
+    if (!decisionResult) return;
+    downloadText(
+      `decision-model-${exportFileStamp()}.json`,
+      serializeDecisionModel(decisionResult),
+      "application/json;charset=utf-8",
+    );
+    setNotice("决策网络 JSON 已导出");
+  };
+
+  const exportDecisionData = () => {
+    if (!decisionResult) return;
+    downloadText(
+      `decision-data-${exportFileStamp()}.csv`,
+      serializeDecisionData(decisionResult),
+      "text/csv;charset=utf-8",
+    );
+    setNotice("决策训练数据 CSV 已导出");
   };
 
   const reset = () => {
@@ -388,7 +509,13 @@ export default function ModelTraining() {
             label="训练感知模型"
             onClick={trainPerception}
           />
-          {perceptionResult && <PerceptionResult result={perceptionResult} />}
+          {perceptionResult && (
+            <PerceptionResult
+              result={perceptionResult}
+              onExportModel={exportPerceptionModel}
+              onExportData={exportPerceptionData}
+            />
+          )}
         </section>
 
         <section className="model-training__card">
@@ -454,7 +581,13 @@ export default function ModelTraining() {
             label="训练决策网络"
             onClick={trainDecision}
           />
-          {decisionResult && <DecisionResult result={decisionResult} />}
+          {decisionResult && (
+            <DecisionResult
+              result={decisionResult}
+              onExportModel={exportDecisionModel}
+              onExportData={exportDecisionData}
+            />
+          )}
         </section>
       </div>
 
@@ -463,7 +596,8 @@ export default function ModelTraining() {
         <div>
           <strong>当前训练边界</strong>
           <span>
-            感知侧是特征分类基线，决策侧是行为克隆基线；模型权重只存在于本次运行，尚未接入摄像头、持久化或真实机器人下发。
+            感知侧是特征分类基线，决策侧是行为克隆基线；训练完成后可导出模型
+            JSON 与样本 CSV，尚未接入摄像头或真实机器人下发。
           </span>
         </div>
       </div>

@@ -8,6 +8,10 @@ import assert from "node:assert/strict";
 import {
   runDecisionNetworkTraining,
   runPerceptionTraining,
+  serializeDecisionData,
+  serializeDecisionModel,
+  serializePerceptionData,
+  serializePerceptionModel,
 } from "../src/robot/modelTraining";
 
 function main() {
@@ -26,6 +30,15 @@ function main() {
   );
   assert.deepEqual(perception.history, perceptionRepeat.history);
   assert.equal(perception.confusion.length, 3);
+  const perceptionModel = JSON.parse(
+    serializePerceptionModel(perception, "2026-09-15T00:00:00.000Z"),
+  ) as { modelType: string; parameters: { weights: number[][] } };
+  assert.equal(perceptionModel.modelType, "perception");
+  assert.equal(perceptionModel.parameters.weights.length, 3);
+  const perceptionDataRows = serializePerceptionData(perception)
+    .trimEnd()
+    .split(/\r?\n/);
+  assert.equal(perceptionDataRows.length, perception.samples.length + 1);
 
   const decisionConfig = {
     samples: 240,
@@ -46,6 +59,15 @@ function main() {
     `决策验证安全率过低: ${decision.validationSafetyRate}`,
   );
   assert.deepEqual(decision.history, decisionRepeat.history);
+  const decisionModel = JSON.parse(
+    serializeDecisionModel(decision, "2026-09-15T00:00:00.000Z"),
+  ) as { modelType: string; architecture: { hiddenUnits: number } };
+  assert.equal(decisionModel.modelType, "decision");
+  assert.equal(decisionModel.architecture.hiddenUnits, decision.hiddenUnits);
+  const decisionDataRows = serializeDecisionData(decision)
+    .trimEnd()
+    .split(/\r?\n/);
+  assert.equal(decisionDataRows.length, decision.samples.length + 1);
 
   console.log(
     JSON.stringify(
