@@ -9,33 +9,39 @@ import {
   Activity,
   ShieldAlert,
   Info,
+  MoreHorizontal,
+  ChevronDown,
+  ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
 } from "lucide-react";
 import "./Sidebar.css";
 import { useDevice } from "../store/DeviceContext";
+import { useLocation } from "react-router";
 
 type NavItem = {
   to: string;
   label: string;
   Icon: ComponentType<{ className?: string }>;
-  group: "observe" | "tune" | "system";
+  group: "workspace" | "system";
 };
 
 const NAV_ITEMS: NavItem[] = [
-  { to: "/studio", label: "仿真与调参", Icon: Box, group: "observe" },
-  { to: "/connect", label: "设备连接", Icon: Plug, group: "observe" },
-  { to: "/monitor", label: "关节状态", Icon: Cpu, group: "observe" },
-  { to: "/control", label: "基础控制", Icon: ToggleRight, group: "tune" },
-  { to: "/mode", label: "控制模式", Icon: SlidersHorizontal, group: "tune" },
-  { to: "/scope", label: "实时曲线", Icon: Activity, group: "tune" },
+  { to: "/studio", label: "仿真与调参", Icon: Box, group: "workspace" },
+  { to: "/connect", label: "设备连接", Icon: Plug, group: "workspace" },
   { to: "/safety", label: "故障与安全", Icon: ShieldAlert, group: "system" },
   { to: "/about", label: "关于应用", Icon: Info, group: "system" },
 ];
 
+const MORE_ITEMS: NavItem[] = [
+  { to: "/monitor", label: "关节状态", Icon: Cpu, group: "workspace" },
+  { to: "/control", label: "基础控制", Icon: ToggleRight, group: "workspace" },
+  { to: "/mode", label: "控制模式", Icon: SlidersHorizontal, group: "workspace" },
+  { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
+];
+
 const GROUP_LABELS = {
-  observe: "工作台",
-  tune: "运动控制",
+  workspace: "工作台",
   system: "诊断与系统",
 };
 
@@ -51,8 +57,12 @@ function readCollapsed(): boolean {
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const location = useLocation();
   const { connected, selectedId, motors } = useDevice();
   const selected = motors.find((motor) => motor.id === selectedId);
+  const moreActive = MORE_ITEMS.some((item) => location.pathname === item.to);
+  const showMore = moreOpen || moreActive;
 
   const toggle = () => {
     setCollapsed((prev) => {
@@ -102,6 +112,38 @@ export default function Sidebar() {
             </div>
           ),
         )}
+        <div className="sidebar__group sidebar__advanced">
+          <button
+            type="button"
+            className={`sidebar__item sidebar__more-toggle ${showMore ? "is-open" : ""}`}
+            onClick={() => setMoreOpen((prev) => !prev)}
+            aria-expanded={showMore}
+            title={collapsed ? "更多工具" : undefined}
+          >
+            <MoreHorizontal className="sidebar__icon" />
+            <span className="sidebar__label">更多工具</span>
+            {showMore ? (
+              <ChevronDown className="sidebar__more-chevron" aria-hidden="true" />
+            ) : (
+              <ChevronRight className="sidebar__more-chevron" aria-hidden="true" />
+            )}
+          </button>
+          {showMore && (
+            <div className="sidebar__more-items" aria-label="更多工具">
+              {MORE_ITEMS.map(({ to, label, Icon }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  className="sidebar__item"
+                  title={collapsed ? label : undefined}
+                >
+                  <Icon className="sidebar__icon" />
+                  <span className="sidebar__label">{label}</span>
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
       </nav>
       <div className="sidebar__context">
         <span
