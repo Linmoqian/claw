@@ -9,7 +9,7 @@ import { useWorldStore } from "../stores/worldStore";
 export const ROOT_UP_ROTATION: [number, number, number] = [-Math.PI / 2, 0, 0];
 
 /** 臂安装平面高度（视觉占位；X-line 真实底盘几何在 DXF 阶段接入） */
-const DECK_HEIGHT = 0.062;
+export const DECK_HEIGHT = 0.062;
 
 /** world 平面航向的 three 旋转轴（Y 上，负向补偿 z-up→y-up 翻转） */
 const UP_AXIS = new THREE.Vector3(0, 1, 0);
@@ -45,7 +45,7 @@ const WHEEL_MATERIAL = new THREE.MeshStandardMaterial({
 });
 
 /** 从 world 四元数提取平面航向 yaw（M0 假设：robot_state 为 Z-up 平面姿态） */
-function worldYawOf(q: Orientation): number {
+export function worldYawOf(q: Orientation): number {
   return Math.atan2(
     2 * (q.w * q.z + q.x * q.y),
     1 - 2 * (q.y * q.y + q.z * q.z),

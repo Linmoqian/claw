@@ -1,4 +1,4 @@
-// 碰撞检测系统：纯 TS 解析几何（capsule×capsule / capsule×台面 / 静态物体体积）。
+// 碰撞检测系统：纯 TS 解析几何（capsule×capsule / capsule×台面 / 场景物体体积）。
 // 四层语义中的 self / environment / swept；输出真实最近距离（非布尔膨胀层）。
 // Created on 2026-09-10 12:50
 // @author:  https://github.com/Linmoqian
@@ -9,6 +9,7 @@ import {
   type ScenePropCollider,
   type ScenePropId,
 } from "./sceneGeometry";
+import { getScenePropPose } from "./scenePhysics";
 import type { RobotModel } from "./types";
 
 /** 三档安全距离语义（最近环境距离）：clear → warn → slow → stop 逐级收紧 */
@@ -139,6 +140,10 @@ interface EnvironmentRuntimeCollider {
   collider: ScenePropCollider;
   p0: Vector3;
   p1: Vector3;
+  localP0Three: Vector3;
+  localP1Three: Vector3;
+  worldP0Three: Vector3;
+  worldP1Three: Vector3;
 }
 
 /** 线段最短距离平方（标准 clamp 算法；tmp 系列复用调用方传入的预分配对象） */
@@ -202,7 +207,7 @@ function distanceTier(d: number): SafetyTier {
 
 /**
  * CollisionSystem —— 目标世界与现实世界的共享碰撞查询器。
- * 纯解析几何：每帧 FK → 更新胶囊端点 → 台面/物体距离计算（无 WASM/物理步进依赖）。
+ * 纯解析几何：每帧 FK → 更新胶囊端点 → 台面/物体距离计算（物体姿态从物理缓存同步，无 WASM 依赖）。
  */
 export class CollisionSystem {
   readonly model: RobotModel;
@@ -216,6 +221,10 @@ export class CollisionSystem {
       collider,
       p0: new Vector3(...collider.p0),
       p1: new Vector3(...collider.p1),
+      localP0Three: new Vector3(...collider.localP0Three),
+      localP1Three: new Vector3(...collider.localP1Three),
+      worldP0Three: new Vector3(),
+      worldP1Three: new Vector3(),
     }));
   private readonly parentOfLink = new Map<string, string>();
   /** 臂链最大链深（环境距离的半深启发式用） */
@@ -362,6 +371,7 @@ export class CollisionSystem {
     // 距离减去两端半径后为真实安全余量（负值 = 穿透）。
     let nearestObject: EnvironmentHit | null = null;
     for (const runtimeCollider of this.environmentColliders) {
+      this.syncEnvironmentCollider(runtimeCollider);
       const objectDistance = this.distanceToCollider(runtimeCollider);
       if (objectDistance < minDist) minDist = objectDistance;
       if (!nearestObject || objectDistance < nearestObject.distance) {
@@ -420,6 +430,27 @@ export class CollisionSystem {
     return minDistance;
   }
 
+  /** 将 Rapier 刚体的 Three 世界姿态映射回 URDF 胶囊端点。 */
+  private syncEnvironmentCollider(collider: EnvironmentRuntimeCollider): void {
+    const pose = getScenePropPose(collider.collider.id);
+    if (!pose) {
+      collider.p0.set(...collider.collider.p0);
+      collider.p1.set(...collider.collider.p1);
+      return;
+    }
+
+    collider.worldP0Three
+      .copy(collider.localP0Three)
+      .applyQuaternion(pose.rotation)
+      .add(pose.position);
+    collider.worldP1Three
+      .copy(collider.localP1Three)
+      .applyQuaternion(pose.rotation)
+      .add(pose.position);
+    threeToUrdf(collider.worldP0Three, collider.p0);
+    threeToUrdf(collider.worldP1Three, collider.p1);
+  }
+
   /** 扫掠路径评估：from → to 关节空间线性插值采样（目标入闸用，粗采样） */
   evaluateSwept(from: readonly number[], to: readonly number[], steps = 4): CollisionStatus {
     let worst = COLLISION_CLEAR;
@@ -437,6 +468,11 @@ export class CollisionSystem {
   dispose(): void {
     // 纯内存对象，交由 GC
   }
+}
+
+/** Three（Y-up）→ URDF/ROS（Z-up）坐标转换，复用目标向量避免分配。 */
+function threeToUrdf(source: Vector3, target: Vector3): void {
+  target.set(source.x, -source.z, source.y);
 }
 
 /** st 是否比 worst 更严重 */

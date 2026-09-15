@@ -1,11 +1,18 @@
 /** 3D 舞台：Canvas + 环境光 + 网格地面 + OrbitControls + 机器人视图。 */
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Grid, OrbitControls } from "@react-three/drei";
+import {
+  BallCollider,
+  CuboidCollider,
+  Physics,
+  RigidBody,
+  type RapierRigidBody,
+} from "@react-three/rapier";
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import RobotView from "./RobotView";
-import MobileBase from "./MobileBase";
+import MobileBase, { DECK_HEIGHT, worldYawOf } from "./MobileBase";
 import BaseGhost from "./BaseGhost";
 import BaseDragHandle from "./BaseDragHandle";
 import WorkspaceLayer from "./WorkspaceLayer";
@@ -31,6 +38,58 @@ interface StageContentProps {
   sim: SimulationLoop;
   baseSim: BaseSim;
   assetBase: string;
+}
+
+/** 物理地面：顶面与 Three 网格的 z=0 安装基准重合。 */
+function PhysicsGround() {
+  return (
+    <RigidBody type="fixed" colliders={false} position={[0, -0.01, 0]}>
+      <CuboidCollider args={[6, 0.01, 6]} friction={1} restitution={0} />
+    </RigidBody>
+  );
+}
+
+/** 末端执行器的轻量运动学碰撞代理，用于撞倒场景道具而不改变机械臂视觉层级。 */
+function PhysicsTcpProxy({ sim }: { sim: SimulationLoop }) {
+  const bodyRef = useRef<RapierRigidBody | null>(null);
+  const position = useRef(new THREE.Vector3());
+  const basePosition = useRef(new THREE.Vector3());
+  const baseRotation = useRef(new THREE.Quaternion());
+  const upAxis = useRef(new THREE.Vector3(0, 1, 0));
+
+  useFrame(() => {
+    const body = bodyRef.current;
+    if (!body) return;
+
+    const tcp = sim.tcpPosition;
+    // sim 使用 URDF (x,y,z)，MobileBase 的臂根使用 Three Y-up。
+    position.current.set(tcp.x, tcp.z + DECK_HEIGHT, -tcp.y);
+    const robot = useWorldStore.getState().world.robot;
+    if (robot) {
+      const pose = robot.pose;
+      basePosition.current.set(pose.position.x, 0, -pose.position.y);
+      baseRotation.current.setFromAxisAngle(
+        upAxis.current,
+        -worldYawOf(pose.orientation),
+      );
+      position.current
+        .applyQuaternion(baseRotation.current)
+        .add(basePosition.current);
+    }
+    body.setNextKinematicTranslation(position.current);
+  });
+
+  return (
+    <RigidBody
+      ref={bodyRef}
+      type="kinematicPosition"
+      colliders={false}
+      position={[0, DECK_HEIGHT, 0]}
+      canSleep={false}
+    >
+      <BallCollider args={[0.045]} friction={0.82} restitution={0.12} />
+    </RigidBody>
+  );
 }
 
 function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
@@ -177,7 +236,23 @@ export default function RobotStage({ model, sim, baseSim, assetBase }: RobotStag
       camera={{ position: [0.88, 0.72, 0.95], fov: 42, near: 0.01, far: 60 }}
       gl={{ antialias: true }}
     >
-      <StageContent model={model} sim={sim} baseSim={baseSim} assetBase={assetBase} />
+      <Suspense fallback={null}>
+        <Physics
+          gravity={[0, -9.81, 0]}
+          timeStep="vary"
+          interpolate={false}
+          colliders={false}
+        >
+          <PhysicsGround />
+          <StageContent
+            model={model}
+            sim={sim}
+            baseSim={baseSim}
+            assetBase={assetBase}
+          />
+          <PhysicsTcpProxy sim={sim} />
+        </Physics>
+      </Suspense>
     </Canvas>
   );
 }

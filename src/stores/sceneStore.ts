@@ -13,12 +13,15 @@ interface SceneStore {
   resetViewToken: number;
   /** 每次自增触发一次聚焦机器人 */
   focusToken: number;
+  /** 每次自增触发一次场景道具刚体复位 */
+  resetPropsToken: number;
   toggleJointAxes: () => void;
   toggleTcpAxes: () => void;
   toggleTrail: () => void;
   setMaterialStyle: (style: MaterialStyle) => void;
   requestResetView: () => void;
   requestFocus: () => void;
+  requestResetProps: () => void;
 }
 
 export const useSceneStore = create<SceneStore>((set) => ({
@@ -28,6 +31,7 @@ export const useSceneStore = create<SceneStore>((set) => ({
   materialStyle: "chalk",
   resetViewToken: 0,
   focusToken: 0,
+  resetPropsToken: 0,
   toggleJointAxes: () =>
     set((s) => ({ showJointAxes: !s.showJointAxes })),
   toggleTcpAxes: () => set((s) => ({ showTcpAxes: !s.showTcpAxes })),
@@ -35,4 +39,6 @@ export const useSceneStore = create<SceneStore>((set) => ({
   setMaterialStyle: (materialStyle) => set({ materialStyle }),
   requestResetView: () => set((s) => ({ resetViewToken: s.resetViewToken + 1 })),
   requestFocus: () => set((s) => ({ focusToken: s.focusToken + 1 })),
+  requestResetProps: () =>
+    set((s) => ({ resetPropsToken: s.resetPropsToken + 1 })),
 }));

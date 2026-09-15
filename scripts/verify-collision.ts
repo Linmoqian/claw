@@ -4,6 +4,10 @@
 import { buildRobotModel } from "../src/robot/model";
 import { computeLinkPoses, computeTcpPose } from "../src/robot/kinematics";
 import { CollisionSystem } from "../src/robot/collision";
+import {
+  clearScenePropPoses,
+  setScenePropPose,
+} from "../src/robot/scenePhysics";
 
 // node 无 DOMParser：手工构造 SO-100 近似链（尺寸与真实 URDF 接近，验证碰撞逻辑）
 interface ChainSeg {
@@ -75,6 +79,23 @@ function main() {
     `前倾构型: TCP z=${tcpMid.position.z.toFixed(3)}m →`,
     fmt(midStatus),
   );
+
+  // 2b) 动态姿态：物理刚体移开后，解析碰撞应同步放宽，不再命中原机位。
+  const staticMidDistance = midStatus.safetyDistance ?? -Infinity;
+  setScenePropPose(
+    "coffee-machine",
+    { x: 1.2, y: 0, z: 0.22 },
+    { x: 0, y: 0, z: 0, w: 1 },
+  );
+  const movedMachineStatus = sys.evaluate(mid);
+  if (
+    movedMachineStatus.safetyDistance === null ||
+    movedMachineStatus.safetyDistance <= staticMidDistance
+  ) {
+    throw new Error("动态物体姿态未同步到解析碰撞层");
+  }
+  console.log("咖啡机移位后:", fmt(movedMachineStatus));
+  clearScenePropPoses();
 
   // 3) 大幅下垂（肩 85°/肘 75°/腕 60°）：TCP 贴台面，应命中 slow/stop
   const droop = [...zeros];

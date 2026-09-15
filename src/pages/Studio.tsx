@@ -1,6 +1,6 @@
 /** 仿真与调参工作区：关节控制、数字孪生和 PID 响应模型处于同一上下文。 */
 import { useEffect, useRef, useState } from "react";
-import { Pause, Play, Save, SlidersHorizontal, X } from "lucide-react";
+import { Pause, Play, RotateCcw, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
 import PidSlider from "../components/PidSlider";
@@ -82,6 +82,7 @@ export default function Studio() {
   const toggleMaterialStyle = useSceneStore((s) => s.setMaterialStyle);
   const requestResetView = useSceneStore((s) => s.requestResetView);
   const requestFocus = useSceneStore((s) => s.requestFocus);
+  const requestResetProps = useSceneStore((s) => s.requestResetProps);
 
   // 数据桥：SIM ↔ MOCK 真数据（TWIN 观察态），100ms 低频刷新健康快照
   const bridgeInfo = useBridgeStore((s) => s.info);
@@ -931,6 +932,14 @@ export default function Studio() {
             aria-pressed={materialStyle === "urdf"}
           >
             {materialStyle === "chalk" ? "浅灰涂装" : "URDF 配色"}
+          </button>
+          <button
+            type="button"
+            onClick={requestResetProps}
+            title="将水杯和咖啡机恢复到初始位置与姿态"
+          >
+            <RotateCcw size={13} />
+            物体复位
           </button>
           <button
             type="button"
