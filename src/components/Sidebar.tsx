@@ -16,6 +16,7 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   Swords,
+  BrainCircuit,
 } from "lucide-react";
 import "./Sidebar.css";
 import { useDevice } from "../store/DeviceContext";
@@ -47,6 +48,7 @@ const MORE_ITEMS: NavItem[] = [
   },
   { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
   { to: "/training", label: "对抗训练", Icon: Swords, group: "workspace" },
+  { to: "/model-training", label: "智能训练", Icon: BrainCircuit, group: "workspace" },
 ];
 
 const GROUP_LABELS = {

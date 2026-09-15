@@ -18,6 +18,7 @@ import About from "./pages/About";
 import Studio from "./pages/Studio";
 import DataCollection from "./pages/DataCollection";
 import AdversarialTraining from "./pages/AdversarialTraining";
+import ModelTraining from "./pages/ModelTraining";
 import "./App.css";
 
 const contextItems: ContextMenuItem[] = [
@@ -69,6 +70,7 @@ function App() {
                 <Route path="/connect" element={<Connect />} />
                 <Route path="/data" element={<DataCollection />} />
                 <Route path="/training" element={<AdversarialTraining />} />
+                <Route path="/model-training" element={<ModelTraining />} />
                 <Route path="/monitor" element={<Monitor />} />
                 <Route path="/control" element={<Control />} />
                 <Route path="/mode" element={<ModeControl />} />

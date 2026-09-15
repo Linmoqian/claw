@@ -9,6 +9,7 @@
 - **机器人连接**：扫描串口、识别控制器并展示数据源状态
 - **关节观测**：位置、目标、电流、温度与误差读数
 - **参数草案**：实时观察 SP/PV 阶跃响应，按关节独立保存调参方案
+- **智能训练**：基于仿真特征训练感知 Softmax 分类器与决策 MLP 网络
 
 ## 技术栈
 
@@ -20,6 +21,7 @@ Tauri 2 · React 19 · TypeScript · Vite · motion · lucide-react
 npm install
 npm run dev        # 浏览器预览（固定端口 1421）
 npm run tauri dev  # Tauri 桌面应用
+npx tsx scripts/verify-model-training.ts  # 验证感知/决策训练基线
 ```
 
 > 浏览器预览时 Tauri 窗口 API 自动降级（`isTauri` 守卫），不影响布局验证。

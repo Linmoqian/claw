@@ -1,0 +1,473 @@
+/**
+ * Created on 2026-09-15
+ * @author: https://github.com/Linmoqian
+ *
+ * 智能模型训练工作区：在仿真数据上训练感知分类器与决策网络。
+ */
+import { useState } from "react";
+import {
+  BarChart3,
+  BrainCircuit,
+  CheckCircle2,
+  Database,
+  Eye,
+  Network,
+  Play,
+  RotateCcw,
+  ShieldCheck,
+} from "lucide-react";
+import {
+  DECISION_FEATURE_NAMES,
+  DECISION_OUTPUT_NAMES,
+  PERCEPTION_CLASS_LABELS,
+  PERCEPTION_FEATURE_NAMES,
+  runDecisionNetworkTraining,
+  runPerceptionTraining,
+  type DecisionTrainingConfig,
+  type DecisionTrainingResult,
+  type PerceptionTrainingConfig,
+  type PerceptionTrainingResult,
+} from "../robot/modelTraining";
+import "./ModelTraining.css";
+
+type PerceptionControls = Required<
+  Pick<PerceptionTrainingConfig, "samplesPerClass" | "epochs" | "learningRate">
+>;
+
+type DecisionControls = Required<
+  Pick<
+    DecisionTrainingConfig,
+    "samples" | "epochs" | "hiddenUnits" | "learningRate"
+  >
+>;
+
+const DEFAULT_PERCEPTION_CONTROLS: PerceptionControls = {
+  samplesPerClass: 120,
+  epochs: 32,
+  learningRate: 0.28,
+};
+
+const DEFAULT_DECISION_CONTROLS: DecisionControls = {
+  samples: 320,
+  epochs: 64,
+  hiddenUnits: 12,
+  learningRate: 0.08,
+};
+
+function formatPercent(value: number): string {
+  return `${(value * 100).toFixed(1)}%`;
+}
+
+function formatNumber(value: number): string {
+  return value.toFixed(4);
+}
+
+function RangeField({
+  label,
+  value,
+  min,
+  max,
+  step,
+  display,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  display: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <label className="model-training__field">
+      <span>{label}</span>
+      <output className="tnum">{display}</output>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function TrainingButton({
+  running,
+  disabled = running,
+  label,
+  onClick,
+}: {
+  running: boolean;
+  disabled?: boolean;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="model-training__run"
+      disabled={disabled}
+      onClick={onClick}
+    >
+      <Play size={14} />
+      {running ? "训练计算中…" : label}
+    </button>
+  );
+}
+
+function PerceptionResult({ result }: { result: PerceptionTrainingResult }) {
+  const latest = result.history[result.history.length - 1];
+  return (
+    <div className="model-training__result">
+      <div className="model-training__metric-grid">
+        <div>
+          <span>验证准确率</span>
+          <strong className="tnum">
+            {formatPercent(result.validationAccuracy)}
+          </strong>
+          <small>留出集 · {result.validationSamples} 条</small>
+        </div>
+        <div>
+          <span>交叉熵损失</span>
+          <strong className="tnum">{formatNumber(result.finalLoss)}</strong>
+          <small>第 {latest?.epoch ?? 0} 轮</small>
+        </div>
+        <div>
+          <span>训练样本</span>
+          <strong className="tnum">{result.trainSamples}</strong>
+          <small>3 类仿真目标</small>
+        </div>
+      </div>
+      <div className="model-training__matrix-wrap">
+        <div className="model-training__subhead">
+          <span>验证集混淆矩阵</span>
+          <small>行 = 实际 · 列 = 预测</small>
+        </div>
+        <table className="model-training__matrix">
+          <thead>
+            <tr>
+              <th aria-label="实际预测" />
+              {PERCEPTION_CLASS_LABELS.map((label) => (
+                <th key={label}>{label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {result.confusion.map((row, rowIndex) => (
+              <tr key={PERCEPTION_CLASS_LABELS[rowIndex]}>
+                <th>{PERCEPTION_CLASS_LABELS[rowIndex]}</th>
+                {row.map((count, columnIndex) => (
+                  <td
+                    key={`${rowIndex}-${columnIndex}`}
+                    className={rowIndex === columnIndex ? "is-hit" : undefined}
+                  >
+                    {count}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DecisionResult({ result }: { result: DecisionTrainingResult }) {
+  const latest = result.history[result.history.length - 1];
+  return (
+    <div className="model-training__result">
+      <div className="model-training__metric-grid">
+        <div>
+          <span>验证成功率</span>
+          <strong className="tnum">
+            {formatPercent(result.validationSuccessRate)}
+          </strong>
+          <small>动作误差阈值 ≤ 0.30</small>
+        </div>
+        <div>
+          <span>安全动作率</span>
+          <strong className="tnum">
+            {formatPercent(result.validationSafetyRate)}
+          </strong>
+          <small>近障碍时优先抬升</small>
+        </div>
+        <div>
+          <span>验证 MSE</span>
+          <strong className="tnum">{formatNumber(result.validationMse)}</strong>
+          <small>第 {latest?.epoch ?? 0} 轮</small>
+        </div>
+      </div>
+      <div className="model-training__network-summary">
+        <div>
+          <span>网络结构</span>
+          <strong className="tnum">
+            {DECISION_FEATURE_NAMES.length} → {result.hiddenUnits} →{" "}
+            {DECISION_OUTPUT_NAMES.length}
+          </strong>
+        </div>
+        <div>
+          <span>输入</span>
+          <small>{DECISION_FEATURE_NAMES.join(" · ")}</small>
+        </div>
+        <div>
+          <span>输出</span>
+          <small>{DECISION_OUTPUT_NAMES.join(" · ")}</small>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ModelTraining() {
+  const [perceptionControls, setPerceptionControls] = useState(
+    DEFAULT_PERCEPTION_CONTROLS,
+  );
+  const [decisionControls, setDecisionControls] = useState(
+    DEFAULT_DECISION_CONTROLS,
+  );
+  const [perceptionResult, setPerceptionResult] =
+    useState<PerceptionTrainingResult | null>(null);
+  const [decisionResult, setDecisionResult] =
+    useState<DecisionTrainingResult | null>(null);
+  const [running, setRunning] = useState<"perception" | "decision" | null>(
+    null,
+  );
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const updatePerception = <K extends keyof PerceptionControls>(
+    key: K,
+    value: PerceptionControls[K],
+  ) => {
+    setPerceptionControls((current) => ({ ...current, [key]: value }));
+    setPerceptionResult(null);
+    setNotice(null);
+  };
+
+  const updateDecision = <K extends keyof DecisionControls>(
+    key: K,
+    value: DecisionControls[K],
+  ) => {
+    setDecisionControls((current) => ({ ...current, [key]: value }));
+    setDecisionResult(null);
+    setNotice(null);
+  };
+
+  const trainPerception = () => {
+    if (running) return;
+    setRunning("perception");
+    setNotice(null);
+    const result = runPerceptionTraining(perceptionControls);
+    setPerceptionResult(result);
+    setRunning(null);
+    setNotice(
+      `感知模型训练完成 · 验证准确率 ${formatPercent(result.validationAccuracy)}`,
+    );
+  };
+
+  const trainDecision = () => {
+    if (running) return;
+    setRunning("decision");
+    setNotice(null);
+    const result = runDecisionNetworkTraining(decisionControls);
+    setDecisionResult(result);
+    setRunning(null);
+    setNotice(
+      `决策网络训练完成 · 安全动作率 ${formatPercent(result.validationSafetyRate)}`,
+    );
+  };
+
+  const reset = () => {
+    setPerceptionControls(DEFAULT_PERCEPTION_CONTROLS);
+    setDecisionControls(DEFAULT_DECISION_CONTROLS);
+    setPerceptionResult(null);
+    setDecisionResult(null);
+    setNotice(null);
+  };
+
+  return (
+    <div className="stage model-training">
+      <header className="model-training__header">
+        <div>
+          <div className="section-label">
+            <span className="section-label__title">智能训练</span>
+            <span className="model-training__eyebrow">MODEL TRAINING</span>
+          </div>
+          <h1>让模型从仿真数据中学会看与做。</h1>
+          <p>
+            感知模型识别水杯、咖啡机与工作台；决策网络根据目标和障碍距离输出安全的末端动作。
+          </p>
+        </div>
+        <BrainCircuit
+          className="model-training__header-icon"
+          aria-hidden="true"
+        />
+      </header>
+
+      <div className="model-training__status" role="status">
+        <span className="model-training__status-dot is-ready" />
+        <span>仿真数据 · 浏览器本地训练</span>
+        <span className="model-training__status-note">
+          不读取摄像头 · 不下发实机 · 固定种子可复现
+        </span>
+      </div>
+
+      <div className="model-training__toolbar">
+        <div className="model-training__toolbar-copy">
+          <Database size={16} aria-hidden="true" />
+          <span>
+            本页使用可解释的合成特征和状态-动作样本，适合验证训练链路与指标展示。
+          </span>
+        </div>
+        <button
+          type="button"
+          className="model-training__reset"
+          onClick={reset}
+          disabled={Boolean(running)}
+        >
+          <RotateCcw size={13} />
+          恢复默认
+        </button>
+      </div>
+
+      <div className="model-training__grid">
+        <section className="model-training__card">
+          <div className="model-training__card-head">
+            <div>
+              <span className="model-training__kicker">PERCEPTION MODEL</span>
+              <h2>感知模型训练</h2>
+            </div>
+            <Eye size={19} aria-hidden="true" />
+          </div>
+          <p className="model-training__description">
+            Softmax 多分类器从归一化仿真视觉特征中学习三类场景目标。
+          </p>
+          <div className="model-training__algorithm">
+            <BarChart3 size={14} />
+            <span>算法：全批量梯度下降 + 交叉熵</span>
+          </div>
+          <RangeField
+            label="每类样本"
+            value={perceptionControls.samplesPerClass}
+            min={30}
+            max={300}
+            step={10}
+            display={`${perceptionControls.samplesPerClass} 条`}
+            onChange={(value) => updatePerception("samplesPerClass", value)}
+          />
+          <RangeField
+            label="训练轮数"
+            value={perceptionControls.epochs}
+            min={4}
+            max={100}
+            step={1}
+            display={`${perceptionControls.epochs} 轮`}
+            onChange={(value) => updatePerception("epochs", value)}
+          />
+          <RangeField
+            label="学习率"
+            value={perceptionControls.learningRate}
+            min={0.01}
+            max={0.8}
+            step={0.01}
+            display={perceptionControls.learningRate.toFixed(2)}
+            onChange={(value) => updatePerception("learningRate", value)}
+          />
+          <div className="model-training__feature-list">
+            {PERCEPTION_FEATURE_NAMES.map((feature) => (
+              <span key={feature}>{feature}</span>
+            ))}
+          </div>
+          <TrainingButton
+            running={running === "perception"}
+            disabled={Boolean(running)}
+            label="训练感知模型"
+            onClick={trainPerception}
+          />
+          {perceptionResult && <PerceptionResult result={perceptionResult} />}
+        </section>
+
+        <section className="model-training__card">
+          <div className="model-training__card-head">
+            <div>
+              <span className="model-training__kicker">DECISION NETWORK</span>
+              <h2>决策网络训练</h2>
+            </div>
+            <Network size={19} aria-hidden="true" />
+          </div>
+          <p className="model-training__description">
+            单隐藏层 MLP 学习“目标状态 →
+            末端动作”的行为克隆策略，并检查近障碍安全动作。
+          </p>
+          <div className="model-training__algorithm">
+            <ShieldCheck size={14} />
+            <span>算法：ReLU 隐藏层 + tanh 输出 + 反向传播</span>
+          </div>
+          <RangeField
+            label="状态样本"
+            value={decisionControls.samples}
+            min={80}
+            max={800}
+            step={20}
+            display={`${decisionControls.samples} 条`}
+            onChange={(value) => updateDecision("samples", value)}
+          />
+          <RangeField
+            label="训练轮数"
+            value={decisionControls.epochs}
+            min={8}
+            max={160}
+            step={1}
+            display={`${decisionControls.epochs} 轮`}
+            onChange={(value) => updateDecision("epochs", value)}
+          />
+          <RangeField
+            label="隐藏单元"
+            value={decisionControls.hiddenUnits}
+            min={4}
+            max={32}
+            step={1}
+            display={`${decisionControls.hiddenUnits} 个`}
+            onChange={(value) => updateDecision("hiddenUnits", value)}
+          />
+          <RangeField
+            label="学习率"
+            value={decisionControls.learningRate}
+            min={0.01}
+            max={0.25}
+            step={0.01}
+            display={decisionControls.learningRate.toFixed(2)}
+            onChange={(value) => updateDecision("learningRate", value)}
+          />
+          <div className="model-training__feature-list">
+            {DECISION_FEATURE_NAMES.map((feature) => (
+              <span key={feature}>{feature}</span>
+            ))}
+          </div>
+          <TrainingButton
+            running={running === "decision"}
+            disabled={Boolean(running)}
+            label="训练决策网络"
+            onClick={trainDecision}
+          />
+          {decisionResult && <DecisionResult result={decisionResult} />}
+        </section>
+      </div>
+
+      <div className="model-training__footer">
+        <CheckCircle2 size={16} aria-hidden="true" />
+        <div>
+          <strong>当前训练边界</strong>
+          <span>
+            感知侧是特征分类基线，决策侧是行为克隆基线；模型权重只存在于本次运行，尚未接入摄像头、持久化或真实机器人下发。
+          </span>
+        </div>
+      </div>
+      {notice && <p className="model-training__notice">{notice}</p>}
+    </div>
+  );
+}
