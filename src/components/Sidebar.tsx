@@ -7,6 +7,7 @@ import {
   ToggleRight,
   SlidersHorizontal,
   Activity,
+  Database,
   ShieldAlert,
   Info,
   MoreHorizontal,
@@ -29,6 +30,7 @@ type NavItem = {
 const NAV_ITEMS: NavItem[] = [
   { to: "/studio", label: "仿真与调参", Icon: Box, group: "workspace" },
   { to: "/connect", label: "设备连接", Icon: Plug, group: "workspace" },
+  { to: "/data", label: "数据采集", Icon: Database, group: "workspace" },
   { to: "/safety", label: "故障与安全", Icon: ShieldAlert, group: "system" },
   { to: "/about", label: "关于应用", Icon: Info, group: "system" },
 ];
@@ -36,7 +38,12 @@ const NAV_ITEMS: NavItem[] = [
 const MORE_ITEMS: NavItem[] = [
   { to: "/monitor", label: "关节状态", Icon: Cpu, group: "workspace" },
   { to: "/control", label: "基础控制", Icon: ToggleRight, group: "workspace" },
-  { to: "/mode", label: "控制模式", Icon: SlidersHorizontal, group: "workspace" },
+  {
+    to: "/mode",
+    label: "控制模式",
+    Icon: SlidersHorizontal,
+    group: "workspace",
+  },
   { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
 ];
 
@@ -123,9 +130,15 @@ export default function Sidebar() {
             <MoreHorizontal className="sidebar__icon" />
             <span className="sidebar__label">更多工具</span>
             {showMore ? (
-              <ChevronDown className="sidebar__more-chevron" aria-hidden="true" />
+              <ChevronDown
+                className="sidebar__more-chevron"
+                aria-hidden="true"
+              />
             ) : (
-              <ChevronRight className="sidebar__more-chevron" aria-hidden="true" />
+              <ChevronRight
+                className="sidebar__more-chevron"
+                aria-hidden="true"
+              />
             )}
           </button>
           {showMore && (

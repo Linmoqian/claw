@@ -16,6 +16,7 @@ import Scope from "./pages/Scope";
 import Safety from "./pages/Safety";
 import About from "./pages/About";
 import Studio from "./pages/Studio";
+import DataCollection from "./pages/DataCollection";
 import "./App.css";
 
 const contextItems: ContextMenuItem[] = [
@@ -65,6 +66,7 @@ function App() {
                 <Route path="/" element={<Navigate to="/studio" replace />} />
                 <Route path="/studio" element={<Studio />} />
                 <Route path="/connect" element={<Connect />} />
+                <Route path="/data" element={<DataCollection />} />
                 <Route path="/monitor" element={<Monitor />} />
                 <Route path="/control" element={<Control />} />
                 <Route path="/mode" element={<ModeControl />} />
