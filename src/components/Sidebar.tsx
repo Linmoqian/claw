@@ -15,6 +15,7 @@ import {
   ChevronRight,
   PanelLeftClose,
   PanelLeftOpen,
+  Swords,
 } from "lucide-react";
 import "./Sidebar.css";
 import { useDevice } from "../store/DeviceContext";
@@ -45,6 +46,7 @@ const MORE_ITEMS: NavItem[] = [
     group: "workspace",
   },
   { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
+  { to: "/training", label: "对抗训练", Icon: Swords, group: "workspace" },
 ];
 
 const GROUP_LABELS = {

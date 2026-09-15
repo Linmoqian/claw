@@ -1,0 +1,420 @@
+.adversarial-training {
+  max-width: 1160px;
+  gap: 18px;
+  padding-bottom: 58px;
+}
+
+.adversarial-training__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 8px 2px 2px;
+}
+
+.adversarial-training__header .section-label {
+  justify-content: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.adversarial-training__eyebrow,
+.adversarial-training__kicker {
+  color: var(--text-quaternary);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-eyebrow);
+}
+
+.adversarial-training__header h1 {
+  max-width: 660px;
+  margin: 0 0 8px;
+  font-family: var(--font-serif);
+  font-size: clamp(26px, 3vw, 38px);
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+  line-height: 1.18;
+}
+
+.adversarial-training__header p {
+  max-width: 680px;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-family: var(--font-serif);
+  font-size: 14px;
+}
+
+.adversarial-training__header-icon {
+  width: 44px;
+  height: 44px;
+  padding: 10px;
+  color: var(--accent);
+  border: 1px solid var(--accent-soft);
+  border-radius: var(--radius-md);
+  background: var(--accent-softer);
+}
+
+.adversarial-training__status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--surface-soft);
+  font-size: 11px;
+}
+
+.adversarial-training__status-dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--text-quaternary);
+}
+
+.adversarial-training__status-dot.is-ready {
+  background: var(--success);
+  box-shadow: 0 0 0 3px rgba(63, 149, 104, 0.12);
+}
+
+.adversarial-training__status-dot.is-loading {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px rgba(183, 121, 31, 0.12);
+}
+
+.adversarial-training__status-note {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+
+.adversarial-training__layout,
+.adversarial-training__lower {
+  display: grid;
+  gap: 14px;
+}
+
+.adversarial-training__layout {
+  grid-template-columns: minmax(270px, 0.7fr) minmax(0, 1.3fr);
+}
+
+.adversarial-training__lower {
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+}
+
+.adversarial-training__card {
+  min-width: 0;
+  padding: 18px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.adversarial-training__card-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.adversarial-training__card-head svg {
+  color: var(--accent);
+}
+
+.adversarial-training__kicker {
+  display: block;
+  margin-bottom: 5px;
+}
+
+.adversarial-training__card h2 {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: var(--tracking-tight);
+}
+
+.adversarial-training__field {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 7px 12px;
+  margin-bottom: 15px;
+  color: var(--text-secondary);
+  font-size: 11px;
+}
+
+.adversarial-training__field output {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.adversarial-training__field input {
+  grid-column: 1 / -1;
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.adversarial-training__actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 19px;
+}
+
+.adversarial-training__run,
+.adversarial-training__reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 34px;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition:
+    background 0.2s var(--ease-out),
+    border-color 0.2s var(--ease-out),
+    color 0.2s var(--ease-out),
+    transform 0.2s var(--ease-out);
+}
+
+.adversarial-training__run {
+  flex: 1;
+  padding: 0 14px;
+  color: #fff;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  box-shadow: 0 4px 12px rgba(217, 98, 69, 0.18);
+}
+
+.adversarial-training__run:hover:not(:disabled) {
+  transform: translateY(-1px);
+  border-color: var(--accent-deep);
+  background: var(--accent-deep);
+}
+
+.adversarial-training__run:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.adversarial-training__reset {
+  padding: 0 12px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-hairline);
+  background: var(--inset);
+}
+
+.adversarial-training__reset:hover {
+  color: var(--text);
+  border-color: var(--border-strong);
+  background: var(--surface-soft);
+}
+
+.adversarial-training__notice {
+  margin: 12px 0 0;
+  color: var(--success);
+  font-size: 10.5px;
+  line-height: 1.5;
+}
+
+.adversarial-training__metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.adversarial-training__metric-grid > div {
+  min-width: 0;
+  padding: 12px 11px;
+  border: 1px solid var(--border-hairline);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+
+.adversarial-training__metric-grid span,
+.adversarial-training__metric-grid small,
+.adversarial-training__episode span {
+  display: block;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.adversarial-training__metric-grid strong {
+  display: block;
+  margin: 7px 0 4px;
+  color: var(--text);
+  font-size: 22px;
+  font-weight: 500;
+}
+
+.adversarial-training__metric-grid small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.adversarial-training__metric-grid small.is-up {
+  color: var(--success);
+}
+
+.adversarial-training__metric-grid small.is-down {
+  color: var(--danger);
+}
+
+.adversarial-training__empty {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 129px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.adversarial-training__empty svg {
+  flex: none;
+  color: var(--warning);
+}
+
+.adversarial-training__episode {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-hairline);
+}
+
+.adversarial-training__episode strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.adversarial-training__history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 242px;
+  overflow-y: auto;
+}
+
+.adversarial-training__history-row {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) 52px 62px;
+  align-items: center;
+  gap: 9px;
+  min-height: 19px;
+  color: var(--text-tertiary);
+  font-size: 10px;
+}
+
+.adversarial-training__history-row strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+  text-align: right;
+}
+
+.adversarial-training__history-row small {
+  color: var(--text-quaternary);
+  text-align: right;
+}
+
+.adversarial-training__history-bar {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 99px;
+  background: var(--inset);
+}
+
+.adversarial-training__history-bar i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--indigo), var(--accent));
+}
+
+.adversarial-training__history-placeholder {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 198px;
+  color: var(--text-quaternary);
+  font-size: 11px;
+}
+
+.adversarial-training__history-placeholder i {
+  width: 88px;
+  height: 7px;
+  border-radius: 99px;
+  background: var(--inset);
+}
+
+.adversarial-training__method ol {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.adversarial-training__method li {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 10px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.adversarial-training__method b {
+  color: var(--accent);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.adversarial-training__method strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .adversarial-training__layout,
+  .adversarial-training__lower {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .adversarial-training {
+    padding: 24px 18px 48px;
+  }
+
+  .adversarial-training__status {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 9px 12px;
+  }
+
+  .adversarial-training__status-note {
+    width: 100%;
+    margin-left: 16px;
+  }
+
+  .adversarial-training__metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .adversarial-training__episode {
+    grid-template-columns: 1fr;
+  }
+}
