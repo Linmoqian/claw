@@ -6,7 +6,20 @@ import {
   type ChangeEvent,
   type FormEvent,
 } from "react";
-import { Check, Database, FileUp, Plus, Save, X } from "lucide-react";
+import {
+  Check,
+  Database,
+  FileUp,
+  Play,
+  Plus,
+  Save,
+  Square,
+  X,
+} from "lucide-react";
+import { computeLinkPoses, computeTcpPose } from "../robot/kinematics";
+import { degreesToRadians, radiansToDegrees } from "../robot/model";
+import { sampleTrajectory, so100DemoLoop } from "../robot/trajectory";
+import { DEFAULT_ROBOT_ID, useRobotStore } from "../stores/robotStore";
 import "./DataCollection.css";
 
 type DatasetSource = "simulation" | "telemetry" | "replay" | "import";
@@ -20,6 +33,15 @@ type Dataset = {
   records: number;
   fields: string[];
   createdAt: string;
+  samples?: SimulationSample[];
+  lastSample?: SimulationSample;
+};
+
+type SimulationSample = {
+  timestampS: number;
+  jointPositionRad: number[];
+  tcpPositionM: [number, number, number];
+  mode: "simulation";
 };
 
 type Notice = {
@@ -27,7 +49,7 @@ type Notice = {
   text: string;
 };
 
-const STORAGE_KEY = "xiakao:data-collection:datasets:v1";
+const STORAGE_KEY = "xiakao:data-collection:datasets:v3";
 
 const SOURCE_LABELS: Record<DatasetSource, string> = {
   simulation: "仿真数据",
@@ -37,10 +59,13 @@ const SOURCE_LABELS: Record<DatasetSource, string> = {
 };
 
 const DEFAULT_FIELDS: Record<Exclude<DatasetSource, "import">, string[]> = {
-  simulation: ["timestamp", "joint_state", "tcp_pose"],
+  simulation: ["timestamp_s", "joint_position_rad", "tcp_position_m", "mode"],
   telemetry: ["timestamp", "joint_state", "temperature", "current"],
   replay: ["timestamp", "joint_state", "base_pose"],
 };
+
+const SIMULATION_TRAJECTORY = so100DemoLoop();
+const MAX_STORED_SAMPLES = 2400;
 
 function isDataset(value: unknown): value is Dataset {
   if (!value || typeof value !== "object") return false;
@@ -69,6 +94,38 @@ function readDatasets(): Dataset[] {
 
 function makeId(): string {
   return `dataset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function monotonicNow(): number {
+  return performance.now();
+}
+
+function makeSimulationSample(timestampS: number): SimulationSample {
+  const model = useRobotStore.getState().model;
+  const qDegFromTrajectory = sampleTrajectory(
+    SIMULATION_TRAJECTORY,
+    timestampS,
+  );
+  const jointCount = model?.active.length ?? qDegFromTrajectory.length;
+  const qDeg = Array.from(
+    { length: jointCount },
+    (_, index) => qDegFromTrajectory[index] ?? 0,
+  );
+  const tcp = model
+    ? computeTcpPose(model, computeLinkPoses(model, qDeg)).position
+    : null;
+  return {
+    timestampS: Number(timestampS.toFixed(3)),
+    jointPositionRad: qDeg.map(degreesToRadians),
+    tcpPositionM: tcp
+      ? [
+          Number(tcp.x.toFixed(5)),
+          Number(tcp.y.toFixed(5)),
+          Number(tcp.z.toFixed(5)),
+        ]
+      : [0, 0, 0],
+    mode: "simulation",
+  };
 }
 
 function parseJsonSummary(value: unknown): {
@@ -120,7 +177,15 @@ export default function DataCollection() {
     useState<Exclude<DatasetSource, "import">>("simulation");
   const [sampleRate, setSampleRate] = useState(20);
   const [notice, setNotice] = useState<Notice | null>(null);
+  const [collectingId, setCollectingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const robotStatus = useRobotStore((state) => state.status);
+  const loadRobot = useRobotStore((state) => state.loadRobot);
+  const captureRef = useRef<{
+    datasetId: string;
+    startedAt: number;
+    timer: number;
+  } | null>(null);
 
   useEffect(() => {
     try {
@@ -129,6 +194,17 @@ export default function DataCollection() {
       // 本地存储不可用时仍保留当前会话中的数据集。
     }
   }, [datasets]);
+
+  useEffect(() => {
+    if (robotStatus === "idle") void loadRobot(DEFAULT_ROBOT_ID);
+  }, [loadRobot, robotStatus]);
+
+  useEffect(
+    () => () => {
+      if (captureRef.current) window.clearInterval(captureRef.current.timer);
+    },
+    [],
+  );
 
   const totalRecords = useMemo(
     () => datasets.reduce((total, dataset) => total + dataset.records, 0),
@@ -156,6 +232,52 @@ export default function DataCollection() {
     setSampleRate(20);
     setCreateOpen(false);
     setNotice({ tone: "success", text: `已创建数据集「${dataset.name}」` });
+  };
+
+  const stopCapture = () => {
+    const capture = captureRef.current;
+    if (!capture) return;
+    window.clearInterval(capture.timer);
+    captureRef.current = null;
+    setCollectingId(null);
+    setNotice({ tone: "success", text: "仿真采集已停止，数据集已保存" });
+  };
+
+  const startCapture = (dataset: Dataset) => {
+    if (dataset.source !== "simulation") return;
+    stopCapture();
+    const startedAt = monotonicNow();
+    const intervalMs = Math.max(
+      50,
+      1000 / Math.max(1, dataset.sampleRate ?? 20),
+    );
+    const timer = window.setInterval(() => {
+      const timestampS = (monotonicNow() - startedAt) / 1000;
+      const sample = makeSimulationSample(timestampS);
+      setDatasets((current) =>
+        current.map((item) => {
+          if (item.id !== dataset.id) return item;
+          const samples = [...(item.samples ?? []), sample].slice(
+            -MAX_STORED_SAMPLES,
+          );
+          return {
+            ...item,
+            records: item.records + 1,
+            fields: DEFAULT_FIELDS.simulation,
+            samples,
+            lastSample: sample,
+          };
+        }),
+      );
+    }, intervalMs);
+    captureRef.current = { datasetId: dataset.id, startedAt, timer };
+    setCollectingId(dataset.id);
+    setNotice({ tone: "success", text: `正在采集「${dataset.name}」仿真数据` });
+  };
+
+  const toggleCapture = (dataset: Dataset) => {
+    if (collectingId === dataset.id) stopCapture();
+    else startCapture(dataset);
   };
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
@@ -255,6 +377,14 @@ export default function DataCollection() {
         >
           {notice.tone === "success" ? <Check size={15} /> : <X size={15} />}
           {notice.text}
+        </div>
+      )}
+
+      {collectingId && (
+        <div className="data-collection__capture-status" role="status">
+          <span className="data-collection__capture-dot" />
+          <strong>仿真采集中</strong>
+          <span>内置 SO-100 安全轨迹 · 按数据集采样频率写入</span>
         </div>
       )}
 
@@ -402,11 +532,50 @@ export default function DataCollection() {
                     <span>+{dataset.fields.length - 4}</span>
                   )}
                 </div>
+                {dataset.lastSample && (
+                  <div className="dataset-card__sample">
+                    <span>最近样本</span>
+                    <code>
+                      J1{" "}
+                      {radiansToDegrees(
+                        dataset.lastSample.jointPositionRad[0] ?? 0,
+                      ).toFixed(1)}
+                      ° · TCP{" "}
+                      {dataset.lastSample.tcpPositionM
+                        .map((value) => value.toFixed(3))
+                        .join(", ")}{" "}
+                      m
+                    </code>
+                  </div>
+                )}
                 <footer className="dataset-card__foot">
                   <span>创建于 {formatDate(dataset.createdAt)}</span>
-                  {dataset.records === 0 && (
-                    <span className="dataset-card__ready">待采集</span>
-                  )}
+                  <span className="dataset-card__ready">
+                    {dataset.source === "simulation" ? (
+                      <button
+                        type="button"
+                        className={`dataset-card__capture ${collectingId === dataset.id ? "is-active" : ""}`}
+                        disabled={robotStatus !== "ready"}
+                        onClick={() => toggleCapture(dataset)}
+                      >
+                        {collectingId === dataset.id ? (
+                          <>
+                            <Square size={11} />
+                            停止采集
+                          </>
+                        ) : (
+                          <>
+                            <Play size={11} />
+                            {dataset.records > 0 ? "继续采集" : "开始采集"}
+                          </>
+                        )}
+                      </button>
+                    ) : dataset.records === 0 ? (
+                      "待接入"
+                    ) : (
+                      "已导入"
+                    )}
+                  </span>
                 </footer>
               </article>
             ))}
