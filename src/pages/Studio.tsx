@@ -889,7 +889,7 @@ export default function Studio() {
           )}
         </div>
 
-        {/* 碰撞安全 HUD（M3：环境档位 + 自碰撞；档位随现实构型 30Hz 刷新） */}
+        {/* 碰撞安全 HUD（环境档位 + 自碰撞 + 静态物体；档位随现实构型刷新） */}
         {snapshot.collisionEnabled && (
           <div className={`studio__safety is-${snapshot.collision.tier}`}>
             <i className="studio__safety-dot" aria-hidden="true" />

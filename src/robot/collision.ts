@@ -1,9 +1,14 @@
-// 碰撞检测系统：纯 TS 解析几何（capsule×capsule / capsule×台面）。
+// 碰撞检测系统：纯 TS 解析几何（capsule×capsule / capsule×台面 / 静态物体体积）。
 // 四层语义中的 self / environment / swept；输出真实最近距离（非布尔膨胀层）。
 // Created on 2026-09-10 12:50
 // @author:  https://github.com/Linmoqian
 import { Vector3 } from "three";
 import { computeLinkPoses } from "./kinematics";
+import {
+  SCENE_PROP_COLLIDERS,
+  type ScenePropCollider,
+  type ScenePropId,
+} from "./sceneGeometry";
 import type { RobotModel } from "./types";
 
 /** 三档安全距离语义（最近环境距离）：clear → warn → slow → stop 逐级收紧 */
@@ -46,6 +51,10 @@ export interface CollisionStatus {
   tier: SafetyTier;
   /** 最近环境距离（米，负值 = 已穿透；解析法直接量出，非布尔判定） */
   safetyDistance: number | null;
+  /** 最近静态物体（命中物体碰撞体时提供，台面/全清时为空） */
+  environmentObjectId?: ScenePropId;
+  /** 最近静态物体的显示名称，供安全 HUD/拒绝原因使用 */
+  environmentObjectLabel?: string;
 }
 
 /** 全清状态常量 */
@@ -64,13 +73,16 @@ export function isRejected(st: CollisionStatus): boolean {
 export function describeCollision(st: CollisionStatus): string {
   if (st.selfCollision) return "自碰撞";
   const d = st.safetyDistance;
+  const objectPrefix = st.environmentObjectLabel
+    ? `${st.environmentObjectLabel}距离 `
+    : "环境距离 ";
   switch (st.tier) {
     case "stop":
-      return `环境距离 ${fmtM(d)}（<20mm）`;
+      return `${objectPrefix}${fmtM(d)}（<20mm）`;
     case "slow":
-      return `环境距离 ${fmtM(d)}（<50mm）`;
+      return `${objectPrefix}${fmtM(d)}（<50mm）`;
     case "warn":
-      return `环境距离 ${fmtM(d)}（<100mm）`;
+      return `${objectPrefix}${fmtM(d)}（<100mm）`;
     case "clear":
       return "安全";
   }
@@ -116,6 +128,17 @@ interface ArmSegment {
 interface SelfPair {
   a: ArmSegment;
   b: ArmSegment;
+}
+
+interface EnvironmentHit {
+  collider: ScenePropCollider;
+  distance: number;
+}
+
+interface EnvironmentRuntimeCollider {
+  collider: ScenePropCollider;
+  p0: Vector3;
+  p1: Vector3;
 }
 
 /** 线段最短距离平方（标准 clamp 算法；tmp 系列复用调用方传入的预分配对象） */
@@ -179,7 +202,7 @@ function distanceTier(d: number): SafetyTier {
 
 /**
  * CollisionSystem —— 目标世界与现实世界的共享碰撞查询器。
- * 纯解析几何：每帧 FK → 更新胶囊端点 → 距离计算（无 WASM/物理步进依赖）。
+ * 纯解析几何：每帧 FK → 更新胶囊端点 → 台面/物体距离计算（无 WASM/物理步进依赖）。
  */
 export class CollisionSystem {
   readonly model: RobotModel;
@@ -188,6 +211,12 @@ export class CollisionSystem {
 
   private readonly segments: ArmSegment[] = [];
   private readonly selfPairs: SelfPair[] = [];
+  private readonly environmentColliders: EnvironmentRuntimeCollider[] =
+    SCENE_PROP_COLLIDERS.map((collider) => ({
+      collider,
+      p0: new Vector3(...collider.p0),
+      p1: new Vector3(...collider.p1),
+    }));
   private readonly parentOfLink = new Map<string, string>();
   /** 臂链最大链深（环境距离的半深启发式用） */
   private maxArmDepth = 0;
@@ -301,7 +330,7 @@ export class CollisionSystem {
     return best;
   }
 
-  /** 评估指定构型：FK → 更新胶囊端点 → 自碰撞 + 最近环境距离 */
+  /** 评估指定构型：FK → 更新胶囊端点 → 自碰撞 + 台面/物体最近距离 */
   evaluate(qDeg: number[]): CollisionStatus {
     const poses = computeLinkPoses(this.model, qDeg);
 
@@ -328,6 +357,20 @@ export class CollisionSystem {
       const zMin = Math.min(seg.p0.z, seg.p1.z) - seg.envRadius - GROUND_Z;
       if (zMin < minDist) minDist = zMin;
     }
+    // 环境最近距离 2/2：每段机械臂胶囊到静态场景物体胶囊。
+    // 咖啡机主体/水箱/托盘合并为一根保守竖直胶囊，水杯用杯身包络；
+    // 距离减去两端半径后为真实安全余量（负值 = 穿透）。
+    let nearestObject: EnvironmentHit | null = null;
+    for (const runtimeCollider of this.environmentColliders) {
+      const objectDistance = this.distanceToCollider(runtimeCollider);
+      if (objectDistance < minDist) minDist = objectDistance;
+      if (!nearestObject || objectDistance < nearestObject.distance) {
+        nearestObject = {
+          collider: runtimeCollider.collider,
+          distance: objectDistance,
+        };
+      }
+    }
     const tier = distanceTier(minDist);
 
     // 自碰撞：胶囊对中心线距离 < 真实半径和 → 重叠（真实半径，不含环境余量）
@@ -346,11 +389,35 @@ export class CollisionSystem {
       }
     }
 
+    const nearestObjectIsSource =
+      nearestObject !== null &&
+      Number.isFinite(nearestObject.distance) &&
+      nearestObject.distance <= minDist;
     return {
       selfCollision,
       tier,
       safetyDistance: minDist === Infinity ? null : minDist,
+      ...(nearestObjectIsSource
+        ? {
+            environmentObjectId: nearestObject?.collider.id,
+            environmentObjectLabel: nearestObject?.collider.label,
+          }
+        : {}),
     };
+  }
+
+  /** 当前 FK 端点到一个静态物体胶囊的最小安全距离。 */
+  private distanceToCollider(collider: EnvironmentRuntimeCollider): number {
+    let minDistance = Infinity;
+    for (const segment of this.segments) {
+      const centerlineDistance = Math.sqrt(
+        segmentDistanceSq(segment.p0, segment.p1, collider.p0, collider.p1),
+      );
+      const clearance =
+        centerlineDistance - segment.envRadius - collider.collider.radius;
+      if (clearance < minDistance) minDistance = clearance;
+    }
+    return minDistance;
   }
 
   /** 扫掠路径评估：from → to 关节空间线性插值采样（目标入闸用，粗采样） */

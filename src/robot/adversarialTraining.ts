@@ -7,12 +7,21 @@
  */
 import { CollisionSystem, type CollisionStatus } from "./collision";
 import { computeLinkPoses, computeTcpPose } from "./kinematics";
+import { SCENE_PROP_LAYOUT } from "./sceneGeometry";
 import { sampleTrajectory, so100DemoLoop, type TrajPoint } from "./trajectory";
 import type { RobotModel } from "./types";
 
 /** 与 SceneProps.tsx 对齐的 URDF/ROS 坐标（米）：three 的 z 轴映射为 -y。 */
-const CUP_TARGET: readonly [number, number, number] = [-0.3, -0.23, 0.14];
-const MACHINE_CENTER: readonly [number, number, number] = [0.3, -0.22, 0.16];
+const CUP_TARGET: readonly [number, number, number] = [
+  SCENE_PROP_LAYOUT.cup.positionThree[0],
+  -SCENE_PROP_LAYOUT.cup.positionThree[2],
+  0.14,
+];
+const MACHINE_CENTER: readonly [number, number, number] = [
+  SCENE_PROP_LAYOUT.coffeeMachine.positionThree[0],
+  -SCENE_PROP_LAYOUT.coffeeMachine.positionThree[2],
+  0.16,
+];
 
 const DEFAULT_HORIZON_STEPS = 18;
 const DEFAULT_ADVERSARY_POPULATION = 8;

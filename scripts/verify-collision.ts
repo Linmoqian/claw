@@ -65,9 +65,15 @@ function main() {
   if (iShoulder >= 0) mid[iShoulder] = 60;
   if (iElbow >= 0) mid[iElbow] = 45;
   const tcpMid = computeTcpPose(model, computeLinkPoses(model, mid));
+  const midStatus = sys.evaluate(mid);
+  if (midStatus.environmentObjectId !== "coffee-machine") {
+    throw new Error(
+      `物体碰撞体未命中：期望 coffee-machine，实际 ${midStatus.environmentObjectId ?? "none"}`,
+    );
+  }
   console.log(
     `前倾构型: TCP z=${tcpMid.position.z.toFixed(3)}m →`,
-    fmt(sys.evaluate(mid)),
+    fmt(midStatus),
   );
 
   // 3) 大幅下垂（肩 85°/肘 75°/腕 60°）：TCP 贴台面，应命中 slow/stop

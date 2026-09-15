@@ -5,6 +5,7 @@
  * 仿真场景道具：用 Three.js 原生几何搭建水杯与咖啡机，避免引入外部资产依赖。
  */
 import * as THREE from "three";
+import { SCENE_PROP_LAYOUT } from "../robot/sceneGeometry";
 
 /** 场景道具材质（模块级共享，避免每次渲染重复创建材质）。 */
 const CUP_BODY_MATERIAL = new THREE.MeshStandardMaterial({
@@ -53,8 +54,12 @@ const WATER_TANK_MATERIAL = new THREE.MeshPhysicalMaterial({
   opacity: 0.68,
 });
 
-const CUP_POSITION: [number, number, number] = [-0.3, 0, 0.23];
-const MACHINE_POSITION: [number, number, number] = [0.3, 0, 0.22];
+const CUP_POSITION: [number, number, number] = [
+  ...SCENE_PROP_LAYOUT.cup.positionThree,
+];
+const MACHINE_POSITION: [number, number, number] = [
+  ...SCENE_PROP_LAYOUT.coffeeMachine.positionThree,
+];
 
 /** 一只带把手和咖啡液面的水杯（单位：米）。 */
 function Cup() {
