@@ -9,6 +9,7 @@ import MobileBase from "./MobileBase";
 import BaseGhost from "./BaseGhost";
 import BaseDragHandle from "./BaseDragHandle";
 import WorkspaceLayer from "./WorkspaceLayer";
+import SceneProps from "./SceneProps";
 import TcpGizmo from "../interaction/TcpGizmo";
 import { useInteractionStore } from "../stores/interactionStore";
 import type { SimulationLoop } from "../robot/simulation";
@@ -132,6 +133,9 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
         )}
         {interactionMode === "tcp" && <TcpGizmo model={model} sim={sim} />}
       </MobileBase>
+
+      {/* 工作区道具：用于仿真抓取/识别场景的水杯与咖啡机。 */}
+      <SceneProps />
 
       {/* M5：DXF 工作区线层 + 底盘预览/目标标记 + BASE 拖拽手柄 */}
       {workspace && <WorkspaceLayer workspace={workspace} />}
