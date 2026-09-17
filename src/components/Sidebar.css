@@ -82,6 +82,14 @@
   transform: rotate(90deg);
 }
 
+.sidebar__logo {
+  display: block;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  object-fit: contain;
+}
+
 .sidebar__brand-copy {
   display: flex;
   flex-direction: column;

@@ -90,11 +90,11 @@ export default function Sidebar() {
   return (
     <aside className="sidebar" data-collapsed={collapsed || undefined}>
       <div className="sidebar__brand">
-        <span className="sidebar__mark" aria-hidden="true">
-          <i />
-          <i />
-          <i />
-        </span>
+        <img
+          className="sidebar__logo"
+          src="/brand/xiakao-logo.png"
+          alt="虾烤工作台"
+        />
         <span className="sidebar__brand-copy">
           <strong>虾烤</strong>
           <small>Robot Workbench</small>
