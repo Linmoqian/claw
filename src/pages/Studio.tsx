@@ -63,6 +63,7 @@ export default function Studio() {
   const loadRobot = useRobotStore((s) => s.loadRobot);
 
   const simRef = useRef<SimulationLoop | null>(null);
+  const cameraFeedRef = useRef<HTMLDivElement | null>(null);
   const baseSimRef = useRef<BaseSim | null>(null);
   const bind = useSimulationStore((s) => s.bind);
   const syncTick = useSimulationStore((s) => s.syncTick);
@@ -736,7 +737,7 @@ export default function Studio() {
         onContextMenu={(event) => event.preventDefault()}
       >
         {ready ? (
-          <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} />
+          <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} cameraFeedRef={cameraFeedRef} />
         ) : (
           <div className="studio__fallback">
             {status === "error" ? (
@@ -768,6 +769,10 @@ export default function Studio() {
         )}
 
         {/* 交互模式工具条（顶部中央） */}
+        <div className="studio__camera-feed" aria-label="仿真摄像头画面">
+          <span className="studio__camera-feed-label">CAM-01 · SIM</span>
+          <span className="studio__camera-feed-status"><i /> {ready ? "LIVE" : "WAIT"}</span>
+        </div>
         <div className="studio__modes" role="toolbar" aria-label="交互模式">
           <button
             type="button"

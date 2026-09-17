@@ -324,6 +324,69 @@
 }
 
 /* 视图工具条（悬浮右上） */
+.studio__camera-feed {
+  position: absolute;
+  top: 64px;
+  right: 14px;
+  z-index: 7;
+  width: min(220px, calc(100% - 28px));
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border: 1px solid rgba(71, 85, 105, 0.34);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
+  pointer-events: none;
+}
+
+.studio__camera-feed::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.2), transparent 30%, transparent 72%, rgba(15, 23, 42, 0.28));
+}
+
+.studio__camera-feed-label,
+.studio__camera-feed-status {
+  position: absolute;
+  top: 7px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #f8fafc;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-shadow: 0 1px 3px rgba(15, 23, 42, 0.7);
+}
+
+.studio__camera-feed-label {
+  left: 9px;
+}
+
+.studio__camera-feed-status {
+  right: 9px;
+}
+
+.studio__camera-feed-status i {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #34d399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.2), 0 0 10px rgba(52, 211, 153, 0.7);
+}
+
+@media (max-width: 720px) {
+  .studio__camera-feed {
+    top: 58px;
+    right: 10px;
+    width: min(180px, calc(100% - 20px));
+  }
+}
+
 .studio__scene-tools {
   position: absolute;
   top: 14px;

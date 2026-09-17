@@ -1,5 +1,6 @@
 /** 3D 舞台：Canvas + 环境光 + 网格地面 + OrbitControls + 机器人视图。 */
-import { Suspense, useEffect, useRef } from "react";
+import { SimulationCamera } from "./SimulationCamera";
+import { Suspense, useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Grid, OrbitControls } from "@react-three/drei";
 import {
@@ -225,10 +226,11 @@ interface RobotStageProps {
   sim: SimulationLoop;
   baseSim: BaseSim;
   assetBase: string;
+  cameraFeedRef?: RefObject<HTMLDivElement | null>;
 }
 
 /** 3D 画布容器（分帧不触发 React 重渲染，状态由 non-reactive JS 对象驱动） */
-export default function RobotStage({ model, sim, baseSim, assetBase }: RobotStageProps) {
+export default function RobotStage({ model, sim, baseSim, assetBase, cameraFeedRef }: RobotStageProps) {
   return (
     <Canvas
       shadows
@@ -253,6 +255,7 @@ export default function RobotStage({ model, sim, baseSim, assetBase }: RobotStag
           <PhysicsTcpProxy sim={sim} />
         </Physics>
       </Suspense>
+      <SimulationCamera feedRef={cameraFeedRef} />
     </Canvas>
   );
 }
