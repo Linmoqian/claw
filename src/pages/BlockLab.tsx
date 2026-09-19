@@ -31,7 +31,7 @@ import { SimulationLoop } from "../robot/simulation";
 import MobileBase from "../three/MobileBase";
 import RobotView from "../three/RobotView";
 import { SimulationCamera } from "../three/SimulationCamera";
-
+import LidarSensor from "../three/LidarSensor";
 import {
   DEFAULT_ROBOT_ID,
   findRobotEntry,
@@ -45,7 +45,15 @@ import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
 type RunStatus = "idle" | "running" | "complete" | "error" | "stopped";
-type StepId = "arm" | "camera" | "sense" | "move" | "turn" | "grab" | "stop";
+type StepId =
+  | "arm"
+  | "camera"
+  | "lidar"
+  | "sense"
+  | "move"
+  | "turn"
+  | "grab"
+  | "stop";
 
 type ConsoleStep = {
   id: StepId;
@@ -101,7 +109,12 @@ const TOOLBOX = {
       colour: "#4A7FD6",
       contents: [{ kind: "block", type: "camera_capture" }],
     },
-
+    {
+      kind: "category",
+      name: "激光雷达",
+      colour: "#0F9BA8",
+      contents: [{ kind: "block", type: "lidar_scan" }],
+    },
     {
       kind: "category",
       name: "判断",
@@ -195,7 +208,7 @@ function saveRuntimeWidth(width: number) {
 }
 
 function registerConsoleBlocks() {
-  if (Blockly.Blocks["event_start"] && Blockly.Blocks["select_arm"]) return;
+  if (Blockly.Blocks["event_start"] && Blockly.Blocks["select_arm"] && Blockly.Blocks["lidar_scan"]) return;
 
   // Blockly v13 的消息包以具名字符串导出，类型声明兼容 CommonJS 时会带出一个虚拟 default。
   Blockly.setLocale(ZhHans as unknown as Record<string, string>);
@@ -248,7 +261,14 @@ function registerConsoleBlocks() {
       colour: "#4A7FD6",
       tooltip: "从仿真摄像头获取一帧画面。",
     },
-
+    {
+      type: "lidar_scan",
+      message0: "获取点云",
+      previousStatement: null,
+      nextStatement: null,
+      colour: "#0F9BA8",
+      tooltip: "读取 MID-360S 激光雷达点云。",
+    },
     {
       type: "decision_if",
       message0: "如果 %1",
@@ -369,7 +389,9 @@ function buildRunSteps(blocks: Array<{ type: string; getFieldValue: (name: strin
   if (blockTypes.has("camera_capture")) {
     steps.push({ id: "camera", label: "获取画面", detail: "摄像头画面已更新" });
   }
-
+  if (blockTypes.has("lidar_scan")) {
+    steps.push({ id: "lidar", label: "获取点云", detail: "MID-360S 点云已更新" });
+  }
   if (blockTypes.has("sense_color")) {
     steps.push({ id: "sense", label: "感知目标", detail: "相机检测到红色目标" });
   }
@@ -506,7 +528,9 @@ function BlockArmScene({
         <planeGeometry args={[12, 12]} />
         <shadowMaterial transparent opacity={0.09} />
       </mesh>
-      <MobileBase>
+      <MobileBase
+        accessories={<LidarSensor position={[0.14, 0, 0.072]} />}
+      >
         <RobotView model={model} sim={sim} assetBase={assetBase} />
       </MobileBase>
       <OrbitControls
@@ -692,6 +716,7 @@ function BlockLab() {
     const hasAction = [
       "select_arm",
       "camera_capture",
+      "lidar_scan",
       "move_steps",
       "turn_left",
       "turn_right",
