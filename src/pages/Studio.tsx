@@ -1,5 +1,5 @@
 /** 仿真与调参工作区：关节控制、数字孪生和 PID 响应模型处于同一上下文。 */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Pause, Play, RotateCcw, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
@@ -64,7 +64,59 @@ export default function Studio() {
 
   const simRef = useRef<SimulationLoop | null>(null);
   const cameraFeedRef = useRef<HTMLDivElement | null>(null);
+  const cameraFeedDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    left: number;
+    top: number;
+  } | null>(null);
   const baseSimRef = useRef<BaseSim | null>(null);
+
+  /** 画中画拖拽：直接写 DOM 位置，避免 pointermove 触发整页 React 更新。 */
+  const beginCameraFeedDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const feed = event.currentTarget;
+    const stage = feed.offsetParent;
+    if (!(stage instanceof HTMLElement)) return;
+    const feedRect = feed.getBoundingClientRect();
+    cameraFeedDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: feedRect.left,
+      top: feedRect.top,
+    };
+    feed.setPointerCapture(event.pointerId);
+    feed.classList.add("is-dragging");
+  };
+
+  const moveCameraFeed = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = cameraFeedDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const feed = event.currentTarget;
+    const stage = feed.offsetParent;
+    if (!(stage instanceof HTMLElement)) return;
+    const feedRect = feed.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const minLeft = stageRect.left + 4;
+    const maxLeft = Math.max(minLeft, stageRect.right - feedRect.width - 4);
+    const minTop = stageRect.top + 4;
+    const maxTop = Math.max(minTop, stageRect.bottom - feedRect.height - 4);
+    const left = Math.min(Math.max(event.clientX - drag.startX + drag.left, minLeft), maxLeft);
+    const top = Math.min(Math.max(event.clientY - drag.startY + drag.top, minTop), maxTop);
+    feed.style.left = String(left - stageRect.left) + "px";
+    feed.style.top = String(top - stageRect.top) + "px";
+    feed.style.right = "auto";
+    feed.style.bottom = "auto";
+  };
+
+  const endCameraFeedDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
+    const drag = cameraFeedDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    event.currentTarget.classList.remove("is-dragging");
+    event.currentTarget.releasePointerCapture(event.pointerId);
+    cameraFeedDragRef.current = null;
+  };
   const bind = useSimulationStore((s) => s.bind);
   const syncTick = useSimulationStore((s) => s.syncTick);
   const speed = useSimulationStore((s) => s.speed);
@@ -768,8 +820,17 @@ export default function Studio() {
           </div>
         )}
 
-        {/* 仿真摄像头画中画（右上） */}
-        <div className="studio__camera-feed" aria-label="仿真摄像头画面">
+        {/* 仿真摄像头画中画（可拖拽换位） */}
+        <div
+          ref={cameraFeedRef}
+          className="studio__camera-feed"
+          aria-label="仿真摄像头画面"
+          title="拖拽移动摄像头画面"
+          onPointerDown={beginCameraFeedDrag}
+          onPointerMove={moveCameraFeed}
+          onPointerUp={endCameraFeedDrag}
+          onPointerCancel={endCameraFeedDrag}
+        >
           <span className="studio__camera-feed-label">CAM-01 · SIM</span>
           <span className="studio__camera-feed-status"><i /> {ready ? "LIVE" : "WAIT"}</span>
         </div>

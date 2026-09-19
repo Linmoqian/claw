@@ -337,7 +337,14 @@
   border-radius: 12px;
   background: rgba(15, 23, 42, 0.06);
   box-shadow: 0 12px 30px rgba(15, 23, 42, 0.14);
-  pointer-events: none;
+  pointer-events: auto;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.studio__camera-feed.is-dragging {
+  cursor: grabbing;
 }
 
 .studio__camera-feed::after {
