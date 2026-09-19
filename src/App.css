@@ -550,6 +550,80 @@
 }
 
 /* 关于页：宣纸卷 + 发丝框 + 朱砂印 */
+.ctx-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 178px;
+  margin: 0;
+  padding: 6px;
+  overflow: hidden;
+  border: 1px solid rgba(211, 220, 226, 0.96);
+  border-radius: 11px;
+  outline: none;
+  background: rgba(251, 252, 253, 0.98);
+  box-shadow: 0 14px 32px rgba(39, 56, 66, 0.18), 0 2px 7px rgba(39, 56, 66, 0.08);
+  list-style: none;
+  backdrop-filter: blur(14px);
+  font-family: var(--font-sans);
+}
+
+.ctx-menu li {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ctx-menu button {
+  display: flex;
+  width: 100%;
+  min-height: 34px;
+  align-items: center;
+  gap: 9px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  color: #3d4d54;
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  text-align: left;
+  cursor: pointer;
+  transition: color 140ms ease, background 140ms ease;
+}
+
+.ctx-menu button:hover {
+  color: #1f6f69;
+  background: #eaf5f2;
+}
+
+.ctx-menu button:focus-visible {
+  outline: 2px solid rgba(39, 143, 136, 0.42);
+  outline-offset: -2px;
+}
+
+.ctx-menu button svg {
+  flex: 0 0 auto;
+  color: #6d8a86;
+}
+
+.ctx-menu button:hover svg,
+.ctx-menu button:focus-visible svg {
+  color: #278f88;
+}
+
+.ctx-menu .ctx-divider,
+.ctx-menu li[role="separator"] {
+  height: 1px;
+  margin: 6px 4px;
+  background: #e2e9e8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ctx-menu button {
+    transition: none;
+  }
+}
 .about-card {
   position: relative;
   max-width: 660px;
