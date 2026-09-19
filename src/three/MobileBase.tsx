@@ -88,6 +88,7 @@ function Chassis() {
 
 interface MobileBaseProps {
   children?: ReactNode;
+  accessories?: ReactNode;
 }
 
 /**
@@ -95,7 +96,7 @@ interface MobileBaseProps {
  * map(x, y, yaw|Z-up) → three(x, z=-y, Ry(-yaw))。
  * SIM 模式下 world.robot 为 null：底盘停在原点。遥测断流时保持最后位姿（不清零）。
  */
-export default function MobileBase({ children }: MobileBaseProps) {
+export default function MobileBase({ children, accessories }: MobileBaseProps) {
   const groupRef = useRef<THREE.Group>(null);
   const tmpQuat = useRef(new THREE.Quaternion());
 
@@ -118,6 +119,8 @@ export default function MobileBase({ children }: MobileBaseProps) {
       {/* 臂平台：deck 高 + URDF Z-up → three Y-up 翻转 */}
       <group position-y={DECK_HEIGHT}>
         <group rotation={ROOT_UP_ROTATION}>{children}</group>
+        {/* Three Y-up 附件（如激光雷达）共用底盘位姿。 */}
+        {accessories}
       </group>
     </group>
   );

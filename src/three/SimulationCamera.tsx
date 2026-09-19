@@ -5,11 +5,37 @@
 import { useEffect, useRef, type RefObject } from "react";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import * as THREE from "three";
+import { computeLinkPoses, computeTcpPose } from "../robot/kinematics";
+import type { SimulationLoop } from "../robot/simulation";
+import { useWorldStore } from "../stores/worldStore";
+import { DECK_HEIGHT, ROOT_UP_ROTATION, worldYawOf } from "./MobileBase";
 
 const CAMERA_POSITION = new THREE.Vector3(0.54, 0.42, 0.42);
 const CAMERA_TARGET = new THREE.Vector3(0, 0.16, 0);
 
 /** 仿真摄像头可拖拽范围：覆盖台面附近，同时避免被拖到无效远景。 */
+/** 眼在手安装外参：相机位于 TCP 上方并向前下观察（Three Y-up 坐标）。 */
+const EYE_MOUNT_OFFSET = new THREE.Vector3(0.018, 0.028, 0.004);
+/** 相机光轴固定看向 TCP 前下方；该偏移仍随 TCP 姿态一起旋转。 */
+const EYE_LOOK_OFFSET = new THREE.Vector3(0.115, -0.075, -0.018);
+const ROOT_UP_QUATERNION = new THREE.Quaternion().setFromEuler(
+  new THREE.Euler(...ROOT_UP_ROTATION),
+);
+const BASE_UP_AXIS = new THREE.Vector3(0, 1, 0);
+
+/** useFrame 内复用临时对象，避免逐帧分配。 */
+const eyeTransforms = {
+  positionA: new THREE.Vector3(),
+  positionB: new THREE.Vector3(),
+  positionC: new THREE.Vector3(),
+  positionD: new THREE.Vector3(),
+  quaternionA: new THREE.Quaternion(),
+  quaternionB: new THREE.Quaternion(),
+  quaternionC: new THREE.Quaternion(),
+  lookMatrix: new THREE.Matrix4(),
+  lookTarget: new THREE.Vector3(),
+};
+
 const CAMERA_BOUNDS = {
   minX: -1.15,
   maxX: 1.15,
@@ -26,14 +52,18 @@ const clampVectorToCameraBounds = (value: THREE.Vector3) => {
 };
 
 interface CameraModelProps {
-  positionRef: { current: THREE.Vector3 };
+  poseRef: { current: { position: THREE.Vector3; quaternion: THREE.Quaternion } };
+  movable: boolean;
+  modelScale: number;
   onPointerDown: (event: ThreeEvent<PointerEvent>) => void;
   onPointerEnter: () => void;
   onPointerLeave: () => void;
 }
 
 function CameraModel({
-  positionRef,
+  poseRef,
+  movable,
+  modelScale,
   onPointerDown,
   onPointerEnter,
   onPointerLeave,
@@ -43,16 +73,18 @@ function CameraModel({
   useFrame(() => {
     const group = groupRef.current;
     if (!group) return;
-    group.position.copy(positionRef.current);
-    group.lookAt(CAMERA_TARGET);
+    group.position.copy(poseRef.current.position);
+    group.quaternion.copy(poseRef.current.quaternion);
   });
 
   return (
     <group
       ref={groupRef}
-      onPointerDown={onPointerDown}
-      onPointerEnter={onPointerEnter}
-      onPointerLeave={onPointerLeave}
+      name="__simulation_camera_model"
+      scale={modelScale}
+      onPointerDown={movable ? onPointerDown : undefined}
+      onPointerEnter={movable ? onPointerEnter : undefined}
+      onPointerLeave={movable ? onPointerLeave : undefined}
     >
       <mesh castShadow>
         <boxGeometry args={[0.12, 0.075, 0.082]} />
@@ -86,10 +118,6 @@ function CameraModel({
   );
 }
 
-export interface SimulationCameraProps {
-  feedRef?: RefObject<HTMLDivElement | null>;
-}
-
 interface CameraDragState {
   pointerId: number;
   plane: THREE.Plane;
@@ -100,13 +128,28 @@ interface CameraDragState {
  * Renders the movable simulation camera and a second view into the existing
  * WebGL canvas. The scene and physics objects are shared with the main view.
  */
-export function SimulationCamera({ feedRef }: SimulationCameraProps) {
+export interface SimulationCameraProps {
+  feedRef?: RefObject<HTMLDivElement | null>;
+  sim?: SimulationLoop | null;
+  eyeInHand?: boolean;
+}
+
+export function SimulationCamera({
+  feedRef,
+  sim,
+  eyeInHand = false,
+}: SimulationCameraProps) {
   const { gl, scene, raycaster, camera: mainCamera } = useThree();
   const controls = useThree((state) => state.controls) as { enabled: boolean } | null;
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
   const controlsRef = useRef<{ enabled: boolean } | null>(null);
   const feedCameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const cameraPositionRef = useRef(CAMERA_POSITION.clone());
+  const cameraQuaternionRef = useRef(new THREE.Quaternion());
+  const cameraPoseRef = useRef({
+    position: cameraPositionRef.current,
+    quaternion: cameraQuaternionRef.current,
+  });
   const dragStateRef = useRef<CameraDragState | null>(null);
   const pointerNdcRef = useRef(new THREE.Vector2());
   const workPointRef = useRef(new THREE.Vector3());
@@ -119,7 +162,7 @@ export function SimulationCamera({ feedRef }: SimulationCameraProps) {
   /** 在主相机视平面拖拽：位移方向与屏幕拖动方向一致，取景更直观。 */
   const beginCameraDrag = (event: ThreeEvent<PointerEvent>) => {
     event.stopPropagation();
-    if (dragStateRef.current) return;
+    if (eyeInHand || dragStateRef.current) return;
 
     const startPosition = cameraPositionRef.current.clone();
     const planeNormal = mainCamera.getWorldDirection(workPointRef.current).negate();
@@ -167,19 +210,32 @@ export function SimulationCamera({ feedRef }: SimulationCameraProps) {
   };
 
   const enterCameraHover = () => {
-    if (!dragStateRef.current) setCanvasCursor("grab");
+    if (!eyeInHand && !dragStateRef.current) setCanvasCursor("grab");
   };
 
   const leaveCameraHover = () => {
-    if (!dragStateRef.current) setCanvasCursor("");
+    if (!eyeInHand && !dragStateRef.current) setCanvasCursor("");
   };
+
+  useEffect(() => {
+    const orientation = new THREE.Matrix4().lookAt(
+      CAMERA_POSITION,
+      CAMERA_TARGET,
+      BASE_UP_AXIS,
+    );
+    cameraQuaternionRef.current.setFromRotationMatrix(orientation);
+    cameraPoseRef.current = {
+      position: cameraPositionRef.current,
+      quaternion: cameraQuaternionRef.current,
+    };
+  }, []);
 
   useEffect(() => {
     rendererRef.current = gl;
     controlsRef.current = controls;
     const camera = new THREE.PerspectiveCamera(48, 16 / 9, 0.01, 20);
-    camera.position.copy(cameraPositionRef.current).lerp(CAMERA_TARGET, 0.12);
-    camera.lookAt(CAMERA_TARGET);
+    camera.position.copy(cameraPositionRef.current);
+    camera.quaternion.copy(cameraQuaternionRef.current);
     camera.updateProjectionMatrix();
     feedCameraRef.current = camera;
 
@@ -196,8 +252,45 @@ export function SimulationCamera({ feedRef }: SimulationCameraProps) {
     const feedCamera = feedCameraRef.current;
     if (!renderer || !feedCamera) return;
 
-    feedCamera.position.copy(cameraPositionRef.current).lerp(CAMERA_TARGET, 0.12);
-    feedCamera.lookAt(CAMERA_TARGET);
+    if (sim && eyeInHand) {
+      const poses = computeLinkPoses(sim.model, [...sim.currentDegrees]);
+      const tcp = computeTcpPose(sim.model, poses);
+      const robot = useWorldStore.getState().world.robot;
+      const pose = robot?.pose.position;
+      const yaw = robot ? -worldYawOf(robot.pose.orientation) : 0;
+      const basePosition = eyeTransforms.positionA.set(pose?.x ?? 0, 0, -(pose?.y ?? 0));
+      const baseQuaternion = eyeTransforms.quaternionA.setFromAxisAngle(BASE_UP_AXIS, yaw);
+      const rootTcp = eyeTransforms.positionB.set(
+        tcp.position.x,
+        tcp.position.z + DECK_HEIGHT,
+        -tcp.position.y,
+      ).applyQuaternion(baseQuaternion);
+      const tcpWorld = eyeTransforms.positionC.copy(basePosition).add(rootTcp);
+      const tcpWorldQuaternion = eyeTransforms.quaternionB
+        .copy(baseQuaternion)
+        .multiply(ROOT_UP_QUATERNION)
+        .multiply(tcp.quaternion);
+      const eyePosition = eyeTransforms.positionD
+        .copy(EYE_MOUNT_OFFSET)
+        .applyQuaternion(tcpWorldQuaternion)
+        .add(tcpWorld);
+      const eyeTarget = eyeTransforms.lookTarget
+        .copy(EYE_LOOK_OFFSET)
+        .applyQuaternion(tcpWorldQuaternion)
+        .add(tcpWorld);
+      const eyeLookMatrix = eyeTransforms.lookMatrix.lookAt(
+        eyePosition,
+        eyeTarget,
+        BASE_UP_AXIS,
+      );
+      const eyeQuaternion = eyeTransforms.quaternionC.setFromRotationMatrix(eyeLookMatrix);
+
+      cameraPositionRef.current.copy(eyePosition);
+      cameraQuaternionRef.current.copy(eyeQuaternion);
+    }
+
+    feedCamera.position.copy(cameraPositionRef.current);
+    feedCamera.quaternion.copy(cameraQuaternionRef.current);
 
     const canvas = renderer.domElement;
     const canvasRect = canvas.getBoundingClientRect();
@@ -237,7 +330,13 @@ export function SimulationCamera({ feedRef }: SimulationCameraProps) {
         renderer.setViewport(left, bottom, visibleWidth, visibleHeight);
         renderer.setScissor(left, bottom, visibleWidth, visibleHeight);
         renderer.clear(true, true, true);
+
+        // 相机模型挂在同一场景中；眼在手第二视口不能拍到自身外壳。
+        const cameraModel = scene.getObjectByName("__simulation_camera_model");
+        const cameraModelVisible = cameraModel?.visible ?? false;
+        if (cameraModel) cameraModel.visible = false;
         renderer.render(scene, feedCamera);
+        if (cameraModel) cameraModel.visible = cameraModelVisible;
       }
     }
 
@@ -249,7 +348,9 @@ export function SimulationCamera({ feedRef }: SimulationCameraProps) {
 
   return (
     <CameraModel
-      positionRef={cameraPositionRef}
+      poseRef={cameraPoseRef}
+      movable={!eyeInHand}
+      modelScale={eyeInHand ? 0.34 : 0.48}
       onPointerDown={beginCameraDrag}
       onPointerEnter={enterCameraHover}
       onPointerLeave={leaveCameraHover}

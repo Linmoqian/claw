@@ -1,6 +1,6 @@
 /** 仿真与调参工作区：关节控制、数字孪生和 PID 响应模型处于同一上下文。 */
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { Pause, Play, RotateCcw, Save, SlidersHorizontal, X } from "lucide-react";
+import { Camera, Pause, Play, RotateCcw, Ruler, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
 import PidSlider from "../components/PidSlider";
@@ -32,6 +32,7 @@ import {
 import { useSceneStore } from "../stores/sceneStore";
 import { useSimulationStore } from "../stores/simulationStore";
 import RobotStage from "../three/RobotStage";
+import EyeHandPanel from "../components/EyeHandPanel";
 import "./Studio.css";
 
 /** 仿真速度档位 */
@@ -55,6 +56,8 @@ function recorderActive(): boolean {
 
 export default function Studio() {
   const [tuningOpen, setTuningOpen] = useState(false);
+  const [eyeHandOpen, setEyeHandOpen] = useState(false);
+  const [eyeInHand, setEyeInHand] = useState(true);
   const model = useReadyModel();
   const status = useRobotStore((s) => s.status);
   const loadError = useRobotStore((s) => s.error);
@@ -436,6 +439,10 @@ export default function Studio() {
   }, [motors, selectMotor, selected?.jointIndex, selectedId]);
 
   const ready = model !== null && simRef.current !== null;
+  const applyEyeHandIk = (position: Vector3, quaternion: Quaternion) => {
+    if (!ready || replay) return;
+    simRef.current?.setTcpTargetPose(position, quaternion);
+  };
   const tcpText = formatPose(snapshot.tcp);
   const validation = useTargetStore((s) => s.validation);
   const progressPct = Math.min(100, Math.max(0, snapshot.progress * 100));
@@ -789,7 +796,14 @@ export default function Studio() {
         onContextMenu={(event) => event.preventDefault()}
       >
         {ready ? (
-          <RobotStage model={model} sim={simRef.current!} baseSim={baseSimRef.current!} assetBase={assetBase} cameraFeedRef={cameraFeedRef} />
+          <RobotStage
+            model={model}
+            sim={simRef.current!}
+            baseSim={baseSimRef.current!}
+            assetBase={assetBase}
+            cameraFeedRef={cameraFeedRef}
+            eyeInHand={eyeInHand}
+          />
         ) : (
           <div className="studio__fallback">
             {status === "error" ? (
@@ -820,18 +834,34 @@ export default function Studio() {
           </div>
         )}
 
-        {/* 仿真摄像头画中画（可拖拽换位） */}
+        {model && (
+          <EyeHandPanel
+            key={currentId ?? DEFAULT_ROBOT_ID}
+            model={model}
+            snapshot={snapshot}
+            ready={ready}
+            replay={replay !== null}
+            open={eyeHandOpen}
+            eyeInHand={eyeInHand}
+            onEyeInHandChange={setEyeInHand}
+            onApplyIk={applyEyeHandIk}
+          />
+        )}
+
+        {/* 仿真摄像头画中画（可拖拽换位；眼在手模式下随 TCP） */}
         <div
           ref={cameraFeedRef}
           className="studio__camera-feed"
           aria-label="仿真摄像头画面"
-          title="拖拽移动摄像头画面"
+          title={eyeInHand ? "眼在手相机：跟随 TCP" : "拖拽移动摄像头画面"}
           onPointerDown={beginCameraFeedDrag}
           onPointerMove={moveCameraFeed}
           onPointerUp={endCameraFeedDrag}
           onPointerCancel={endCameraFeedDrag}
         >
-          <span className="studio__camera-feed-label">CAM-01 · SIM</span>
+          <span className="studio__camera-feed-label">
+            {eyeInHand ? "CAM-01 · EYE" : "CAM-01 · SIM"}
+          </span>
           <span className="studio__camera-feed-status"><i /> {ready ? "LIVE" : "WAIT"}</span>
         </div>
 
@@ -917,6 +947,26 @@ export default function Studio() {
 
           {/* 视图工具条（悬浮） */}
           <div className="studio__scene-tools">
+            <button
+              type="button"
+              className={eyeInHand ? "is-on" : ""}
+              onClick={() => setEyeInHand(!eyeInHand)}
+              aria-pressed={eyeInHand}
+              title="切换固定仿真相机与 TCP 眼在手相机"
+            >
+              <Camera size={13} />
+              眼在手
+            </button>
+            <button
+              type="button"
+              className={eyeHandOpen ? "is-on" : ""}
+              onClick={() => setEyeHandOpen(!eyeHandOpen)}
+              aria-pressed={eyeHandOpen}
+              title="打开眼在手标定模拟面板"
+            >
+              <Ruler size={13} />
+              标定
+            </button>
             <button
               type="button"
               className={showTcpAxes ? "is-on" : ""}

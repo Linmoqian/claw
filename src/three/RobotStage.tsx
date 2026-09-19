@@ -13,6 +13,7 @@ import {
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import RobotView from "./RobotView";
+import LidarSensor from "./LidarSensor";
 import MobileBase, { DECK_HEIGHT, worldYawOf } from "./MobileBase";
 import BaseGhost from "./BaseGhost";
 import BaseDragHandle from "./BaseDragHandle";
@@ -180,7 +181,9 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
       </mesh>
 
       {/* 移动底盘（world 遥测位姿） + 机械臂双实例现实/目标 */}
-      <MobileBase>
+      <MobileBase
+        accessories={<LidarSensor position={[0.14, 0, 0.072]} />}
+      >
         <RobotView key={loads} model={model} sim={sim} assetBase={assetBase} />
         {interactionMode === "tcp" && (
           <RobotView
@@ -227,10 +230,18 @@ interface RobotStageProps {
   baseSim: BaseSim;
   assetBase: string;
   cameraFeedRef?: RefObject<HTMLDivElement | null>;
+  eyeInHand?: boolean;
 }
 
 /** 3D 画布容器（分帧不触发 React 重渲染，状态由 non-reactive JS 对象驱动） */
-export default function RobotStage({ model, sim, baseSim, assetBase, cameraFeedRef }: RobotStageProps) {
+export default function RobotStage({
+  model,
+  sim,
+  baseSim,
+  assetBase,
+  cameraFeedRef,
+  eyeInHand = false,
+}: RobotStageProps) {
   return (
     <Canvas
       shadows
@@ -255,7 +266,7 @@ export default function RobotStage({ model, sim, baseSim, assetBase, cameraFeedR
           <PhysicsTcpProxy sim={sim} />
         </Physics>
       </Suspense>
-      <SimulationCamera feedRef={cameraFeedRef} />
+      <SimulationCamera feedRef={cameraFeedRef} sim={sim} eyeInHand={eyeInHand} />
     </Canvas>
   );
 }
