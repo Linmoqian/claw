@@ -1,0 +1,430 @@
+/* Created on 2026-09-16; updated on 2026-09-17
+ * @author: https://github.com/Linmoqian */
+
+.vision-assistant {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 100%;
+}
+
+.vision-assistant__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.vision-assistant__header h1 {
+  margin: 8px 0 6px;
+  color: var(--ink-strong);
+  font-size: clamp(28px, 4vw, 42px);
+  letter-spacing: -0.04em;
+}
+
+.vision-assistant__header p,
+.vision-assistant__toolbar span,
+.vision-assistant__empty span {
+  color: var(--ink-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.vision-assistant__header p {
+  max-width: 680px;
+  margin: 0;
+}
+
+.vision-assistant__header-icon {
+  width: 42px;
+  height: 42px;
+  color: var(--accent);
+  opacity: 0.75;
+}
+
+.vision-assistant__status,
+.vision-assistant__config,
+.vision-assistant__toolbar,
+.vision-assistant__chat,
+.vision-assistant__notice {
+  border: 1px solid var(--border-hairline);
+  background: rgba(255, 255, 255, 0.66);
+  box-shadow: 0 12px 32px rgba(35, 42, 51, 0.04);
+}
+
+.vision-assistant__status {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  color: var(--ink-strong);
+  font-size: 13px;
+}
+
+.vision-assistant__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9aa4ae;
+}
+
+.vision-assistant__status-dot.is-ready {
+  background: #3e9b69;
+}
+
+.vision-assistant__status-dot.is-loading,
+.vision-assistant__status-dot.is-busy {
+  background: #d08b38;
+}
+
+.vision-assistant__status-dot.is-error {
+  background: #c85858;
+}
+
+.vision-assistant__status-note {
+  margin-left: auto;
+  color: var(--ink-muted);
+  font-size: 12px;
+}
+
+.vision-assistant__spin {
+  animation: vision-assistant-spin 1s linear infinite;
+  color: var(--accent);
+}
+
+@keyframes vision-assistant-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.vision-assistant__notice,
+.vision-assistant__error {
+  padding: 11px 14px;
+  border-radius: 10px;
+  color: #8a5b20;
+  font-size: 12px;
+}
+
+.vision-assistant__config {
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.vision-assistant__config-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.vision-assistant__config-head > div {
+  display: grid;
+  gap: 3px;
+}
+
+.vision-assistant__config-head strong {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--ink-strong);
+  font-size: 13px;
+}
+
+.vision-assistant__config-head span,
+.vision-assistant__config-head small {
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.vision-assistant__config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px 12px;
+}
+
+.vision-assistant__config-grid label {
+  display: grid;
+  gap: 5px;
+  color: var(--ink-muted);
+  font-size: 11px;
+}
+
+.vision-assistant__config-grid input:not([type="checkbox"]),
+.vision-assistant__config-grid select {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 8px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 7px;
+  outline: none;
+  background: white;
+  color: var(--ink-strong);
+  font: inherit;
+  font-size: 12px;
+}
+
+.vision-assistant__config-grid input:not([type="checkbox"]):focus,
+.vision-assistant__config-grid select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(65, 120, 107, 0.12);
+}
+
+.vision-assistant__config-grid input:disabled,
+.vision-assistant__config-grid select:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.vision-assistant__config-grid .vision-assistant__check {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  align-self: end;
+  min-height: 32px;
+  color: var(--ink-strong);
+}
+
+.vision-assistant__check input {
+  accent-color: var(--accent);
+}
+
+.vision-assistant__error {
+  margin: 0 18px 12px;
+  border: 1px solid rgba(200, 88, 88, 0.22);
+  background: rgba(255, 239, 239, 0.88);
+  color: #a33c3c;
+}
+
+.vision-assistant__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 14px 16px;
+  border-radius: 12px;
+}
+
+.vision-assistant__toolbar > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.vision-assistant__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.vision-assistant__button,
+.vision-assistant__icon-button,
+.vision-assistant__send,
+.vision-assistant__selected-image button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-hairline);
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--ink-strong);
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.vision-assistant__button {
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 11px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.vision-assistant__button.is-primary,
+.vision-assistant__send {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: white;
+}
+
+.vision-assistant__button:hover:not(:disabled),
+.vision-assistant__icon-button:hover:not(:disabled),
+.vision-assistant__send:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 12px rgba(35, 42, 51, 0.1);
+}
+
+.vision-assistant__button:disabled,
+.vision-assistant__icon-button:disabled,
+.vision-assistant__send:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.vision-assistant__chat {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 360px;
+  overflow: hidden;
+  border-radius: 14px;
+}
+
+.vision-assistant__messages {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 230px;
+  max-height: 48vh;
+  overflow: auto;
+  padding: 18px;
+}
+
+.vision-assistant__empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  flex: 1;
+  min-height: 220px;
+  color: var(--accent);
+  text-align: center;
+}
+
+.vision-assistant__empty span {
+  max-width: 420px;
+}
+
+.vision-assistant__message {
+  max-width: min(82%, 720px);
+  padding: 11px 13px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 12px;
+}
+
+.vision-assistant__message.is-user {
+  align-self: flex-end;
+  background: rgba(231, 242, 239, 0.7);
+}
+
+.vision-assistant__message.is-assistant {
+  align-self: flex-start;
+  background: rgba(248, 248, 246, 0.86);
+}
+
+.vision-assistant__message-role {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--ink-muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.vision-assistant__message p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--ink-strong);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.vision-assistant__image-tag,
+.vision-assistant__selected-image {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--accent);
+  font-size: 11px;
+}
+
+.vision-assistant__image-tag {
+  margin-bottom: 7px;
+}
+
+.vision-assistant__composer {
+  padding: 10px 12px 12px;
+  border-top: 1px solid var(--border-hairline);
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.vision-assistant__selected-image {
+  width: fit-content;
+  max-width: 100%;
+  margin-bottom: 7px;
+  padding: 5px 8px;
+  border: 1px solid rgba(65, 120, 107, 0.2);
+  border-radius: 7px;
+  background: rgba(231, 242, 239, 0.74);
+}
+
+.vision-assistant__selected-image span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vision-assistant__selected-image button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent);
+}
+
+.vision-assistant__composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.vision-assistant__icon-button,
+.vision-assistant__send {
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
+  border-radius: 9px;
+}
+
+.vision-assistant__composer textarea {
+  flex: 1;
+  min-height: 36px;
+  resize: vertical;
+  padding: 9px 10px;
+  border: 1px solid var(--border-hairline);
+  border-radius: 9px;
+  outline: none;
+  background: white;
+  color: var(--ink-strong);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.vision-assistant__composer textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(65, 120, 107, 0.12);
+}
+
+@media (max-width: 760px) {
+  .vision-assistant__toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .vision-assistant__config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vision-assistant__actions {
+    justify-content: flex-start;
+  }
+
+  .vision-assistant__status-note {
+    display: none;
+  }
+}
