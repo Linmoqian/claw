@@ -32,19 +32,26 @@ import MobileBase from "../three/MobileBase";
 import RobotView from "../three/RobotView";
 import { SimulationCamera } from "../three/SimulationCamera";
 
-import { DEFAULT_ROBOT_ID, useReadyModel, useRobotStore } from "../stores/robotStore";
+import {
+  DEFAULT_ROBOT_ID,
+  findRobotEntry,
+  ROBOT_CATALOG,
+  useReadyModel,
+  useRobotStore,
+} from "../stores/robotStore";
 import { useSimulationStore } from "../stores/simulationStore";
 import { useWorldStore } from "../stores/worldStore";
 import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
 type RunStatus = "idle" | "running" | "complete" | "error" | "stopped";
-type StepId = "camera" | "sense" | "move" | "turn" | "grab" | "stop";
+type StepId = "arm" | "camera" | "sense" | "move" | "turn" | "grab" | "stop";
 
 type ConsoleStep = {
   id: StepId;
   label: string;
   detail: string;
+  robotId?: string;
 };
 
 type ConsoleLog = {
@@ -70,7 +77,12 @@ const SPLITTER_WIDTH = 14;
 const TOOLBOX = {
   kind: "categoryToolbox",
   contents: [
-
+    {
+      kind: "category",
+      name: "机械臂",
+      colour: "#7C66CE",
+      contents: [{ kind: "block", type: "select_arm" }],
+    },
     {
       kind: "category",
       name: "开始",
@@ -183,7 +195,7 @@ function saveRuntimeWidth(width: number) {
 }
 
 function registerConsoleBlocks() {
-  if (Blockly.Blocks["event_start"]) return;
+  if (Blockly.Blocks["event_start"] && Blockly.Blocks["select_arm"]) return;
 
   // Blockly v13 的消息包以具名字符串导出，类型声明兼容 CommonJS 时会带出一个虚拟 default。
   Blockly.setLocale(ZhHans as unknown as Record<string, string>);
@@ -195,7 +207,21 @@ function registerConsoleBlocks() {
       colour: "#D39B2F",
       tooltip: "程序从这里开始。",
     },
-
+    {
+      type: "select_arm",
+      message0: "使用 %1",
+      args0: [
+        {
+          type: "field_dropdown",
+          name: "ARM_ID",
+          options: ROBOT_CATALOG.map(({ id, label }) => [label, id]),
+        },
+      ],
+      previousStatement: null,
+      nextStatement: null,
+      colour: "#7C66CE",
+      tooltip: "切换右侧仿真使用的机械臂。",
+    },
     {
       type: "sense_color",
       message0: "看见颜色 %1",
@@ -322,9 +348,24 @@ function formatTime() {
   });
 }
 
-function buildRunSteps(blocks: Array<{ type: string }>): ConsoleStep[] {
+function buildRunSteps(blocks: Array<{ type: string; getFieldValue: (name: string) => string | null }>): ConsoleStep[] {
   const blockTypes = new Set(blocks.map((block) => block.type));
   const steps: ConsoleStep[] = [];
+
+  blocks
+    .filter((block) => block.type === "select_arm")
+    .forEach((block) => {
+      const robotId = block.getFieldValue("ARM_ID");
+      const entry = findRobotEntry(robotId ?? DEFAULT_ROBOT_ID);
+      if (entry) {
+        steps.push({
+          id: "arm",
+          label: "切换机械臂",
+          detail: "已切换到 " + entry.label,
+          robotId: entry.id,
+        });
+      }
+    });
   if (blockTypes.has("camera_capture")) {
     steps.push({ id: "camera", label: "获取画面", detail: "摄像头画面已更新" });
   }
@@ -486,8 +527,12 @@ function BlockArmScene({
 function BlockLab() {
   const model = useReadyModel();
   const robotStatus = useRobotStore((state) => state.status);
+  const currentRobotId = useRobotStore((state) => state.currentId);
+  const modelLoads = useRobotStore((state) => state.loads);
   const assetBase = useRobotStore((state) => state.assetBase);
   const loadRobot = useRobotStore((state) => state.loadRobot);
+  const currentRobot = findRobotEntry(currentRobotId ?? DEFAULT_ROBOT_ID);
+  const currentArmLabel = currentRobot?.label ?? "SO-100";
   const [blockCount, setBlockCount] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState("自动保存");
   const [runStatus, setRunStatus] = useState<RunStatus>("idle");
@@ -645,6 +690,7 @@ function BlockLab() {
     const blocks = workspace.getAllBlocks(false);
     const blockTypes = new Set(blocks.map((block) => block.type));
     const hasAction = [
+      "select_arm",
       "camera_capture",
       "move_steps",
       "turn_left",
@@ -666,6 +712,7 @@ function BlockLab() {
     }
 
     const nextSteps = buildRunSteps(blocks);
+    if (nextSteps[0]?.robotId) void loadRobot(nextSteps[0].robotId);
     runtimeRef.current?.sim.play();
     setRunSteps(nextSteps);
     setRunStatus("running");
@@ -682,6 +729,7 @@ function BlockLab() {
       runTimersRef.current.push(
         window.setTimeout(() => {
           setActiveStepId(step.id);
+          if (step.robotId) void loadRobot(step.robotId);
           appendLog(step.detail);
         }, (index + 1) * STEP_DURATION),
       );
@@ -806,19 +854,20 @@ function BlockLab() {
           <header className="block-console__panel-head block-console__panel-head--runtime">
             <div>
               <span className="block-console__panel-label">RUNTIME</span>
-              <h2><Bot size={19} />SO-100 机械臂</h2>
+              <h2><Bot size={19} />{currentArmLabel} 机械臂</h2>
             </div>
             <span className={`block-console__status block-console__status--${runStatus}`}>{statusLabel}</span>
           </header>
 
           <div className={`block-console__arm-stage block-console__arm-stage--${armStageMode}`}>
             <div className="block-console__arena-topline">
-              <span>SO-100 / SIMULATION</span>
+              <span>{currentArmLabel} / SIMULATION</span>
               <span className="block-console__scene-signal"><span />LOCAL</span>
             </div>
-            <div className="block-console__arm-canvas" aria-label="SO-100 机械臂仿真视图">
+            <div className="block-console__arm-canvas" aria-label={currentArmLabel + " 机械臂仿真视图"}>
               {model ? (
                 <RobotSimulationView
+                  key={modelLoads}
                   model={model}
                   assetBase={assetBase}
                   runtimeRef={runtimeRef}
@@ -827,8 +876,8 @@ function BlockLab() {
               ) : (
                 <div className="block-console__arm-loading">
                   <span className="block-console__arm-loading-dot" />
-                  <strong>{robotStatus === "error" ? "机械臂模型加载失败" : "正在加载 SO-100"}</strong>
-                  <small>{robotStatus === "error" ? "请检查 public/models/so100 资源" : "准备仿真视图…"}</small>
+                  <strong>{robotStatus === "error" ? "机械臂模型加载失败" : "正在加载 " + currentArmLabel}</strong>
+                  <small>{robotStatus === "error" ? "请检查 " + (currentRobot?.urdfPath ?? "模型资源") : "准备仿真视图…"}</small>
                 </div>
               )}
               <div
