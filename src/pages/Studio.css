@@ -297,6 +297,7 @@
   flex: 1;
   min-width: 0;
   position: relative;
+  container: studio-stage / inline-size;
   background: var(--s-bg);
   border: 1px solid var(--s-border);
   border-radius: 18px;
@@ -387,11 +388,26 @@
   }
 }
 
+/* 窄舞台：顶部工具层换行后，画中画挪到右下（按舞台实际宽度生效，与页面宽度无关） */
+@container studio-stage (max-width: 1010px) {
+  .studio__camera-feed {
+    top: auto;
+    bottom: 190px;
+    width: 148px;
+  }
+}
+
+@container studio-stage (max-width: 520px) {
+  .studio__camera-feed {
+    display: none;
+  }
+}
+
 .studio__scene-tools {
-  position: absolute;
-  top: 14px;
-  right: 14px;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
   gap: 6px;
   padding: 6px;
   background: rgba(251, 252, 253, 0.86);
@@ -403,6 +419,7 @@
 }
 
 .studio__scene-tools button {
+  white-space: nowrap;
   font: inherit;
   font-size: 11px;
   font-weight: 500;
@@ -533,12 +550,28 @@
   color: var(--s-danger);
 }
 
-/* ================= 3D 区左上链路 HUD ================= */
+/* ================= 顶部悬浮层（链路 / 安全 / 交互模式 / 视图工具） ================= */
 
-.studio__hud {
+.studio__top {
   position: absolute;
   top: 14px;
   left: 16px;
+  right: 14px;
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.studio__top .studio__modes,
+.studio__top .studio__scene-tools {
+  pointer-events: auto;
+}
+
+.studio__hud {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   column-gap: 8px;
@@ -581,11 +614,11 @@
 /* ================= 交互模式工具条 ================= */
 
 .studio__modes {
-  position: absolute;
-  top: 14px;
-  left: 50%;
-  transform: translateX(-50%);
+  margin-inline: auto;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
   column-gap: 4px;
   padding: 4px;
   border-radius: 999px;
@@ -595,6 +628,7 @@
 }
 
 .studio__modes button {
+  white-space: nowrap;
   display: flex;
   align-items: center;
   column-gap: 5px;
@@ -963,9 +997,7 @@
 
 /* 悬浮于 3D 左上（HUD 下方），档位着色：clear 灰 / warn 黄 / slow 橙 / stop 红 */
 .studio__safety {
-  position: absolute;
-  top: 56px;
-  left: 16px;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   column-gap: 6px;
@@ -1066,13 +1098,14 @@
   left: 50%;
   bottom: 58px;
   transform: translateX(-50%);
+  max-width: calc(100% - 28px);
   pointer-events: none;
   z-index: 6;
 }
 
 .studio__session .session-card {
   pointer-events: auto;
-  max-width: 420px;
+  max-width: 100%;
 }
 
 /* M5 工作区卡：悬浮 3D 左下（场景工具条下方） */
@@ -1080,6 +1113,7 @@
   position: absolute;
   left: 14px;
   bottom: 118px;
+  max-width: calc(100% - 28px);
   display: flex;
   flex-direction: column;
   gap: 6px;
