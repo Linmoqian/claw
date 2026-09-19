@@ -11,6 +11,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
+  type RefObject,
 } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { Grid, OrbitControls } from "@react-three/drei";
@@ -29,7 +30,7 @@ import { BaseSim } from "../robot/baseSim";
 import { SimulationLoop } from "../robot/simulation";
 import MobileBase from "../three/MobileBase";
 import RobotView from "../three/RobotView";
-
+import { SimulationCamera } from "../three/SimulationCamera";
 
 import { DEFAULT_ROBOT_ID, useReadyModel, useRobotStore } from "../stores/robotStore";
 import { useSimulationStore } from "../stores/simulationStore";
@@ -38,7 +39,7 @@ import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
 type RunStatus = "idle" | "running" | "complete" | "error" | "stopped";
-type StepId = "sense" | "move" | "turn" | "grab" | "stop";
+type StepId = "camera" | "sense" | "move" | "turn" | "grab" | "stop";
 
 type ConsoleStep = {
   id: StepId;
@@ -82,7 +83,12 @@ const TOOLBOX = {
       colour: "#278F88",
       contents: [{ kind: "block", type: "sense_color" }],
     },
-
+    {
+      kind: "category",
+      name: "相机",
+      colour: "#4A7FD6",
+      contents: [{ kind: "block", type: "camera_capture" }],
+    },
 
     {
       kind: "category",
@@ -208,7 +214,14 @@ function registerConsoleBlocks() {
       colour: "#278F88",
       tooltip: "读取前方目标的颜色。",
     },
-
+    {
+      type: "camera_capture",
+      message0: "获取摄像头画面",
+      previousStatement: null,
+      nextStatement: null,
+      colour: "#4A7FD6",
+      tooltip: "从仿真摄像头获取一帧画面。",
+    },
 
     {
       type: "decision_if",
@@ -312,7 +325,9 @@ function formatTime() {
 function buildRunSteps(blocks: Array<{ type: string }>): ConsoleStep[] {
   const blockTypes = new Set(blocks.map((block) => block.type));
   const steps: ConsoleStep[] = [];
-
+  if (blockTypes.has("camera_capture")) {
+    steps.push({ id: "camera", label: "获取画面", detail: "摄像头画面已更新" });
+  }
 
   if (blockTypes.has("sense_color")) {
     steps.push({ id: "sense", label: "感知目标", detail: "相机检测到红色目标" });
@@ -337,10 +352,12 @@ function RobotSimulationView({
   model,
   assetBase,
   runtimeRef,
+  cameraFeedRef,
 }: {
   model: NonNullable<ReturnType<typeof useReadyModel>>;
   assetBase: string;
   runtimeRef: { current: RobotRuntime | null };
+  cameraFeedRef: RefObject<HTMLDivElement | null>;
 }) {
   const bindSimulation = useSimulationStore((state) => state.bind);
   const runtime = useMemo<RobotRuntime>(() => {
@@ -390,6 +407,7 @@ function RobotSimulationView({
           assetBase={assetBase}
         />
       </Suspense>
+      <SimulationCamera feedRef={cameraFeedRef} />
     </Canvas>
   );
 }
@@ -483,6 +501,7 @@ function BlockLab() {
   const splitterRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
   const runtimeRef = useRef<RobotRuntime | null>(null);
+  const cameraFeedRef = useRef<HTMLDivElement | null>(null);
   const runTimersRef = useRef<number[]>([]);
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(null);
   const previewRuntimeWidthRef = useRef(runtimeWidth);
@@ -626,6 +645,7 @@ function BlockLab() {
     const blocks = workspace.getAllBlocks(false);
     const blockTypes = new Set(blocks.map((block) => block.type));
     const hasAction = [
+      "camera_capture",
       "move_steps",
       "turn_left",
       "turn_right",
@@ -811,6 +831,17 @@ function BlockLab() {
                   <small>{robotStatus === "error" ? "请检查 public/models/so100 资源" : "准备仿真视图…"}</small>
                 </div>
               )}
+              <div
+                ref={cameraFeedRef}
+                className="block-console__camera-feed"
+                aria-label="仿真摄像头画面"
+              >
+                <span className="block-console__camera-feed-label">CAM-01 · SIM</span>
+                <span className="block-console__camera-feed-status">
+                  <i />
+                  {model ? "LIVE" : "WAIT"}
+                </span>
+              </div>
             </div>
             <div className="block-console__arena-readout">
               <span>机械臂状态</span>
