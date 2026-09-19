@@ -80,6 +80,11 @@ const MACHINE_POSITION: [number, number, number] = [
 
 /** 一只带把手和咖啡液面的水杯（单位：米）。 */
 function Cup({ bodyRef }: { bodyRef: RefObject<RapierRigidBody | null> }) {
+  // 高杯重心较高；锁定旋转避免碰撞后侧翻，同时保留平动推动效果。
+  useEffect(() => {
+    bodyRef.current?.setEnabledRotations(false, false, false, true);
+  }, [bodyRef]);
+
   return (
     <RigidBody
       ref={bodyRef}
