@@ -17,6 +17,7 @@ import {
   PanelLeftOpen,
   Swords,
   BrainCircuit,
+  ScanEye,
 } from "lucide-react";
 import "./Sidebar.css";
 import { useDevice } from "../store/DeviceContext";
@@ -30,6 +31,7 @@ type NavItem = {
 };
 
 const NAV_ITEMS: NavItem[] = [
+  { to: "/blocks", label: "积木控制台", Icon: BrainCircuit, group: "workspace" },
   { to: "/studio", label: "仿真与调参", Icon: Box, group: "workspace" },
   { to: "/connect", label: "设备连接", Icon: Plug, group: "workspace" },
   { to: "/data", label: "数据采集", Icon: Database, group: "workspace" },
@@ -49,6 +51,7 @@ const MORE_ITEMS: NavItem[] = [
   { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
   { to: "/training", label: "对抗训练", Icon: Swords, group: "workspace" },
   { to: "/model-training", label: "智能训练", Icon: BrainCircuit, group: "workspace" },
+  { to: "/vision", label: "视觉助手", Icon: ScanEye, group: "workspace" },
 ];
 
 const GROUP_LABELS = {

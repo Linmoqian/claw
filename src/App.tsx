@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { MotionConfig } from "motion/react";
+import { Info, Plug, RotateCw } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -19,19 +20,23 @@ import Studio from "./pages/Studio";
 import DataCollection from "./pages/DataCollection";
 import AdversarialTraining from "./pages/AdversarialTraining";
 import ModelTraining from "./pages/ModelTraining";
+import VisionAssistant from "./pages/VisionAssistant";
+import BlockLab from "./pages/BlockLab";
 import "./App.css";
 
 const contextItems: ContextMenuItem[] = [
-  { id: "reload", label: "刷新", onClick: () => window.location.reload() },
+  { id: "reload", label: "刷新", icon: RotateCw, onClick: () => window.location.reload() },
   {
     id: "about",
     label: "关于",
+    icon: Info,
     onClick: () => window.location.assign("#/about"),
   },
   { divider: true },
   {
     id: "connect",
     label: "设备连接",
+    icon: Plug,
     onClick: () => window.location.assign("#/connect"),
   },
 ];
@@ -67,10 +72,12 @@ function App() {
               <Routes>
                 <Route path="/" element={<Navigate to="/studio" replace />} />
                 <Route path="/studio" element={<Studio />} />
+                <Route path="/blocks" element={<BlockLab />} />
                 <Route path="/connect" element={<Connect />} />
                 <Route path="/data" element={<DataCollection />} />
                 <Route path="/training" element={<AdversarialTraining />} />
                 <Route path="/model-training" element={<ModelTraining />} />
+                <Route path="/vision" element={<VisionAssistant />} />
                 <Route path="/monitor" element={<Monitor />} />
                 <Route path="/control" element={<Control />} />
                 <Route path="/mode" element={<ModeControl />} />
