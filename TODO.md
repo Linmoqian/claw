@@ -41,4 +41,4 @@
 
 ## 待验证
 
-- [ ] 浏览器验证阶段 0 布局（WSL 内 vite 监听异常 + playwright 缺 chromium，待 Windows 侧 `npm run dev`）
+- [ ] 浏览器验证阶段 0 布局（WSL 内 vite 监听异常 + playwright 缺 chromium，待 Windows 侧 `pnpm run dev`）

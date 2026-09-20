@@ -9,13 +9,13 @@ The desktop workbench pairs a React frontend with a Tauri backend. Frontend code
 
 ## Build, Test, and Development Commands
 
-- `npm install` installs frontend and Tauri CLI dependencies.
-- `npm run dev` starts the Vite browser preview (port 1421); Tauri APIs are guarded for browser use.
-- `npm run tauri dev` runs the desktop application with its Rust backend.
-- `npm run build` type-checks with `tsc` and creates a production frontend build.
-- `npm run lint` runs ESLint across the repository.
-- `npm run format` applies Prettier; do not run it over unrelated dirty files.
-- `npx tsx scripts/verify-protocol.ts` and `npx tsx scripts/verify-collision.ts` validate the corresponding domain rules when those areas change.
+- `pnpm install` installs frontend and Tauri CLI dependencies.
+- `pnpm run dev` starts the Vite browser preview (port 1421); Tauri APIs are guarded for browser use.
+- `pnpm run tauri dev` runs the desktop application with its Rust backend.
+- `pnpm run build` type-checks with `tsc` and creates a production frontend build.
+- `pnpm run lint` runs ESLint across the repository.
+- `pnpm run format` applies Prettier; do not run it over unrelated dirty files.
+- `pnpm exec tsx scripts/verify-protocol.ts` and `pnpm exec tsx scripts/verify-collision.ts` validate the corresponding domain rules when those areas change.
 
 ## Coding Style & Naming Conventions
 
@@ -25,7 +25,7 @@ Wire payloads use SI units only: metres, radians, seconds, and their documented 
 
 ## Testing Guidelines
 
-There is no automated test runner yet. Run `npm run lint` and `npm run build` for every code change, plus the relevant script validation above. Add focused tests or verification scripts for protocol, kinematics, collision, or command-arbitration changes; name them after the behavior they verify.
+There is no automated test runner yet. Run `pnpm run lint` and `pnpm run build` for every code change, plus the relevant script validation above. Add focused tests or verification scripts for protocol, kinematics, collision, or command-arbitration changes; name them after the behavior they verify.
 
 ## Commit & Pull Request Guidelines
 

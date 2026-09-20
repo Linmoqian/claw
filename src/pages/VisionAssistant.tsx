@@ -206,7 +206,7 @@ export default function VisionAssistant() {
 
       {!desktop && (
         <div className="vision-assistant__notice">
-          当前是浏览器预览模式。请使用 <code>npm run tauri dev</code> 才能启动本地模型和文件选择器。
+          当前是浏览器预览模式。请使用 <code>pnpm run tauri dev</code> 才能启动本地模型和文件选择器。
         </div>
       )}
 

@@ -11,11 +11,11 @@ V2 阶段二的测试假数据源：单进程双 WebSocket 端口。
 
 ```bash
 cd claw/mock
-npm install
-npm start
+pnpm install
+pnpm exec node ../mock/mock-server.mjs
 ```
 
-或从工程根：`node mock/mock-server.mjs`（先 `npm install` 过）。
+或从工程根：`node mock/mock-server.mjs`（先 `pnpm install` 过）。
 
 环境变量：`ROBOT_PORT` `STATION_PORT` `ROBOT_HZ` `STATION_HZ`（默认 15551/15552/50/10）。
 

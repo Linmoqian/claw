@@ -3,7 +3,7 @@
  *  - robot WS   默认 ws://127.0.0.1:15551   50Hz  robot_state
  *  - station WS 默认 ws://127.0.0.1:15552   10Hz  station_position
  * 均回 pong；robot 每 2s 补发 device_status。
- * 用法：npm i && npm start（端口/频率可用环境变量覆盖）
+ * 用法：pnpm install && pnpm exec node mock/mock-server.mjs（端口/频率可用环境变量覆盖）
  */
 import { WebSocketServer } from "ws";
 
