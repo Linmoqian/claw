@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# claw 串口舵机桥：stdin 逐行读 JSON 请求 → scservo_sdk（飞特官方 Python SDK）执行 → stdout 写一行 JSON 响应。
+# claw 串口舵机桥：stdin 逐行读 JSON 请求 → scservo_sdk（飞特官方 SDK）执行 → stdout 写一行 JSON 响应。
 # 宿主（Rust/Tauri）退出后 stdin EOF，循环自然结束；atexit 兜底释放串口。
 # Created on 2026-09-11
 # @author:  https://github.com/Linmoqian
@@ -18,6 +18,7 @@ from scservo_sdk import (
 # SCS/STS 系列控制表地址（Feetech 公开手册；SDK 只含协议层，不含控制表常量）
 ADDR_TORQUE_ENABLE = 40
 ADDR_GOAL_POSITION = 42     # 2 字节
+ADDR_MOVING_SPEED = 46      # 2 字节
 ADDR_PRESENT_POSITION = 56  # 2 字节
 
 # 串口会话（同一时刻至多一个，串口半双工本就串行）
@@ -105,6 +106,20 @@ def cmd_write_position(req):
     return None
 
 
+def cmd_write_speed(req):
+    port, ph = _need_session()
+    speed = max(0, min(2400, int(req["speed"])))
+    result, _err = ph.write2ByteTxRx(
+        port,
+        int(req["id"]),
+        ADDR_MOVING_SPEED,
+        speed
+    )
+    if result != COMM_SUCCESS:
+        raise RuntimeError(ph.getTxRxResult(result))
+    return None
+
+
 def cmd_sync_read_positions(req):
     port, ph = _need_session()
     ids = [int(i) for i in req["ids"]]
@@ -132,6 +147,7 @@ COMMANDS = {
     "set_torque": cmd_set_torque,
     "read_position": cmd_read_position,
     "write_position": cmd_write_position,
+    "write_speed": cmd_write_speed,
     "sync_read_positions": cmd_sync_read_positions,
 }
 

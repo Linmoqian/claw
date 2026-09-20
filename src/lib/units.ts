@@ -9,16 +9,19 @@
 export const SERVO_RANGE_DEG = 270;
 /** 舵机位置原始值上限 */
 export const SERVO_MAX_POSITION = 4095;
+/** Feetech 文档中的 MOVING_SPEED 上限（raw steps/s） */
+export const SERVO_MAX_SPEED_RAW = 2400;
 
 /** 每关节实测校准：零点 raw、可达 raw 范围。键为硬件舵机 ID（1-6）。 */
-export const CALIB: Record<number, { zero: number; min: number; max: number }> = {
-  1: { zero: 2078, min: 721, max: 3489 }, // shoulder_pan
-  2: { zero: 930, min: 919, max: 3301 }, // shoulder_lift
-  3: { zero: 3008, min: 777, max: 3013 }, // elbow_flex
-  4: { zero: 1198, min: 870, max: 3206 }, // wrist_flex
-  5: { zero: 3321, min: 0, max: 4095 }, // wrist_roll
-  6: { zero: 1461, min: 1271, max: 2783 }, // gripper
-};
+export const CALIB: Record<number, { zero: number; min: number; max: number }> =
+  {
+    1: { zero: 2078, min: 721, max: 3489 }, // shoulder_pan
+    2: { zero: 930, min: 919, max: 3301 }, // shoulder_lift
+    3: { zero: 3008, min: 777, max: 3013 }, // elbow_flex
+    4: { zero: 1198, min: 870, max: 3206 }, // wrist_flex
+    5: { zero: 3321, min: 0, max: 4095 }, // wrist_roll
+    6: { zero: 1461, min: 1271, max: 2783 }, // gripper
+  };
 
 /** 原始位置 → 角度（°），零点取该关节实测校准值 */
 export function positionToAngle(pos: number, hwId: number): number {
@@ -33,4 +36,16 @@ export function angleToPosition(angle: number, hwId: number): number {
   if (!c) return 0;
   const raw = c.zero + (angle / SERVO_RANGE_DEG) * SERVO_MAX_POSITION;
   return Math.max(c.min, Math.min(c.max, Math.round(raw)));
+}
+
+/** UI 速度 °/s → MOVING_SPEED raw；Feetech 文档约定上限 2400。 */
+export function speedDegPerSecToRaw(speedDegPerSec: number): number {
+  const degPerRawStep = SERVO_RANGE_DEG / SERVO_MAX_POSITION;
+  const raw = Math.round(Math.max(1, speedDegPerSec) / degPerRawStep);
+  return Math.min(SERVO_MAX_SPEED_RAW, raw);
+}
+
+/** MOVING_SPEED raw → UI 速度 °/s。 */
+export function rawSpeedToDegPerSec(rawSpeed: number): number {
+  return Math.max(0, rawSpeed) * (SERVO_RANGE_DEG / SERVO_MAX_POSITION);
 }

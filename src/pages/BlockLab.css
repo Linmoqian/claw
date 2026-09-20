@@ -97,7 +97,11 @@
   font-size: 11px;
   font-weight: 750;
   cursor: pointer;
-  transition: border-color 160ms ease, color 160ms ease, background 160ms ease, transform 160ms ease;
+  transition:
+    border-color 160ms ease,
+    color 160ms ease,
+    background 160ms ease,
+    transform 160ms ease;
 }
 
 .console-button:hover:not(:disabled) {
@@ -127,7 +131,10 @@
 
 .block-console__layout {
   display: grid;
-  grid-template-columns: minmax(460px, 1fr) 14px minmax(320px, var(--block-console-runtime-width, 362px));
+  grid-template-columns: minmax(460px, 1fr) 14px minmax(
+      320px,
+      var(--block-console-runtime-width, 362px)
+    );
   flex: 1;
   min-width: 0;
   min-height: 0;
@@ -199,7 +206,10 @@
   border-radius: 999px;
   background: #a9c5bf;
   box-shadow: 0 0 0 1px rgba(39, 143, 136, 0.06);
-  transition: width 160ms ease, background 160ms ease, box-shadow 160ms ease;
+  transition:
+    width 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
 }
 
 .block-console__splitter:hover .block-console__splitter-grip,
@@ -467,7 +477,13 @@
   inset: 0;
   content: "";
   pointer-events: none;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.2), transparent 30%, transparent 72%, rgba(15, 23, 42, 0.28));
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.2),
+    transparent 30%,
+    transparent 72%,
+    rgba(15, 23, 42, 0.28)
+  );
 }
 
 .block-console__camera-feed-label,
@@ -500,7 +516,9 @@
   height: 5px;
   border-radius: 999px;
   background: #34d399;
-  box-shadow: 0 0 0 2px rgba(52, 211, 153, 0.2), 0 0 8px rgba(52, 211, 153, 0.7);
+  box-shadow:
+    0 0 0 2px rgba(52, 211, 153, 0.2),
+    0 0 8px rgba(52, 211, 153, 0.7);
 }
 
 .block-console__arm-loading {
@@ -630,9 +648,15 @@
   background: #9aafaa;
 }
 
-.block-console__log-item--event .block-console__log-dot { background: var(--console-blue); }
-.block-console__log-item--success .block-console__log-dot { background: #6aa04f; }
-.block-console__log-item--warning .block-console__log-dot { background: var(--console-red); }
+.block-console__log-item--event .block-console__log-dot {
+  background: var(--console-blue);
+}
+.block-console__log-item--success .block-console__log-dot {
+  background: #6aa04f;
+}
+.block-console__log-item--warning .block-console__log-dot {
+  background: var(--console-red);
+}
 
 .block-console__log-item time {
   color: #9aaba7;
@@ -644,8 +668,12 @@
   line-height: 1.35;
 }
 
-.block-console__log-item--success p { color: #4f7d3c; }
-.block-console__log-item--warning p { color: var(--console-red); }
+.block-console__log-item--success p {
+  color: #4f7d3c;
+}
+.block-console__log-item--warning p {
+  color: var(--console-red);
+}
 
 .block-console__studio-link {
   justify-content: space-between;
@@ -757,4 +785,36 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
+}
+
+/* BlockLab 扩展运行时状态 */
+
+.block-console__vision-grid {
+  display: grid;
+  grid-template-columns: 52px 1fr;
+  gap: 4px 10px;
+  padding: 0 12px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.block-console__vision-grid span {
+  color: #64748b;
+}
+
+.block-console__vision-grid strong {
+  color: #172033;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.console-button--danger {
+  border-color: #f3b8b5;
+  background: #fff2f1;
+  color: #b42318;
+}
+
+.console-button--danger:hover:not(:disabled) {
+  background: #ffe4e1;
+  border-color: #f08d86;
 }

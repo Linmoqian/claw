@@ -8,9 +8,10 @@
 // @author:  https://github.com/Linmoqian
 
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, BufReader, Write};
+use std::io::{BufRead, BufReader, Read, Write};
 use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
 use std::sync::Mutex;
+use std::time::Duration;
 use tauri::State;
 
 /// 嵌入的 Python 桥脚本（构建期编入二进制，运行时写到临时目录执行，dev/prod 均无路径问题）
@@ -20,6 +21,7 @@ const AI_BRIDGE_SCRIPT: &str = include_str!("../python/zdtaichu_bridge.py");
 /// 全局设备状态：None = 未连接。同一时刻至多一个会话（串口半双工，本就串行）。
 type DeviceState = Mutex<Option<Bridge>>;
 type AiState = Mutex<Option<AiBridge>>;
+type McuState = Mutex<Option<McuSession>>;
 
 /// 便利：把 Mutex PoisonError / 任意 Display 错误转成 String（Tauri command 错误类型）。
 fn to_err<E: std::fmt::Display>(e: E) -> String {
@@ -319,6 +321,15 @@ fn servo_write_position(state: State<DeviceState>, id: u8, position: u16) -> Res
     Ok(())
 }
 
+#[tauri::command]
+fn servo_write_speed(state: State<DeviceState>, id: u8, speed: u16) -> Result<(), String> {
+    servo_call(
+        &state,
+        serde_json::json!({"cmd": "write_speed", "id": id, "speed": speed}),
+    )?;
+    Ok(())
+}
+
 // —— 批量读取 ——
 
 /// 批量读取多个电机的当前位置（原始值 0-4095）。
@@ -353,6 +364,102 @@ fn servo_sync_read_positions(state: State<DeviceState>, ids: Vec<u8>) -> Result<
             })
         })
         .collect()
+}
+
+
+// —— 通用 MCU 串口桥 ——
+// 独立于 Feetech DeviceState。外部 MCU 固件按 JSON 行协议应答；
+// 该通道只负责字节流，不解释引脚电气能力。
+
+struct McuSession {
+    port: Box<dyn serialport::SerialPort>,
+    partial: Vec<u8>,
+}
+
+fn open_mcu_port(port_name: &str, baud: u32) -> Result<McuSession, String> {
+    let port = serialport::new(port_name, baud)
+        .timeout(Duration::from_millis(20))
+        .open()
+        .map_err(to_err)?;
+    Ok(McuSession {
+        port,
+        partial: Vec::new(),
+    })
+}
+
+fn read_mcu_line(session: &mut McuSession, timeout_ms: u64) -> Result<String, String> {
+    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
+    loop {
+        if let Some(index) = session.partial.iter().position(|byte| *byte == b'\n') {
+            let line = session.partial.drain(..=index).collect::<Vec<u8>>();
+            let text = String::from_utf8_lossy(&line).trim().to_string();
+            if !text.is_empty() {
+                return Ok(text);
+            }
+        }
+        if std::time::Instant::now() >= deadline {
+            return Err("MCU 串口读取超时".into());
+        }
+        let mut buffer = [0_u8; 128];
+        let timeout = deadline.saturating_duration_since(std::time::Instant::now());
+        session
+            .port
+            .set_timeout(timeout.max(Duration::from_millis(1)))
+            .map_err(to_err)?;
+        match session.port.read(&mut buffer) {
+            Ok(count) if count > 0 => session.partial.extend_from_slice(&buffer[..count]),
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+}
+
+#[tauri::command]
+fn mcu_serial_open(
+    state: State<McuState>,
+    port: String,
+    baud: u32,
+) -> Result<String, String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    if guard.is_some() {
+        return Err("MCU 串口已连接，请先断开".into());
+    }
+    *guard = Some(open_mcu_port(&port, baud)?);
+    Ok(port)
+}
+
+#[tauri::command]
+fn mcu_serial_close(state: State<McuState>) -> Result<(), String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    if let Some(mut session) = guard.take() {
+        let _ = session.port.write_all(b"\n");
+        let _ = session.port.flush();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn mcu_serial_is_open(state: State<McuState>) -> bool {
+    state.lock().map(|guard| guard.is_some()).unwrap_or(false)
+}
+
+#[tauri::command]
+fn mcu_serial_send(state: State<McuState>, payload: String) -> Result<(), String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    let session = guard.as_mut().ok_or("MCU 串口尚未打开")?;
+    session
+        .port
+        .write_all(payload.as_bytes())
+        .and_then(|_| session.port.flush())
+        .map_err(to_err)
+}
+
+#[tauri::command]
+fn mcu_serial_read_line(state: State<McuState>, timeout_ms: u64) -> Result<String, String> {
+    let mut guard = state.lock().map_err(to_err)?;
+    let session = guard.as_mut().ok_or("MCU 串口尚未打开")?;
+    read_mcu_line(session, timeout_ms)
 }
 
 // —— ZDTaichu 视觉助手 ——
@@ -506,6 +613,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .manage(Mutex::new(None::<Bridge>))
         .manage(Mutex::new(None::<AiBridge>))
+        .manage(Mutex::new(None::<McuSession>))
         .invoke_handler(tauri::generate_handler![
             greet,
             list_serial_ports,
@@ -516,7 +624,13 @@ pub fn run() {
             servo_set_torque,
             servo_read_position,
             servo_write_position,
+            servo_write_speed,
             servo_sync_read_positions,
+            mcu_serial_open,
+            mcu_serial_close,
+            mcu_serial_is_open,
+            mcu_serial_send,
+            mcu_serial_read_line,
             ai_get_config,
             ai_start,
             ai_chat,

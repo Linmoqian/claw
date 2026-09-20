@@ -106,20 +106,22 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
   const [mode, setMode] = useState<ControlMode>("position");
 
-  const [tuneByMotor, setTuneByMotor] = useState<Record<string, TuneParams>>(() =>
-    initMap({ ...DEFAULT_TUNE }),
+  const [tuneByMotor, setTuneByMotor] = useState<Record<string, TuneParams>>(
+    () => initMap({ ...DEFAULT_TUNE }),
   );
-  const [dirtyByMotor, setDirtyByMotor] = useState<Record<string, boolean>>(() =>
-    initMap(false),
+  const [dirtyByMotor, setDirtyByMotor] = useState<Record<string, boolean>>(
+    () => initMap(false),
   );
-  const [planSavedByMotor, setPlanSavedByMotor] = useState<Record<string, boolean>>(() =>
-    initMap(true),
-  );
+  const [planSavedByMotor, setPlanSavedByMotor] = useState<
+    Record<string, boolean>
+  >(() => initMap(true));
 
   const [running, setRunning] = useState(true);
 
   const [estop, setEstop] = useState(false);
-  const [safety, setSafetyState] = useState<SafetyLimits>({ ...DEFAULT_SAFETY });
+  const [safety, setSafetyState] = useState<SafetyLimits>({
+    ...DEFAULT_SAFETY,
+  });
   const [faults] = useState<Record<string, FaultFlags>>(() =>
     initMap({ ...NO_FAULT }),
   );
@@ -135,7 +137,8 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   // 通信丢失标志：tick 检测到链路整体失败时置 true，写操作据此停止下发
   const commLostRef = useRef(false);
 
-  const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+  const sleep = (ms: number) =>
+    new Promise<void>((r) => window.setTimeout(r, ms));
 
   // ---- 连接动作 ----
   const scanPorts = useCallback(async () => {
@@ -184,7 +187,13 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       commLostRef.current = false;
       animTokens.current = {};
       setMotors((prev) =>
-        prev.map((m) => ({ ...m, enabled: false, angle: 0, velocity: 0, target: 0 })),
+        prev.map((m) => ({
+          ...m,
+          enabled: false,
+          angle: 0,
+          velocity: 0,
+          target: 0,
+        })),
       );
     }
   }, []);
@@ -307,10 +316,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   }, [deviceId, mode, safety, motors, tuneByMotor]);
 
   // ---- 实时位置采样：仅桌面端连接且运行且未急停时，批量读取舵机当前位置 ----
+
   const runningRef = useRef(running);
-  const estopRef = useRef(estop);
+  const estopRef = useRef({ value: false });
   runningRef.current = running;
-  estopRef.current = estop;
+  // eslint-disable-next-line react-hooks/immutability -- 提供同步只读镜像，供采样回调判断急停
+  estopRef.current.value = estop;
 
   useEffect(() => {
     if (!isDesktop()) return; // 浏览器端无硬件，不开采样
@@ -319,7 +330,12 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
     const tick = async () => {
       if (!active || busy) return;
-      if (!connectedRef.current || estopRef.current || !runningRef.current) return;
+      if (
+        !connectedRef.current ||
+        estopRef.current.value ||
+        !runningRef.current
+      )
+        return;
       busy = true;
       try {
         const ids = MOTORS.map((m) => m.hwId);

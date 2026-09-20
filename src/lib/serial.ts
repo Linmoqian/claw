@@ -24,7 +24,10 @@ export async function listSerialPorts(): Promise<string[]> {
 }
 
 /** 打开串口建立会话，返回端口名。对应 `serial_connect`。 */
-export async function serialConnect(port: string, baud: number): Promise<string> {
+export async function serialConnect(
+  port: string,
+  baud: number,
+): Promise<string> {
   return invoke<string>("serial_connect", { port, baud });
 }
 
@@ -54,11 +57,24 @@ export async function servoReadPosition(id: number): Promise<number> {
 }
 
 /** 写目标位置（0-4095）。对应 `servo_write_position`。 */
-export async function servoWritePosition(id: number, position: number): Promise<void> {
+export async function servoWritePosition(
+  id: number,
+  position: number,
+): Promise<void> {
   await invoke("servo_write_position", { id, position });
 }
 
+/** 写移动速度（Feetech MOVING_SPEED raw，0-2400）。对应 `servo_write_speed`。 */
+export async function servoWriteSpeed(
+  id: number,
+  speed: number,
+): Promise<void> {
+  await invoke("servo_write_speed", { id, speed });
+}
+
 /** 批量读多个电机位置。对应 `servo_sync_read_positions`。 */
-export async function servoSyncReadPositions(ids: number[]): Promise<MotorReading[]> {
+export async function servoSyncReadPositions(
+  ids: number[],
+): Promise<MotorReading[]> {
   return invoke<MotorReading[]>("servo_sync_read_positions", { ids });
 }
