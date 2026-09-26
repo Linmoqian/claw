@@ -34,6 +34,7 @@ const BlockLab = lazy(() => import("./pages/BlockLab"));
 const AdversarialTraining = lazy(() => import("./pages/AdversarialTraining"));
 const ModelTraining = lazy(() => import("./pages/ModelTraining"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
+const Documents = lazy(() => import("./pages/Documents"));
 
 const contextItems: ContextMenuItem[] = [
   {
@@ -124,6 +125,7 @@ function App() {
                       <Route path="/blocks" element={<BlockLab />} />
                       <Route path="/connect" element={<Connect />} />
                       <Route path="/data" element={<DataCollection />} />
+                      <Route path="/documents" element={<Documents />} />
                       <Route
                         path="/training"
                         element={<AdversarialTraining />}

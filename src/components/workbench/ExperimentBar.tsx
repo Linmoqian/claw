@@ -26,6 +26,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/blocks": "积木编程",
   "/experiments": "实验记录",
   "/data": "视频与数据",
+  "/documents": "文档收集",
   "/model-training": "智能训练",
   "/training": "对抗训练",
   "/vision": "视觉助手",

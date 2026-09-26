@@ -4,6 +4,7 @@ import {
   ArrowRight,
   ArrowUpRight,
   Blocks,
+  BookOpen,
   Box,
   BrainCircuit,
   Check,
@@ -321,6 +322,14 @@ export default function WorkbenchHome() {
           <div>
             <strong>视频与数据</strong>
             <span>查看视频、实验数据与历史导入</span>
+          </div>
+          <ArrowUpRight size={14} />
+        </Link>
+        <Link to="/documents">
+          <BookOpen size={19} />
+          <div>
+            <strong>文档收集</strong>
+            <span>集中阅读 PDF 与 Markdown 文件</span>
           </div>
           <ArrowUpRight size={14} />
         </Link>

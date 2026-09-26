@@ -4,6 +4,7 @@ import { NavLink, useLocation } from "react-router";
 import {
   Activity,
   Blocks,
+  BookOpen,
   Box,
   BrainCircuit,
   ChevronDown,
@@ -51,6 +52,7 @@ const GROUPS: NavigationGroup[] = [
     label: "数据与智能",
     items: [
       { to: "/data", label: "视频与数据", icon: Clapperboard },
+      { to: "/documents", label: "文档收集", icon: BookOpen },
       { to: "/model-training", label: "智能训练", icon: BrainCircuit },
       { to: "/training", label: "对抗训练", icon: Swords },
       { to: "/vision", label: "视觉助手", icon: ScanEye },
