@@ -1,0 +1,335 @@
+/* 视频资源库。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+.video-library {
+  display: grid;
+  gap: 18px;
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;
+}
+
+.video-library__head,
+.video-library__toolbar,
+.video-library__actions,
+.video-library__card-actions,
+.video-library__dialog-head,
+.video-library__dialog-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.video-library__head h2 {
+  margin: 5px 0;
+  font-size: 19px;
+}
+
+.video-library__head p,
+.video-library__path-form p,
+.video-library__empty p,
+.video-library__reference p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.video-library__count {
+  flex-shrink: 0;
+  color: var(--accent-deep);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.video-library__toolbar {
+  flex-wrap: wrap;
+}
+
+.video-library__search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1 1 220px;
+  min-width: 0;
+  max-width: 350px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-tertiary);
+  background: var(--inset);
+}
+
+.video-library__search input {
+  width: 100%;
+  min-width: 0;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--text);
+  background: transparent;
+  font: inherit;
+  font-size: 12px;
+}
+
+.video-library__search:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+.video-library__actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.video-library__path-form {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--inset);
+}
+
+.video-library__path-form label {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.video-library__path-form > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.video-library__path-form input {
+  flex: 1 1 300px;
+  min-width: 0;
+  min-height: 39px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: var(--surface);
+  font: inherit;
+  font-size: 12px;
+}
+
+.video-library__notice,
+.video-library__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 7px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.video-library__notice {
+  color: var(--success);
+  background: rgba(63, 149, 104, 0.1);
+}
+
+.video-library__error {
+  color: var(--danger);
+  background: rgba(201, 79, 61, 0.1);
+}
+
+.video-library__error span {
+  flex: 1;
+}
+
+.video-library__error button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.video-library__empty {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  padding: 44px 16px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 9px;
+  color: var(--accent);
+  text-align: center;
+  background: var(--inset);
+}
+
+.video-library__empty strong {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.video-library__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(225px, 1fr));
+  gap: 14px;
+}
+
+.video-library__card {
+  overflow: hidden;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+
+.video-library__poster {
+  position: relative;
+  display: grid;
+  height: 122px;
+  place-items: center;
+  color: rgba(255, 255, 255, 0.84);
+  background: linear-gradient(140deg, #28363f, #596a69 65%, #b26d54);
+}
+
+.video-library__poster > span {
+  position: absolute;
+  right: 10px;
+  bottom: 10px;
+  padding: 3px 7px;
+  border-radius: 4px;
+  color: white;
+  background: rgba(0, 0, 0, 0.42);
+  font-size: 10px;
+}
+
+.video-library__card-body {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.video-library__card h3 {
+  overflow: hidden;
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-library__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 10px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+
+.video-library__card-actions {
+  gap: 8px;
+}
+
+.video-library__remove,
+.video-library__dialog-head button {
+  display: grid;
+  width: 36px;
+  height: 36px;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text-secondary);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+.video-library__remove:hover {
+  color: var(--danger);
+}
+
+.video-library__remove:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.video-library__dialog {
+  width: min(820px, calc(100vw - 36px));
+  max-height: min(90vh, 850px);
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: var(--shadow-lg);
+}
+
+.video-library__dialog::backdrop {
+  background: rgba(18, 27, 34, 0.68);
+}
+
+.video-library__dialog-head {
+  margin-bottom: 15px;
+}
+
+.video-library__dialog-head h2 {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-size: 18px;
+}
+
+.video-library__dialog video {
+  display: block;
+  width: 100%;
+  max-height: 62vh;
+  border-radius: 6px;
+  background: #121719;
+}
+
+.video-library__dialog-foot {
+  flex-wrap: wrap;
+  margin-top: 15px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.video-library__dialog-foot > span {
+  overflow-wrap: anywhere;
+}
+
+.video-library__reference {
+  display: grid;
+  justify-items: start;
+  gap: 12px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--inset);
+}
+
+.video-library__reference code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: 12px;
+}
+
+.video-library__spin {
+  animation: video-resource-spin 0.8s linear infinite;
+}
+
+@keyframes video-resource-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (max-width: 700px) {
+  .video-library { padding: 16px; }
+  .video-library__head { align-items: flex-start; }
+  .video-library__toolbar { align-items: stretch; }
+  .video-library__search { max-width: none; flex-basis: 100%; }
+  .video-library__grid { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-library__spin { animation: none; }
+}

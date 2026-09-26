@@ -8,7 +8,7 @@ import {
   BrainCircuit,
   ChevronDown,
   Cpu,
-  Database,
+  Clapperboard,
   FlaskConical,
   Gauge,
   House,
@@ -50,7 +50,7 @@ const GROUPS: NavigationGroup[] = [
     id: "intelligence",
     label: "数据与智能",
     items: [
-      { to: "/data", label: "数据资源", icon: Database },
+      { to: "/data", label: "视频与数据", icon: Clapperboard },
       { to: "/model-training", label: "智能训练", icon: BrainCircuit },
       { to: "/training", label: "对抗训练", icon: Swords },
       { to: "/vision", label: "视觉助手", icon: ScanEye },

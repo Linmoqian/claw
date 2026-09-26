@@ -9,7 +9,7 @@ import {
   Check,
   Circle,
   Clock3,
-  Database,
+  Clapperboard,
   FlaskConical,
   Plug,
   ScanEye,
@@ -317,10 +317,10 @@ export default function WorkbenchHome() {
           <ArrowUpRight size={14} />
         </Link>
         <Link to="/data">
-          <Database size={19} />
+          <Clapperboard size={19} />
           <div>
-            <strong>数据资源</strong>
-            <span>查看实验数据与历史导入</span>
+            <strong>视频与数据</strong>
+            <span>查看视频、实验数据与历史导入</span>
           </div>
           <ArrowUpRight size={14} />
         </Link>

@@ -1,10 +1,11 @@
-/** 数据入口：新实验采集与旧数据集的兼容查看。
- * Created on 2026-09-26
+/** 视频资源、实验采集与旧数据集的兼容查看。
+ * Created on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
 import { useRef, useState, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { Database, FileUp, ArrowRight, Square } from "lucide-react";
+import { Clapperboard, Database, FileUp, ArrowRight, Square } from "lucide-react";
+import VideoLibrary from "../components/videos/VideoLibrary";
 import { useExperimentStore } from "../experiments/experimentStore";
 import { useRobotStore } from "../stores/robotStore";
 import "./DataCollection.css";
@@ -175,14 +176,14 @@ export default function DataCollection() {
             <span className="section-label__title">数据与智能</span>
             <span className="data-collection__eyebrow">DATA COLLECTION</span>
           </div>
-          <h1>采集每一次实际运动</h1>
+          <h1>视频与实验数据</h1>
           <p>
-            新采集统一保存在实验记录中，保留实际关节、底盘和
-            TCP，并关联程序与场景。
+            集中查看实验录像与演示视频。运动采集保存在实验记录中，关联实际关节、底盘、TCP、程序与场景。
           </p>
         </div>
-        <Database className="data-collection__header-icon" aria-hidden="true" />
+        <Clapperboard className="data-collection__header-icon" aria-hidden="true" />
       </header>
+      <VideoLibrary />
       {(error || legacy.error) && (
         <div className="experiments__notice is-error" role="alert">
           {error ?? legacy.error}
