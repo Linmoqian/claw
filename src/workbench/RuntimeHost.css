@@ -1,0 +1,53 @@
+/* Created on 2026-09-26 · @author: https://github.com/Linmoqian */
+.runtime-host {
+  position: fixed;
+  z-index: 1;
+  width: 320px;
+  height: 220px;
+  left: -10000px;
+  overflow: hidden;
+  border-radius: 16px;
+  background: #eef0f3;
+}
+.runtime-host[data-docked="false"][data-visible="true"] {
+  z-index: 15;
+  border: 1px solid #d7dfe8;
+  box-shadow: 0 6px 24px #18203026;
+}
+.runtime-host__mini-head {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  justify-content: space-between;
+  padding: 9px 12px;
+  font-size: 12px;
+  background: #ffffffed;
+}
+.runtime-host[data-docked="true"] .runtime-host__mini-head { display: none; }
+.runtime-host__camera {
+  position: absolute;
+  right: 12px;
+  top: 110px;
+  width: min(180px, 35%);
+  aspect-ratio: 4 / 3;
+  border: 1px solid #b9c4ce;
+  border-radius: 8px;
+  pointer-events: none;
+}
+.runtime-host__camera span {
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  padding: 2px 5px;
+  font-size: 10px;
+  color: #354254;
+  background: #ffffffe6;
+}
+.runtime-host[data-docked="false"] .runtime-host__camera { display: none; }
+
+.workbench-panel-tabs { display: none; }
+@media (max-width: 1099px) {
+  .workbench-panel-tabs { display: flex; gap: 6px; flex: none; z-index: 2; }
+  .workbench-panel-tabs button { padding: 7px 16px; border: 1px solid #dce2e8; border-radius: 8px; background: #fff; color: #506070; }
+  .workbench-panel-tabs button[aria-selected="true"] { color: #c45c25; border-color: #e9ae88; background: #fff2e8; }
+}

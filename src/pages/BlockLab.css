@@ -1,3 +1,4 @@
+/* Created on 2026-09-26 · @author: https://github.com/Linmoqian */
 .block-console {
   --console-ink: #1c2128;
   --console-muted: #59616d;
@@ -817,4 +818,20 @@
 .console-button--danger:hover:not(:disabled) {
   background: #ffe4e1;
   border-color: #f08d86;
+}
+
+.block-console__arm-stage { z-index: 2; background: transparent; pointer-events: none; }
+.block-console__arm-canvas { background: transparent; }
+.block-console__arm-loading { background: #eef0f3; }
+.block-console__program-panel { position: relative; z-index: 2; }
+.block-console__runtime-panel { overflow-y: auto; }
+.block-console__log-list { max-height: 190px; overflow-y: auto; }
+@media (max-width: 1099px) {
+  .block-console { height: 100%; min-height: 0; flex-direction: column; overflow: hidden; padding: 10px; }
+  .block-console__layout { flex: 1; min-height: 0; overflow: hidden; }
+  .block-console__program-panel { flex: 1; height: 100%; min-height: 0; }
+  .block-console__workspace-shell { min-height: 180px; }
+  .block-console__runtime-panel { height: 100%; flex: 1; }
+  .block-console--tools .block-console__runtime-panel, .block-console--scene .block-console__program-panel { display: none; }
+  .block-console__toolbar { flex-wrap: wrap; gap: 8px; }
 }

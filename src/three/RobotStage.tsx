@@ -1,4 +1,5 @@
-/** 3D 舞台：Canvas + 环境光 + 网格地面 + OrbitControls + 机器人视图。 */
+// 3D 舞台与唯一仿真推进循环。Created on 2026-09-26
+// @author: https://github.com/Linmoqian
 import { SimulationCamera } from "./SimulationCamera";
 import { Suspense, useEffect, useRef, type RefObject } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
@@ -28,6 +29,8 @@ import { useRobotStore } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
 import { useWorldStore } from "../stores/worldStore";
 import { useWorkspaceStore } from "../cad/workspaceStore";
+import { useBridgeStore } from "../stores/bridgeStore";
+import { useActivityStore } from "../workbench/activity";
 
 /** 初始视角目标点（机器人基座附近，模型高度中段） */
 const INITIAL_TARGET = new THREE.Vector3(0, 0.22, 0);
@@ -54,12 +57,17 @@ function PhysicsGround() {
 /** 末端执行器的轻量运动学碰撞代理，用于撞倒场景道具而不改变机械臂视觉层级。 */
 function PhysicsTcpProxy({ sim }: { sim: SimulationLoop }) {
   const bodyRef = useRef<RapierRigidBody | null>(null);
+  const wasPaused = useRef(false);
   const position = useRef(new THREE.Vector3());
   const basePosition = useRef(new THREE.Vector3());
   const baseRotation = useRef(new THREE.Quaternion());
   const upAxis = useRef(new THREE.Vector3(0, 1, 0));
 
   useFrame(() => {
+    if (useBridgeStore.getState().replay || (useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) {
+      wasPaused.current = true;
+      return;
+    }
     const body = bodyRef.current;
     if (!body) return;
 
@@ -77,6 +85,11 @@ function PhysicsTcpProxy({ sim }: { sim: SimulationLoop }) {
       position.current
         .applyQuaternion(baseRotation.current)
         .add(basePosition.current);
+    }
+    if (wasPaused.current) {
+      // 退出观察态时直接同步代理，避免历史位姿差被物理引擎解释为一次高速移动。
+      body.setTranslation(position.current, true);
+      wasPaused.current = false;
     }
     body.setNextKinematicTranslation(position.current);
   });
@@ -108,6 +121,7 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
 
   // 仿真驱动：渲染循环即仿真循环（step 内含碰撞评估→档位限速）
   useFrame((_, delta) => {
+    if (useBridgeStore.getState().bridge.kind !== "simulation" || (useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     sim.step(delta);
     baseSim.step(delta);
   });
@@ -242,6 +256,8 @@ export default function RobotStage({
   cameraFeedRef,
   eyeInHand = false,
 }: RobotStageProps) {
+  const replay = useBridgeStore((state) => state.replay !== null);
+  const suspended = useActivityStore((state) => state.recordingSuspended || state.replayPreparing);
   return (
     <Canvas
       shadows
@@ -251,6 +267,7 @@ export default function RobotStage({
     >
       <Suspense fallback={null}>
         <Physics
+          paused={replay || suspended}
           gravity={[0, -9.81, 0]}
           timeStep="vary"
           interpolate={false}

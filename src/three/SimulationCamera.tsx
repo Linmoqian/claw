@@ -1,5 +1,5 @@
 /**
- * Created on 2026-09-17
+ * Created on 2026-09-26
  * @author: https://github.com/Linmoqian
  */
 import { useEffect, useRef, type RefObject } from "react";
@@ -151,6 +151,7 @@ export function SimulationCamera({
     quaternion: cameraQuaternionRef.current,
   });
   const dragStateRef = useRef<CameraDragState | null>(null);
+  const cancelDragRef = useRef<(() => void) | null>(null);
   const pointerNdcRef = useRef(new THREE.Vector2());
   const workPointRef = useRef(new THREE.Vector3());
 
@@ -194,15 +195,20 @@ export function SimulationCamera({
       cameraPositionRef.current.copy(nextPoint);
     };
 
-    const onUp = (upEvent: PointerEvent) => {
-      if (!dragStateRef.current || upEvent.pointerId !== dragStateRef.current.pointerId) return;
+    const finishDrag = () => {
       dragStateRef.current = null;
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onUp);
       if (controlsRef.current) controlsRef.current.enabled = true;
       setCanvasCursor("");
+      cancelDragRef.current = null;
     };
+    const onUp = (upEvent: PointerEvent) => {
+      if (!dragStateRef.current || upEvent.pointerId !== dragStateRef.current.pointerId) return;
+      finishDrag();
+    };
+    cancelDragRef.current = finishDrag;
 
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -216,6 +222,15 @@ export function SimulationCamera({
   const leaveCameraHover = () => {
     if (!eyeInHand && !dragStateRef.current) setCanvasCursor("");
   };
+
+  useEffect(() => {
+    const cancel = () => cancelDragRef.current?.();
+    window.addEventListener("workbench:cancel-preview", cancel);
+    return () => {
+      cancel();
+      window.removeEventListener("workbench:cancel-preview", cancel);
+    };
+  }, []);
 
   useEffect(() => {
     const orientation = new THREE.Matrix4().lookAt(

@@ -1,7 +1,7 @@
 /**
  * Blockly 异步解释器：直接遍历程序树，避免生成可执行 JS 带来的安全边界问题。
  *
- * Created on 2026-09-21
+ * Created on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
 import type * as Blockly from "blockly/core";
@@ -363,7 +363,16 @@ async function evaluateBlock(
       }
       return values;
     }
-    case "decision_if":
+    case "decision_if": {
+      const condition = Boolean(await evaluateInput(
+        block, "CONDITION", options, scope, definitions, depth,
+      ));
+      options.log(condition ? "条件满足，执行分支" : "条件未满足，跳过分支", "event");
+      if (condition) await executeSequence(
+        connected(block, "DO"), options, scope, definitions, depth,
+      );
+      return undefined;
+    }
     case "controls_if": {
       let index = 0;
       while (block.getInput(`IF${index}`)) {
@@ -829,18 +838,7 @@ async function executeStatement(
       return;
 
     case "move_steps":
-      await new Promise<void>((resolve, reject) => {
-        const timer = window.setTimeout(resolve, 80);
-        options.signal.addEventListener(
-          "abort",
-          () => {
-            window.clearTimeout(timer);
-            reject(new ExecutionAborted());
-          },
-          { once: true },
-        );
-      });
-      options.log(`向前移动 ${fieldValue(block, "STEPS")} 格`, "event");
+      options.log("旧演示步数块不驱动运动，请改用关节或位姿积木", "warning");
       return;
     case "turn_left":
       await gateway.setJointAngleDeg(0, -20, 60);

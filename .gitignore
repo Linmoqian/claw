@@ -24,6 +24,7 @@ dist-ssr
 
 # Playwright CLI 验证产物
 .playwright-cli/
+.artifacts/
 
 *.suo
 *.ntvs*

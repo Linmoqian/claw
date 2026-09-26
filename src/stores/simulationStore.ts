@@ -1,7 +1,9 @@
-/** simulationStore：仿真控制状态（低频 UI：模式/速度/目标值/快照读数）。 */
+// 仿真控制状态与保存期间的启动门禁。Created on 2026-09-26
+// @author: https://github.com/Linmoqian
 import { create } from "zustand";
 import { Quaternion, Vector3 } from "three";
 import { COLLISION_CLEAR } from "../robot/collision";
+import { useActivityStore } from "../workbench/activity";
 import {
   SimulationLoop,
   type SimMode,
@@ -61,10 +63,12 @@ export const useSimulationStore = create<SimulationStore>((set) => ({
     set({ speed });
   },
   goHome: () => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     sim?.goHome();
     if (sim) set({ mode: sim.currentMode });
   },
   play: () => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     sim?.play();
     if (sim) set({ mode: sim.currentMode });
   },

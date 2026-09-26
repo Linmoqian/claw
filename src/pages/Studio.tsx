@@ -1,27 +1,26 @@
+// Created on 2026-09-27
+// @author: https://github.com/Linmoqian
 /** 仿真与调参工作区：关节控制、数字孪生和 PID 响应模型处于同一上下文。 */
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import { Camera, Pause, Play, RotateCcw, Ruler, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
 import JointCard from "../components/JointCard";
 import PidSlider from "../components/PidSlider";
 import SessionCard from "../components/SessionCard";
 import WaveCanvas from "../components/WaveCanvas";
-import {
-  CollisionSystem,
-  describeCollision,
-  isRejected,
-} from "../robot/collision";
+
 import { formatPose } from "../robot/kinematics";
-import { BaseSim } from "../robot/baseSim";
-import { degreesToRadians, radiansToDegrees } from "../robot/model";
-import { SimulationLoop } from "../robot/simulation";
-import { useBridgeStore, refreshReplayState } from "../stores/bridgeStore";
-import { downloadRecording, frameFromRobotState, parseRecording, RECORDING_VERSION } from "../services/protocol/recording";
+import { describeCollision } from "../robot/collision";
+
+
+
+import { useBridgeStore } from "../stores/bridgeStore";
+import { parseRecording } from "../services/protocol/recording";
 import { useDevice } from "../store/DeviceContext";
-import { useWorldStore } from "../stores/worldStore";
+
 import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../stores/interactionStore";
-import { useSessionStore, arbiter, setTargetCommittedHook } from "../stores/sessionStore";
+import { useSessionStore } from "../stores/sessionStore";
 import { useTargetStore } from "../stores/targetStore";
 import {
   DEFAULT_ROBOT_ID,
@@ -31,97 +30,33 @@ import {
 } from "../stores/robotStore";
 import { useSceneStore } from "../stores/sceneStore";
 import { useSimulationStore } from "../stores/simulationStore";
-import RobotStage from "../three/RobotStage";
+import { cancelRuntimePreview, getRuntime, useRuntimeStore, awaitRuntimeReady } from "../workbench/runtime";
+import { useActivityStore } from "../workbench/activity";
+import { stopProgram } from "../workbench/programRunner";
 import EyeHandPanel from "../components/EyeHandPanel";
 import "./Studio.css";
 
 /** 仿真速度档位 */
 const SPEED_OPTIONS = [0.25, 0.5, 1, 2];
 
-/** 录制采样频率（Hz；与 worldStore 低频纪律一致） */
-const RECORD_HZ = 20;
-
-/** 录制控制器（非响应式：interval 拉取 worldStore + sim 关节） */
-interface RecorderState {
-  timer: number | null;
-  frames: import("../services/protocol/recording").RecFrame[];
-  t0: number;
-  jointsProvider: (() => Record<string, number>) | null;
-}
-const recorder: RecorderState = { timer: null, frames: [], t0: 0, jointsProvider: null };
-
-function recorderActive(): boolean {
-  return recorder.timer !== null;
-}
-
 export default function Studio() {
   const [tuningOpen, setTuningOpen] = useState(false);
   const [eyeHandOpen, setEyeHandOpen] = useState(false);
-  const [eyeInHand, setEyeInHand] = useState(true);
+  const eyeInHand = useRuntimeStore((state) => state.eyeInHand);
+  const setEyeInHand = useRuntimeStore((state) => state.setEyeInHand);
+  const ready = useRuntimeStore((state) => state.ready);
+  const recordingLocked = useActivityStore((state) => state.recordingLocked);
+  const recordingSuspended = useActivityStore((state) => state.recordingSuspended || state.replayPreparing);
+  const programRunning = useActivityStore((state) => state.programRunning);
+  const [mobilePanel, setMobilePanel] = useState("tools");
+  const [consoleWidth, setConsoleWidth] = useState(348);
+  const [legacyRobotId, setLegacyRobotId] = useState("");
   const model = useReadyModel();
   const status = useRobotStore((s) => s.status);
   const loadError = useRobotStore((s) => s.error);
-  const assetBase = useRobotStore((s) => s.assetBase);
   const currentId = useRobotStore((s) => s.currentId);
   const loadRobot = useRobotStore((s) => s.loadRobot);
 
-  const simRef = useRef<SimulationLoop | null>(null);
-  const cameraFeedRef = useRef<HTMLDivElement | null>(null);
-  const cameraFeedDragRef = useRef<{
-    pointerId: number;
-    startX: number;
-    startY: number;
-    left: number;
-    top: number;
-  } | null>(null);
-  const baseSimRef = useRef<BaseSim | null>(null);
-
-  /** 画中画拖拽：直接写 DOM 位置，避免 pointermove 触发整页 React 更新。 */
-  const beginCameraFeedDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const feed = event.currentTarget;
-    const stage = feed.offsetParent;
-    if (!(stage instanceof HTMLElement)) return;
-    const feedRect = feed.getBoundingClientRect();
-    cameraFeedDragRef.current = {
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      left: feedRect.left,
-      top: feedRect.top,
-    };
-    feed.setPointerCapture(event.pointerId);
-    feed.classList.add("is-dragging");
-  };
-
-  const moveCameraFeed = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = cameraFeedDragRef.current;
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    const feed = event.currentTarget;
-    const stage = feed.offsetParent;
-    if (!(stage instanceof HTMLElement)) return;
-    const feedRect = feed.getBoundingClientRect();
-    const stageRect = stage.getBoundingClientRect();
-    const minLeft = stageRect.left + 4;
-    const maxLeft = Math.max(minLeft, stageRect.right - feedRect.width - 4);
-    const minTop = stageRect.top + 4;
-    const maxTop = Math.max(minTop, stageRect.bottom - feedRect.height - 4);
-    const left = Math.min(Math.max(event.clientX - drag.startX + drag.left, minLeft), maxLeft);
-    const top = Math.min(Math.max(event.clientY - drag.startY + drag.top, minTop), maxTop);
-    feed.style.left = String(left - stageRect.left) + "px";
-    feed.style.top = String(top - stageRect.top) + "px";
-    feed.style.right = "auto";
-    feed.style.bottom = "auto";
-  };
-
-  const endCameraFeedDrag = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const drag = cameraFeedDragRef.current;
-    if (!drag || event.pointerId !== drag.pointerId) return;
-    event.currentTarget.classList.remove("is-dragging");
-    event.currentTarget.releasePointerCapture(event.pointerId);
-    cameraFeedDragRef.current = null;
-  };
-  const bind = useSimulationStore((s) => s.bind);
-  const syncTick = useSimulationStore((s) => s.syncTick);
   const speed = useSimulationStore((s) => s.speed);
   const mode = useSimulationStore((s) => s.mode);
   const snapshot = useSimulationStore((s) => s.snapshot);
@@ -145,7 +80,6 @@ export default function Studio() {
   const bridgeError = useBridgeStore((s) => s.lastError);
   const isLive = useBridgeStore((s) => s.isLive);
   const replay = useBridgeStore((s) => s.replay);
-  const refreshBridge = useBridgeStore((s) => s.refresh);
   const connectMock = useBridgeStore((s) => s.connectMock);
   const connectRemote = useBridgeStore((s) => s.connectRemote);
   const enterReplay = useBridgeStore((s) => s.enterReplay);
@@ -154,42 +88,6 @@ export default function Studio() {
   const backToSim = useBridgeStore((s) => s.backToSim);
   const [liveUrl, setLiveUrl] = useState("");
   const [liveChecked, setLiveChecked] = useState(false);
-  const [recordingSec, setRecordingSec] = useState<number | null>(null);
-  /** 已录完待用的帧序列（停止录制后写入；回放/导出用） */
-  const [recordedFrames, setRecordedFrames] = useState<import("../services/protocol/recording").RecFrame[] | null>(null);
-
-  /** 录制启停：interval 拉取 worldStore（底盘位姿）+ sim（关节角） → 帧 */
-  const toggleRecord = () => {
-    if (recorder.timer !== null) {
-      window.clearInterval(recorder.timer);
-      recorder.timer = null;
-      setRecordingSec(null);
-      setRecordedFrames(recorder.frames.length > 0 ? [...recorder.frames] : null);
-      return;
-    }
-    const simNow = simRef.current;
-    const modelNow = model;
-    recorder.frames = [];
-    recorder.t0 = performance.now();
-    recorder.timer = window.setInterval(() => {
-      const robot = useWorldStore.getState().world.robot;
-      if (!robot) return;
-      const t = (performance.now() - recorder.t0) / 1000;
-      // 关节优先取遥测（TWIN/LIVE），SIM 下用仿真现实角补齐
-      const joints: Record<string, number> =
-        Object.keys(robot.joints).length > 0
-          ? { ...robot.joints }
-          : Object.fromEntries(
-              (modelNow?.active ?? []).map((j, i) => [
-                j.code,
-                simNow?.currentDegrees[i] ?? 0,
-              ]),
-            );
-      recorder.frames.push(frameFromRobotState(t, robot, joints));
-      setRecordingSec(t);
-    }, 1000 / RECORD_HZ);
-  };
-
   // M5 工作区与底座
   const workspace = useWorkspaceStore((s) => s.workspace);
   const workspaceSource = useWorkspaceStore((s) => s.source);
@@ -217,182 +115,15 @@ export default function Studio() {
     saveTunePlan,
   } = useDevice();
 
-  // 首次进入自动加载默认机型（后续可从工具条下拉切换）
-  useEffect(() => {
-    if (status === "idle") void loadRobot(DEFAULT_ROBOT_ID);
-  }, [status, loadRobot]);
-
-  // 模型就绪 → 碰撞系统 + 仿真回路（SimulationLoop 非响应式，只挂在 ref 上）
-  useEffect(() => {
-    if (!model) {
-      bind(null);
-      simRef.current = null;
-      useTargetStore.getState().bindModel(null);
-      return;
-    }
-    // 纯 TS 解析几何碰撞系统：同步构建，零 WASM 依赖
-    const collision = CollisionSystem.create(model);
-    const sim = new SimulationLoop(model, collision);
-    simRef.current = sim;
-    // M5 底盘仿真：现实位姿写出 → worldStore（MobileBase/臂联动）
-    const baseSim = baseSimRef.current ?? new BaseSim();
-    baseSimRef.current = baseSim;
-    baseSim.onPose = (p) => {
-      useWorldStore.getState().updateRobotPose({
-        position: { x: p.x, y: p.y, z: 0 },
-        orientation: { x: 0, y: 0, z: Math.sin(p.yaw / 2), w: Math.cos(p.yaw / 2) },
-      });
-    };
-    baseSim.teleport({ x: 0, y: 0, yaw: 0 });
-    sim.speed = useSimulationStore.getState().speed;
-    // DEV 调试探针：控制台直戳仿真/碰撞实例（生产构建排除）
-    if (import.meta.env.DEV) {
-      (window as unknown as Record<string, unknown>).__sim = sim;
-      (window as unknown as Record<string, unknown>).__collision = collision;
-      (window as unknown as Record<string, unknown>).__sessionStore =
-        useSessionStore;
-      (window as unknown as Record<string, unknown>).__baseSim = baseSim;
-      (window as unknown as Record<string, unknown>).__worldStore =
-        useWorldStore;
-      (window as unknown as Record<string, unknown>).__bridgeStore =
-        useBridgeStore;
-    }
-    bind(sim);
-    // M4 会话层：仿真预览通道接入（滑块/拖拽的 Preview→Commit）
-    useSessionStore.getState().bindSim(sim, baseSim);
-    // 目标世界接线：限位来源 + 执行器（系统命令/轨迹直通，用户输入走会话层）
-    useTargetStore.getState().bindModel(model);
-    const unreg = useTargetStore.getState().registerExecutor((intent) => {
-      const loop = simRef.current;
-      if (!loop) return;
-      if (intent.kind === "joint-target") {
-        const st = loop.setJointTarget(intent.jointIndex, intent.valueDeg);
-        if (isRejected(st)) {
-          // 目标被拒：徽标回灌（不覆盖 publish 已写入的限位信息以外的正常态）
-          useTargetStore.getState().setValidation({
-            valid: false,
-            jointLimit: false,
-            collision: true,
-            singularity: false,
-            reachable: true,
-            safetyDistance: null,
-            reason: `目标被拒：${describeCollision(st)}`,
-          });
-        }
-      } else if (intent.kind === "tcp-pose") {
-        const r = loop.setTcpTargetPose(
-          new Vector3(intent.position.x, intent.position.y, intent.position.z),
-          new Quaternion(
-            intent.quaternion.x,
-            intent.quaternion.y,
-            intent.quaternion.z,
-            intent.quaternion.w,
-          ),
-        );
-        useTargetStore.getState().setValidation({
-          valid: !r.collision,
-          jointLimit: r.atLimit.length > 0,
-          collision: r.collision !== undefined,
-          singularity: r.singular,
-          reachable: r.ok,
-          safetyDistance: null,
-          reason: r.collision
-            ? `目标被拒：${describeCollision(r.collision)}`
-            : r.singular
-              ? "IK 收敛于近奇异构型"
-              : r.atLimit.length > 0
-                ? `IK 触及关节限位: ${r.atLimit.map((i) => `J${i + 1}`).join(", ")}`
-                : undefined,
-        });
-      }
-    });
-    return () => {
-      unreg();
-      useSessionStore.getState().bindSim(null);
-      useTargetStore.getState().bindModel(null);
-      bind(null);
-      simRef.current?.dispose();
-      simRef.current = null;
-    };
-  }, [model, bind]);
-
-  // 速度倍率 → 仿真回路（独立 effect，不重建回路）
-  useEffect(() => {
-    if (simRef.current) simRef.current.speed = speed;
-  }, [speed, model]);
-
-  // 30Hz 低频同步：仿真快照 → store → 控制台读数（高频渲染走 useFrame 直读，不经过这里）
-  useEffect(() => {
-    const id = window.setInterval(syncTick, 33);
-    return () => window.clearInterval(id);
-  }, [syncTick]);
-
-  // TWIN 禁用底盘写出 + 回放进度刷新（复用同一 100ms 节拍）
-  useEffect(() => {
-    const id = window.setInterval(() => {
-      if (baseSimRef.current) {
-        baseSimRef.current.enabled = useBridgeStore.getState().info.kind === "simulation";
-      }
-      refreshReplayState();
-    }, 100);
-    return () => window.clearInterval(id);
-  }, []);
-
-  // TWIN/LIVE/回放：遥测关节角 → 仿真现实侧直写（观察态，臂跟真机/录像）
-  useEffect(() => {
-    if (!model) return;
-    const byName = new Map<string, number>();
-    const byCode = new Map<string, number>();
-    model.active.forEach((j, i) => {
-      byName.set(j.def.name, i);
-      byCode.set(j.code, i);
-    });
-    const unsub = useWorldStore.subscribe((s) => {
-      const sim = simRef.current;
-      const joints = s.world.robot?.joints;
-      if (!sim || !joints) return;
-      // SIM 桥不驱动臂（仿真自走；worldStore.joints 可能残留旧遥测）
-      if (useBridgeStore.getState().bridge.kind === "simulation") return;
-      const q = model.active.map(() => 0);
-      let hit = 0;
-      for (const [k, v] of Object.entries(joints)) {
-        const i = byName.get(k) ?? byCode.get(k);
-        if (i !== undefined && Number.isFinite(v)) {
-          q[i] = radiansToDegrees(v);
-          hit++;
-        }
-      }
-      if (hit > 0) sim.applyTelemetry(q);
-    });
-    return unsub;
-  }, [model]);
-
-  // LIVE 钩子：会话提交的关节目标同步下发真机（SIM/TWIN 不生效）
-  useEffect(() => {
-    setTargetCommittedHook((qDeg) => {
-      const bs = useBridgeStore.getState();
-      if (!bs.isLive) return;
-      bs.sendCommand({
-        kind: "joint_target",
-        position_rad: qDeg.map(degreesToRadians),
-      })
-        .catch((e) => useBridgeStore.setState({ lastError: String(e) }));
-    });
-    return () => setTargetCommittedHook(null);
-  }, []);
-
   // 底座路径播放状态同步（200ms 低频轮询，避免高频 setState）
   useEffect(() => {
     const id = window.setInterval(() => {
-      setBasePlaying(baseSimRef.current?.isPlaying ?? false);
+      setBasePlaying(getRuntime()?.baseSim?.isPlaying ?? false);
     }, 200);
     return () => window.clearInterval(id);
   }, []);
 
-  // 轨迹锁：播放期间仲裁器拒绝一切用户会话（先停止轨迹再手动）
-  useEffect(() => {
-    arbiter.setTrajectoryLock(mode === "play");
-  }, [mode]);
+  useEffect(() => () => cancelRuntimePreview(), []);
 
   // ESC：取消活动拖拽/预览会话（M4；输入框聚焦时跳过）
   useEffect(() => {
@@ -406,12 +137,6 @@ export default function Studio() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  // 100ms 桥健康快照：状态/速率/延迟 UI 数字（遵守 10~20Hz 纪律）
-  useEffect(() => {
-    const id = window.setInterval(refreshBridge, 100);
-    return () => window.clearInterval(id);
-  }, [refreshBridge]);
-
   // 快捷键：F 聚焦 / R 重置视角（输入框聚焦时跳过）
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -427,7 +152,8 @@ export default function Studio() {
   // 系统命令包装：先中止活动会话（仲裁器清场）再执行仿真动作
   const runSystem = (fn: () => void) => () => {
     useSessionStore.getState().systemCommand();
-    fn();
+    const activity = useActivityStore.getState();
+    if (!useBridgeStore.getState().replay && !activity.programRunning && !activity.recordingSuspended && !activity.replayPreparing) fn();
   };
 
   // 3D 拾取与调参对象共用关节上下文；未拾取时沿用调参面板选择。
@@ -438,10 +164,9 @@ export default function Studio() {
     if (motor && motor.id !== selectedId) selectMotor(motor.id);
   }, [motors, selectMotor, selected?.jointIndex, selectedId]);
 
-  const ready = model !== null && simRef.current !== null;
   const applyEyeHandIk = (position: Vector3, quaternion: Quaternion) => {
-    if (!ready || replay) return;
-    simRef.current?.setTcpTargetPose(position, quaternion);
+    if (!ready || replay || recordingSuspended) return;
+    getRuntime()?.sim?.setTcpTargetPose(position, quaternion);
   };
   const tcpText = formatPose(snapshot.tcp);
   const validation = useTargetStore((s) => s.validation);
@@ -449,14 +174,28 @@ export default function Studio() {
   const tuningMotor = motors.find((motor) => motor.id === selectedId) ?? motors[0];
   const selectedTune = tuneByMotor[tuningMotor.id];
   const tuningDirty = dirtyByMotor[tuningMotor.id];
+  const speedDisabled = replay !== null || bridgeInfo.kind !== "simulation" || recordingSuspended;
+  const speedDisabledReason = replay
+    ? "回放速度请使用上方回放倍速；退出回放后可调整仿真速度。"
+    : recordingSuspended
+      ? "请等待实验保存或回放准备完成后调整仿真速度。"
+      : "请断开遥测链路并返回仿真后调整仿真速度。";
 
   return (
-    <div className="studio">
+    <div className={`studio studio--${mobilePanel}`} style={{ "--studio-console-width": `${consoleWidth}px` } as CSSProperties}>
+      <div className="workbench-panel-tabs studio__panel-tabs">
+        <div className="studio__tab-buttons" role="tablist" aria-label="仿真面板">
+          <button type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => setMobilePanel("tools")}>工具</button>
+          <button type="button" role="tab" aria-selected={mobilePanel === "scene"} onClick={() => setMobilePanel("scene")}>场景</button>
+        </div>
+        <button type="button" className="studio__quick-stop" onClick={() => { stopProgram(); stop(); }} title="停止当前程序与仿真运动；硬件急停使用右下角按钮">停止仿真</button>
+      </div>
       {/* 左：控制台 */}
       <aside className="studio__console">
+        <div className="studio__console-scroll" role="region" aria-label="仿真参数与关节" tabIndex={0}>
         <header className="studio__head">
           <div className="studio__title-row">
-            <h1 className="studio__title">SO-100</h1>
+            <h1 className="studio__title">仿真工作台</h1>
             <span className="studio__subtitle serif">
               {model?.def.name ?? "so_arm100"}
             </span>
@@ -464,20 +203,27 @@ export default function Studio() {
           <div className="studio__status">
             <span className="studio__status-chip">
               <i className={`studio__status-dot is-${bridgeInfo.status}`} />
-              {bridgeInfo.kind === "simulation"
+              {replay
+                ? "记录回放"
+                : bridgeInfo.kind === "simulation"
                 ? "仿真联动"
                 : bridgeInfo.status === "connected"
-                  ? "真数据联动"
-                  : "链路中断"}
+                  ? "遥测联动"
+                  : bridgeInfo.status === "connecting" ? "正在连接" : "链路中断"}
             </span>
             <span className="studio__status-note">
-              {bridgeInfo.kind === "simulation"
+              {replay
+                ? "历史运动 · 只读"
+                : bridgeInfo.kind === "simulation"
                 ? "SIM · 无硬件链路"
-                : "MOCK WS · 模型保持最后位姿"}
+                : bridgeInfo.status === "connected"
+                  ? isLive ? "WebSocket · LIVE 可下发" : "WebSocket · TWIN 只读"
+                  : "WebSocket · 保持最后位姿"}
             </span>
           </div>
         </header>
 
+        <label className="studio__width-control">工具区宽度<input type="range" min="300" max="470" value={consoleWidth} onChange={(event) => setConsoleWidth(Number(event.target.value))} /></label>
         {/* 数据链路卡：SIM / TWIN / LIVE / 回放 四态 + 录制组 */}
         <div className="studio__link">
           <div className="studio__link-row">
@@ -486,7 +232,7 @@ export default function Studio() {
               className={`studio__link-chip is-${replay ? "connected" : bridgeInfo.status}${isLive ? " is-live" : ""}`}
             >
               {replay
-                ? "回放"
+                ? "记录回放 · 只读"
                 : bridgeInfo.kind === "simulation"
                   ? "SIM"
                   : bridgeInfo.status === "connected"
@@ -516,7 +262,7 @@ export default function Studio() {
                   {replay.position.toFixed(1)}/{replay.duration.toFixed(1)}s
                 </span>
               </div>
-              <div className="studio__replay-row">
+              <div className="studio__replay-row studio__replay-actions">
                 <button
                   type="button"
                   className="studio__link-btn"
@@ -530,6 +276,8 @@ export default function Studio() {
                     type="button"
                     className={`studio__link-btn ${replay.rate === r ? "is-on" : ""}`}
                     onClick={() => replayControl("rate", r)}
+                    aria-label={`回放速度 ${r} 倍`}
+                    aria-pressed={replay.rate === r}
                   >
                     {r}×
                   </button>
@@ -543,7 +291,7 @@ export default function Studio() {
             /* —— SIM 态：连接组 + 录制组 —— */
             <>
               <div className="studio__replay-row">
-                <button type="button" className="studio__link-btn" onClick={() => void connectMock()}>
+                <button type="button" className="studio__link-btn" disabled={recordingLocked || programRunning} onClick={() => void connectMock()}>
                   接入 MOCK
                 </button>
                 <input
@@ -564,69 +312,50 @@ export default function Studio() {
                 <button
                   type="button"
                   className={`studio__link-btn ${liveChecked ? "is-live" : ""}`}
-                  disabled={!liveUrl.trim().startsWith("ws")}
+                  disabled={!liveUrl.trim().startsWith("ws") || recordingLocked || programRunning}
                   onClick={() => void connectRemote(liveUrl.trim(), liveChecked)}
                 >
                   连接
                 </button>
               </div>
+              <p className="studio__experiment-note">使用顶部“开始实验”采集运动，结束后在实验记录中查看、导出和回放。</p>
               <div className="studio__replay-row">
-                <button
-                  type="button"
-                  className={`studio__link-btn ${recordingSec !== null ? "is-rec" : ""}`}
-                  onClick={toggleRecord}
-                >
-                  {recordingSec !== null
-                    ? `■ 停止 ${recordingSec.toFixed(0)}s`
-                    : "● 录制"}
-                </button>
-                {recordedFrames && !recorderActive() && (
-                  <>
-                    <button
-                      type="button"
-                      className="studio__link-btn"
-                      onClick={() => void enterReplay(recordedFrames)}
-                    >
-                      ▶ 回放
-                    </button>
-                    <button
-                      type="button"
-                      className="studio__link-btn"
-                      onClick={() =>
-                        downloadRecording(
-                          {
-                            version: RECORDING_VERSION,
-                            kind: "claw-recording",
-                            fps: RECORD_HZ,
-                            recordedAt: Date.now(),
-                            frames: recordedFrames,
-                          },
-                          `claw-rec-${new Date().toISOString().replace(/[:.]/g, "-")}.json`,
-                        )
-                      }
-                    >
-                      导出
-                    </button>
-                  </>
-                )}
+                <select aria-label="旧录像对应机型" value={legacyRobotId} onChange={(event) => setLegacyRobotId(event.target.value)} disabled={recordingLocked || programRunning}>
+                  <option value="">选择旧录像机型</option>
+                  {ROBOT_CATALOG.map((robot) => <option key={robot.id} value={robot.id}>{robot.label}</option>)}
+                </select>
                 <label className="studio__link-btn">
                   导入回放
                   <input
                     type="file"
                     accept=".json"
+                    disabled={!legacyRobotId || recordingLocked || programRunning}
                     hidden
                     onChange={async (e) => {
                       const file = e.target.files?.[0];
                       e.target.value = "";
                       if (!file) return;
+                      const activity = useActivityStore.getState();
+                      if (activity.recordingLocked || activity.programRunning || activity.replayPreparing
+                        || activity.serialTransition || activity.channelTransition || activity.hardwareConnected) {
+                        useBridgeStore.setState({ lastError: "请结束实验、停止程序并断开硬件链路后导入回放" });
+                        return;
+                      }
+                      useActivityStore.setState({ replayPreparing: true });
                       try {
                         const rec = parseRecording(await file.text());
-                        if (recorderActive()) toggleRecord();
-                        await enterReplay(rec.frames);
+                        await loadRobot(legacyRobotId, { replayPreparation: true });
+                        const loaded = useRobotStore.getState();
+                        if (loaded.currentId !== legacyRobotId || loaded.status !== "ready")
+                          throw new Error(loaded.error ?? "录像机型加载失败");
+                        await awaitRuntimeReady(loaded.model);
+                        await enterReplay(rec.frames, { replayPreparation: true });
                       } catch (err) {
                         useBridgeStore.setState({
                           lastError: `导入失败：${err instanceof Error ? err.message : String(err)}`,
                         });
+                      } finally {
+                        useActivityStore.setState({ replayPreparing: false });
                       }
                     }}
                   />
@@ -652,7 +381,7 @@ export default function Studio() {
               <button
                 type="button"
                 className="studio__link-btn"
-                onClick={() => void backToSim()}
+                disabled={recordingLocked || programRunning} onClick={() => void backToSim()}
               >
                 断开 · 回仿真
               </button>
@@ -672,6 +401,9 @@ export default function Studio() {
                 type="button"
                 className={`studio__speed-opt ${speed === v ? "is-on" : ""}`}
                 onClick={() => setSpeed(v)}
+                disabled={speedDisabled}
+                title={speedDisabled ? speedDisabledReason : `仿真速度 ${v} 倍`}
+                aria-describedby={speedDisabled ? "studio-simulation-speed-note" : undefined}
                 aria-pressed={speed === v}
               >
                 {v}×
@@ -680,7 +412,10 @@ export default function Studio() {
           </div>
         </div>
 
-        <div className="studio__joints" aria-label="关节控制">
+        {speedDisabled && <p id="studio-simulation-speed-note" className="studio__experiment-note">{speedDisabledReason}</p>}
+
+        {recordingSuspended && <p className="studio__experiment-note" role="status">运动已暂停，请等待实验保存或回放准备完成；保存失败时请先重试。</p>}
+        <fieldset className="studio__joints" aria-label="关节控制" disabled={!!replay || programRunning || recordingSuspended}>
           {model?.active.map((joint, i) => (
             <JointCard
               key={joint.def.name}
@@ -691,6 +426,7 @@ export default function Studio() {
               previewDeg={snapshot.previewDeg?.[i] ?? null}
               selected={selected?.jointIndex === i}
               onPreview={(idx, deg) => {
+                if (replay || programRunning || recordingSuspended) return;
                 const st = useSessionStore.getState();
                 const active =
                   st.session?.source === "slider" && st.session.phase === "preview";
@@ -705,7 +441,7 @@ export default function Studio() {
               onCommit={() => useSessionStore.getState().commit("slider")}
             />
           ))}
-        </div>
+        </fieldset>
 
         {mode === "play" && (
           <div className="studio__progress" aria-label="轨迹进度">
@@ -753,11 +489,12 @@ export default function Studio() {
           </div>
         </div>
 
+        </div>
         <footer className="studio__actions">
           <button
             type="button"
             className="studio__btn studio__btn-danger"
-            onClick={runSystem(stop)}
+            onClick={() => { stopProgram(); stop(); }}
           >
             <i aria-hidden="true">■</i>
             STOP
@@ -766,6 +503,8 @@ export default function Studio() {
             type="button"
             className={`studio__btn ${mode === "homing" ? "is-active" : ""}`}
             onClick={runSystem(goHome)}
+            disabled={!!replay || programRunning || recordingSuspended}
+            title={recordingSuspended ? "请等待实验保存或回放准备完成" : replay ? "请退出回放后操作" : programRunning ? "请先停止积木程序" : "机械臂返回零位"}
           >
             回零位
           </button>
@@ -780,6 +519,7 @@ export default function Studio() {
             type="button"
             className={`studio__btn ${mode === "play" ? "is-play" : ""}`}
             onClick={runSystem(mode === "play" ? stop : play)}
+            disabled={!!replay || programRunning || recordingSuspended}
             aria-pressed={mode === "play"}
           >
             {mode === "play" ? "停止轨迹" : "播放轨迹"}
@@ -792,19 +532,11 @@ export default function Studio() {
 
       {/* 右：3D 世界 */}
       <section
+        data-runtime-slot
         className="studio__stage"
         onContextMenu={(event) => event.preventDefault()}
       >
-        {ready ? (
-          <RobotStage
-            model={model}
-            sim={simRef.current!}
-            baseSim={baseSimRef.current!}
-            assetBase={assetBase}
-            cameraFeedRef={cameraFeedRef}
-            eyeInHand={eyeInHand}
-          />
-        ) : (
+        {!ready && (
           <div className="studio__fallback">
             {status === "error" ? (
               <>
@@ -839,7 +571,7 @@ export default function Studio() {
             key={currentId ?? DEFAULT_ROBOT_ID}
             model={model}
             snapshot={snapshot}
-            ready={ready}
+            ready={ready && !recordingSuspended}
             replay={replay !== null}
             open={eyeHandOpen}
             eyeInHand={eyeInHand}
@@ -848,33 +580,18 @@ export default function Studio() {
           />
         )}
 
-        {/* 仿真摄像头画中画（可拖拽换位；眼在手模式下随 TCP） */}
-        <div
-          ref={cameraFeedRef}
-          className="studio__camera-feed"
-          aria-label="仿真摄像头画面"
-          title={eyeInHand ? "眼在手相机：跟随 TCP" : "拖拽移动摄像头画面"}
-          onPointerDown={beginCameraFeedDrag}
-          onPointerMove={moveCameraFeed}
-          onPointerUp={endCameraFeedDrag}
-          onPointerCancel={endCameraFeedDrag}
-        >
-          <span className="studio__camera-feed-label">
-            {eyeInHand ? "CAM-01 · EYE" : "CAM-01 · SIM"}
-          </span>
-          <span className="studio__camera-feed-status"><i /> {ready ? "LIVE" : "WAIT"}</span>
-        </div>
-
         {/* 顶部悬浮层：链路 / 安全 / 交互模式 / 视图工具（窄舞台自动换行，互不遮挡） */}
         <div className="studio__top">
           {/* 链接状态 HUD（悬浮于 3D 左上） */}
           <div className={`studio__hud is-${bridgeInfo.status}`}>
             <span className="studio__hud-kind">
-              {bridgeInfo.kind === "simulation" ? "SIM" : "MOCK LINK"}
+              {replay ? "记录回放 · 只读" : bridgeInfo.kind === "simulation" ? "SIM" : isLive ? "LIVE WS" : "TWIN WS"}
             </span>
             {bridgeInfo.kind !== "simulation" && (
               <span className="studio__hud-meta tnum">
-                {bridgeInfo.status === "connected"
+                {replay
+                  ? `${replay.playing ? "播放中" : "已暂停"} · ${replay.rate}×`
+                  : bridgeInfo.status === "connected"
                   ? `${(bridgeInfo.messageRateHz ?? 0).toFixed(1)} Hz · ${bridgeInfo.latencyMs ?? "—"} ms`
                   : bridgeInfo.status === "connecting"
                     ? "自动重连中…"
@@ -933,7 +650,7 @@ export default function Studio() {
               <select
                 value={currentId ?? DEFAULT_ROBOT_ID}
                 onChange={(e) => void loadRobot(e.target.value)}
-                disabled={status === "loading"}
+                disabled={status === "loading" || recordingLocked || programRunning || replay !== null}
                 aria-label="选择机械臂机型"
               >
                 {ROBOT_CATALOG.map((r) => (
@@ -1054,8 +771,11 @@ export default function Studio() {
               <button
                 type="button"
                 className={`studio__workspace-btn ${basePlaying ? "is-play" : ""}`}
+                disabled={!!replay || programRunning || recordingSuspended}
+                title={recordingSuspended ? "请等待实验保存或回放准备完成" : replay ? "回放期间禁止运行路径" : "播放底盘路径"}
                 onClick={() => {
-                  const b = baseSimRef.current;
+                  if (replay || programRunning || recordingSuspended) return;
+                  const b = getRuntime()?.baseSim;
                   if (!b) return;
                   useSessionStore.getState().systemCommand();
                   if (b.isPlaying) b.stopPath();

@@ -3,6 +3,12 @@
   gap: 18px;
 }
 
+.data-collection__legacy-note {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
 .data-collection__header {
   display: flex;
   align-items: flex-start;

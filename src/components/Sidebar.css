@@ -1,316 +1,167 @@
+/* 实验室导航。Created on 2026-09-26 @author: https://github.com/Linmoqian */
 .sidebar {
-  flex-shrink: 0;
+  width: 212px;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  width: 232px;
-  padding: 18px 12px 12px;
-  background: rgba(251, 252, 253, 0.84);
-  border-right: 1px solid var(--border-hairline);
-  overflow: hidden;
-  user-select: none;
-  position: relative;
-  z-index: 1;
-  transition: width 0.26s var(--ease-spring);
+  min-height: 0;
+  padding: 18px 12px 10px;
+  background: #f8f9fb;
+  border-right: 1px solid var(--border);
+  z-index: 2;
 }
-
-.sidebar::after {
-  content: "";
-  position: absolute;
-  top: 18%;
-  bottom: 18%;
-  right: -1px;
-  width: 1px;
-  background: linear-gradient(
-    180deg,
-    transparent,
-    rgba(84, 127, 140, 0.25),
-    transparent
-  );
-  opacity: 0.7;
-}
-
 .sidebar[data-collapsed] {
-  width: 68px;
+  width: 64px;
+  padding-inline: 8px;
 }
-
 .sidebar__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 48px;
-  padding: 0 10px 16px;
-  margin-bottom: 12px;
-  border-bottom: 1px solid var(--border-hairline);
+  gap: 10px;
+  min-height: 52px;
+  margin-bottom: 16px;
+  padding: 0 5px 15px;
+  border-bottom: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
 }
-
-.sidebar__mark {
-  position: relative;
-  flex: 0 0 28px;
-  width: 28px;
-  height: 28px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: linear-gradient(145deg, var(--inset), transparent);
-}
-
-.sidebar__mark i {
-  position: absolute;
-  left: 7px;
-  width: 13px;
-  height: 1px;
-  transform-origin: left center;
-  background: var(--indigo);
-}
-
-.sidebar__mark i:nth-child(1) {
-  top: 19px;
-  transform: rotate(-65deg);
-}
-
-.sidebar__mark i:nth-child(2) {
-  top: 7px;
-  left: 13px;
-  width: 10px;
-  transform: rotate(43deg);
-}
-
-.sidebar__mark i:nth-child(3) {
-  top: 14px;
-  left: 19px;
-  width: 5px;
-  background: var(--accent);
-  transform: rotate(90deg);
-}
-
 .sidebar__logo {
-  display: block;
-  flex: 0 0 42px;
-  width: 42px;
-  height: 42px;
+  width: 34px;
+  height: 38px;
   object-fit: contain;
+  flex-shrink: 0;
 }
-
 .sidebar__brand-copy {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  line-height: 1.15;
+  gap: 4px;
 }
-
 .sidebar__brand-copy strong {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.02em;
 }
-
 .sidebar__brand-copy small {
-  margin-top: 3px;
   color: var(--text-tertiary);
-  font-size: 8px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: 10px;
+  white-space: nowrap;
 }
-
 .sidebar__nav {
   flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
+  padding-right: 2px;
 }
-
-.sidebar__group {
+.sidebar__group,
+.sidebar__group-items {
   display: flex;
   flex-direction: column;
   gap: 3px;
 }
-
-.sidebar__group-label {
-  padding: 0 11px 5px;
-  color: var(--text-quaternary);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.sidebar__item,
-.sidebar__toggle {
+.sidebar__group-heading {
   display: flex;
   align-items: center;
-  gap: 12px;
-  height: 39px;
-  padding: 0 11px;
-  border: none;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: 12px;
-  letter-spacing: var(--tracking-body);
-  text-decoration: none;
-  cursor: pointer;
-  white-space: nowrap;
-  border-radius: var(--radius-sm);
-  transition:
-    background 0.2s var(--ease-out),
-    color 0.2s var(--ease-out);
-}
-
-.sidebar__item:hover,
-.sidebar__toggle:hover {
-  background: var(--inset);
-  color: var(--text-secondary);
-}
-
-.sidebar__item.active {
-  background: linear-gradient(
-    90deg,
-    rgba(84, 127, 140, 0.11),
-    rgba(84, 127, 140, 0.035)
-  );
-  color: var(--text);
-  font-weight: 600;
-  position: relative;
-}
-
-.sidebar__item.active::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 9px;
-  bottom: 9px;
-  width: 2px;
-  border-radius: 0 1px 1px 0;
-  background: var(--indigo);
-  box-shadow: 0 0 12px rgba(84, 127, 140, 0.24);
-}
-
-.sidebar__icon {
-  width: 17px;
-  height: 17px;
-  flex-shrink: 0;
-}
-
-.sidebar__item.active .sidebar__icon {
-  color: var(--indigo);
-}
-
-.sidebar__more-toggle {
+  justify-content: space-between;
   width: 100%;
-  text-align: left;
-}
-
-.sidebar__more-toggle.is-open {
-  color: var(--text-secondary);
-}
-
-.sidebar__more-chevron {
-  width: 14px;
-  height: 14px;
-  margin-left: auto;
-  flex-shrink: 0;
-  color: var(--text-quaternary);
-}
-
-.sidebar__more-items {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin-top: 2px;
-}
-
-.sidebar__more-items .sidebar__item {
-  height: 34px;
-  padding-left: 30px;
-  font-size: 11px;
-}
-
-.sidebar__label {
-  min-width: 0;
-  overflow: hidden;
-  transition: opacity 0.2s ease;
-}
-
-.sidebar__context {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 12px 3px 8px;
-  padding: 11px 10px;
-  border: 1px solid var(--border-hairline);
-  border-radius: var(--radius-md);
-  background: var(--surface-soft);
-}
-
-.sidebar__context-dot {
-  flex: 0 0 auto;
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--warning);
-  box-shadow: 0 0 0 4px rgba(211, 168, 99, 0.08);
-}
-
-.sidebar__context-dot.is-online {
-  background: var(--success);
-  box-shadow: 0 0 0 4px rgba(120, 184, 149, 0.08);
-}
-
-.sidebar__context-copy {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  line-height: 1.25;
-}
-
-.sidebar__context-copy strong {
-  color: var(--text-secondary);
+  background: none;
+  border: 0;
+  padding: 3px 10px 7px;
+  color: var(--text-tertiary);
+  font: inherit;
   font-size: 10px;
   font-weight: 600;
+  cursor: pointer;
 }
-
-.sidebar__context-copy small {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-family: var(--font-mono);
-  font-size: 9px;
-  text-overflow: ellipsis;
+.sidebar__group-heading .is-closed {
+  transform: rotate(-90deg);
+}
+.sidebar__item,
+.sidebar__toggle {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10px;
+  min-height: 35px;
+  padding: 7px 11px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font: inherit;
+  font-size: 12px;
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 120ms,
+    color 120ms;
 }
-
+.sidebar__item:hover,
+.sidebar__toggle:hover {
+  background: #edf0f3;
+  color: var(--text);
+}
+.sidebar__item.active {
+  background: #fceee8;
+  color: #aa432b;
+  font-weight: 650;
+}
+.sidebar__item.active::before {
+  position: absolute;
+  content: "";
+  left: 0;
+  top: 10px;
+  bottom: 10px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+.sidebar__icon {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+}
+.sidebar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sidebar__footer {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sidebar[data-collapsed] .sidebar__brand {
+  padding-inline: 0;
+  justify-content: center;
+}
+.sidebar[data-collapsed] .sidebar__brand-copy,
+.sidebar[data-collapsed] .sidebar__group-heading,
+.sidebar[data-collapsed] .sidebar__label {
+  display: none;
+}
 .sidebar[data-collapsed] .sidebar__item,
 .sidebar[data-collapsed] .sidebar__toggle {
-  justify-content: center;
-  padding: 0;
-  gap: 0;
-}
-
-.sidebar[data-collapsed] .sidebar__more-items .sidebar__item {
-  padding-left: 0;
-}
-
-.sidebar[data-collapsed] .sidebar__more-chevron {
-  display: none;
-}
-
-.sidebar[data-collapsed] .sidebar__label {
-  opacity: 0;
-  width: 0;
-  margin: 0;
-}
-
-.sidebar[data-collapsed] .sidebar__brand {
-  justify-content: center;
   padding-inline: 0;
-}
-
-.sidebar[data-collapsed] .sidebar__brand-copy,
-.sidebar[data-collapsed] .sidebar__group-label,
-.sidebar[data-collapsed] .sidebar__context-copy {
-  display: none;
-}
-
-.sidebar[data-collapsed] .sidebar__context {
   justify-content: center;
-  padding-inline: 0;
+}
+.sidebar[data-collapsed] .sidebar__group + .sidebar__group {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+@media (max-width: 1100px) {
+  .sidebar:not([data-collapsed]) {
+    width: 180px;
+    padding-inline: 8px;
+  }
+  .sidebar__brand-copy strong {
+    font-size: 13px;
+  }
 }

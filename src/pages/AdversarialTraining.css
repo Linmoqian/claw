@@ -1,3 +1,4 @@
+/* Created on 2026-09-26; @author: https://github.com/Linmoqian */
 .adversarial-training {
   max-width: 1160px;
   gap: 18px;
@@ -29,8 +30,8 @@
 .adversarial-training__header h1 {
   max-width: 660px;
   margin: 0 0 8px;
-  font-family: var(--font-serif);
-  font-size: clamp(26px, 3vw, 38px);
+  font-family: var(--font-sans);
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
   line-height: 1.18;
@@ -40,7 +41,7 @@
   max-width: 680px;
   margin: 0;
   color: var(--text-tertiary);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 14px;
 }
 
@@ -132,7 +133,7 @@
 
 .adversarial-training__card h2 {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -417,4 +418,11 @@
   .adversarial-training__episode {
     grid-template-columns: 1fr;
   }
+}
+
+.adversarial-training__provenance {
+  margin: 0 0 16px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }

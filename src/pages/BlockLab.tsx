@@ -1,19 +1,16 @@
+// Created on 2026-09-27
+// @author: https://github.com/Linmoqian
 import * as Blockly from "blockly/core";
 import "blockly/blocks";
 import {
-  Suspense,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
-  type RefObject,
 } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { Grid, OrbitControls } from "@react-three/drei";
 import {
   ArrowLeft,
   Bot,
@@ -24,57 +21,27 @@ import {
   Zap,
 } from "lucide-react";
 import { Link } from "react-router";
-import { CollisionSystem } from "../robot/collision";
-import { BaseSim } from "../robot/baseSim";
-import { SimulationLoop } from "../robot/simulation";
-import MobileBase from "../three/MobileBase";
-import RobotView from "../three/RobotView";
-import { SimulationCamera } from "../three/SimulationCamera";
-import LidarSensor from "../three/LidarSensor";
 import {
   DEFAULT_ROBOT_ID,
   findRobotEntry,
   useReadyModel,
   useRobotStore,
 } from "../stores/robotStore";
-import { useSimulationStore } from "../stores/simulationStore";
-import { useWorldStore } from "../stores/worldStore";
 import { useDevice } from "../store/DeviceContext";
 import { isDesktop } from "../lib/serial";
 import { registerBlockLabBlocks } from "../blockly/blocks";
+import { DEFAULT_WORKSPACE } from "../blockly/defaultWorkspace";
 import { BLOCK_TOOLBOX } from "../blockly/toolbox";
-import {
-  executeWorkspace,
-  ExecutionAborted,
-  workspaceHasProgram,
-} from "../blockly/interpreter";
-import { SimulationDeviceGateway } from "../blockly/simulationGateway";
-import { HardwareDeviceGateway } from "../blockly/hardwareGateway";
-import type { BlockDeviceGateway, Detection } from "../blockly/types";
+
+import { useActivityStore } from "../workbench/activity";
+import { getRuntime } from "../workbench/runtime";
+import { parseProgramSnapshot } from "../workbench/programSnapshot";
+import { appendProgramLog, resetProgramStatus, runProgram, setProgramHardwareMode, stopProgram, useProgramStore, type ProgramStatus } from "../workbench/programRunner";
+import { useBridgeStore } from "../stores/bridgeStore";
 import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
-type RunStatus = "idle" | "running" | "complete" | "error" | "stopped";
-type StepId =
-  "arm" | "camera" | "lidar" | "sense" | "move" | "turn" | "grab" | "stop";
-
-type ConsoleStep = {
-  id: StepId;
-  label: string;
-  detail: string;
-  robotId?: string;
-};
-
-type ConsoleLog = {
-  time: string;
-  text: string;
-  kind: "system" | "event" | "success" | "warning" | "error";
-};
-
-type RobotRuntime = {
-  sim: SimulationLoop;
-  baseSim: BaseSim;
-};
+let workspaceStorageBlocked = false;
 
 const STORAGE_KEY = "xiakao:block-console:v1";
 const LAYOUT_STORAGE_KEY = "xiakao:block-console-layout:v1";
@@ -86,44 +53,7 @@ const SPLITTER_WIDTH = 14;
 
 const TOOLBOX = BLOCK_TOOLBOX;
 
-const DEFAULT_WORKSPACE: WorkspaceState = {
-  blocks: {
-    languageVersion: 0,
-    blocks: [
-      {
-        type: "event_start",
-        x: 42,
-        y: 42,
-        next: {
-          block: {
-            type: "decision_if",
-            inputs: {
-              CONDITION: {
-                block: {
-                  type: "sense_color",
-                  fields: { COLOR: "RED" },
-                },
-              },
-              DO: {
-                block: {
-                  type: "move_steps",
-                  fields: { STEPS: 2 },
-                  next: { block: { type: "grab_object" } },
-                },
-              },
-            },
-          },
-        },
-      },
-    ],
-  },
-};
-
-const INITIAL_LOGS: ConsoleLog[] = [
-  { time: "--:--:--", text: "仿真通道已就绪", kind: "system" },
-];
-
-const STATUS_LABELS: Record<RunStatus, string> = {
+const STATUS_LABELS: Record<ProgramStatus, string> = {
   idle: "待机",
   running: "运行中",
   complete: "完成",
@@ -166,17 +96,21 @@ function registerConsoleBlocks() {
 function readSavedWorkspace(): WorkspaceState | null {
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as WorkspaceState) : null;
+    if (raw === null) return null;
+    return parseProgramSnapshot(raw);
   } catch {
+    workspaceStorageBlocked = true;
     return null;
   }
 }
 
-function saveWorkspace(state: WorkspaceState) {
+function saveWorkspace(state: WorkspaceState): boolean {
+  if (workspaceStorageBlocked) return false;
   try {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    return true;
   } catch {
-    // 隐私模式或存储空间不足时，Blockly 仍然可以正常使用。
+    return false;
   }
 }
 
@@ -185,185 +119,37 @@ function loadState(workspace: Blockly.WorkspaceSvg, state: WorkspaceState) {
   try {
     Blockly.serialization.workspaces.load(state, workspace);
   } catch {
-    // 本地草稿损坏时回退到空工作区，不让保存状态阻塞控制台。
+    workspaceStorageBlocked = true;
+    // 保留原始损坏草稿，只有显式重置才允许覆盖。
     workspace.clear();
   }
 }
 
-function formatTime() {
-  return new Date().toLocaleTimeString("zh-CN", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
-}
-
-function RobotSimulationView({
-  model,
-  assetBase,
-  runtimeRef,
-  cameraFeedRef,
-}: {
-  model: NonNullable<ReturnType<typeof useReadyModel>>;
-  assetBase: string;
-  runtimeRef: { current: RobotRuntime | null };
-  cameraFeedRef: RefObject<HTMLDivElement | null>;
-}) {
-  const bindSimulation = useSimulationStore((state) => state.bind);
-  const runtime = useMemo<RobotRuntime>(() => {
-    const collision = CollisionSystem.create(model);
-    const sim = new SimulationLoop(model, collision);
-    const baseSim = new BaseSim();
-
-    baseSim.onPose = (pose) => {
-      useWorldStore.getState().updateRobotPose({
-        position: { x: pose.x, y: pose.y, z: 0 },
-        orientation: {
-          x: 0,
-          y: 0,
-          z: Math.sin(pose.yaw / 2),
-          w: Math.cos(pose.yaw / 2),
-        },
-      });
-    };
-    baseSim.teleport({ x: 0, y: 0, yaw: 0 });
-
-    return { sim, baseSim };
-  }, [model]);
-
-  useEffect(() => {
-    runtimeRef.current = runtime;
-    bindSimulation(runtime.sim);
-
-    return () => {
-      if (runtimeRef.current === runtime) runtimeRef.current = null;
-      bindSimulation(null);
-      runtime.sim.dispose();
-    };
-  }, [bindSimulation, runtime, runtimeRef]);
-
-  return (
-    <Canvas
-      shadows
-      dpr={[1, 2]}
-      camera={{ position: [0.88, 0.72, 0.95], fov: 42, near: 0.01, far: 60 }}
-      gl={{ antialias: true }}
-    >
-      <Suspense fallback={null}>
-        <BlockArmScene
-          model={model}
-          sim={runtime.sim}
-          baseSim={runtime.baseSim}
-          assetBase={assetBase}
-        />
-      </Suspense>
-      <SimulationCamera feedRef={cameraFeedRef} />
-    </Canvas>
-  );
-}
-
-function BlockArmScene({
-  model,
-  sim,
-  baseSim,
-  assetBase,
-}: {
-  model: NonNullable<ReturnType<typeof useReadyModel>>;
-  sim: SimulationLoop;
-  baseSim: BaseSim;
-  assetBase: string;
-}) {
-  useFrame((_, delta) => {
-    sim.step(delta);
-    baseSim.step(delta);
-  });
-
-  return (
-    <>
-      <color attach="background" args={["#eef0f3"]} />
-      <ambientLight intensity={1.05} />
-      <directionalLight
-        position={[2.4, 3.6, 1.6]}
-        intensity={1.5}
-        castShadow
-        shadow-mapSize-width={1024}
-        shadow-mapSize-height={1024}
-        shadow-camera-left={-0.9}
-        shadow-camera-right={0.9}
-        shadow-camera-top={0.9}
-        shadow-camera-bottom={-0.9}
-        shadow-camera-near={0.5}
-        shadow-camera-far={10}
-        shadow-normalBias={0.02}
-      />
-      <directionalLight position={[-2.2, 1.6, -2.4]} intensity={0.35} />
-      <Grid
-        position={[0, 0, 0]}
-        args={[10, 10]}
-        infiniteGrid
-        cellSize={0.1}
-        sectionSize={0.5}
-        sectionThickness={1}
-        cellThickness={0.55}
-        cellColor="#d8dce2"
-        sectionColor="#c3cad4"
-        fadeDistance={7}
-        fadeStrength={1.1}
-        followCamera={false}
-      />
-      <mesh rotation-x={-Math.PI / 2} position-y={-0.004} receiveShadow>
-        <planeGeometry args={[12, 12]} />
-        <shadowMaterial transparent opacity={0.09} />
-      </mesh>
-      <MobileBase accessories={<LidarSensor position={[0.14, 0, 0.072]} />}>
-        <RobotView model={model} sim={sim} assetBase={assetBase} />
-      </MobileBase>
-      <OrbitControls
-        makeDefault
-        enableDamping
-        dampingFactor={0.08}
-        enablePan={false}
-        target={[0, 0.22, 0]}
-        minDistance={0.22}
-        maxDistance={2.8}
-        minPolarAngle={0.06}
-        maxPolarAngle={Math.PI / 2 - 0.04}
-      />
-    </>
-  );
-}
-
 function BlockLab() {
-  const { connected, estop } = useDevice();
+  const { estop } = useDevice();
   const model = useReadyModel();
   const robotStatus = useRobotStore((state) => state.status);
   const currentRobotId = useRobotStore((state) => state.currentId);
-  const modelLoads = useRobotStore((state) => state.loads);
-  const assetBase = useRobotStore((state) => state.assetBase);
   const loadRobot = useRobotStore((state) => state.loadRobot);
   const currentRobot = findRobotEntry(currentRobotId ?? DEFAULT_ROBOT_ID);
   const currentArmLabel = currentRobot?.label ?? "SO-100";
   const [blockCount, setBlockCount] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState("自动保存");
-  const [runStatus, setRunStatus] = useState<RunStatus>("idle");
-  const [activeStepId, setActiveStepId] = useState<StepId | null>(null);
-  const [runSteps, setRunSteps] = useState<ConsoleStep[]>([]);
-  const [logs, setLogs] = useState<ConsoleLog[]>(INITIAL_LOGS);
-  const [hardwareMode, setHardwareMode] = useState(false);
-  const [lastDetection, setLastDetection] = useState<Detection | null>(null);
+  const runStatus = useProgramStore((state) => state.status);
+  const hardwareMode = useProgramStore((state) => state.hardwareMode);
+  const lastDetection = useProgramStore((state) => state.lastDetection);
+  const logs = useProgramStore((state) => state.logs);
+  const recordingLocked = useActivityStore((state) => state.recordingLocked);
+  const recordingSuspended = useActivityStore((state) => state.recordingSuspended || state.replayPreparing);
+  const serialTransition = useActivityStore((state) => state.serialTransition);
+  const replay = useBridgeStore((state) => state.replay !== null);
+  const [mobilePanel, setMobilePanel] = useState("tools");
   const [runtimeWidth, setRuntimeWidth] = useState(readSavedRuntimeWidth);
   const [isResizing, setIsResizing] = useState(false);
   const blocklyDivRef = useRef<HTMLDivElement>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const splitterRef = useRef<HTMLButtonElement>(null);
   const workspaceRef = useRef<Blockly.WorkspaceSvg | null>(null);
-  const runtimeRef = useRef<RobotRuntime | null>(null);
-  const cameraFeedRef = useRef<HTMLDivElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const hardwareModeRef = useRef(hardwareMode);
-  const estopRef = useRef(estop);
-  hardwareModeRef.current = hardwareMode;
-  estopRef.current = estop;
   const resizeStateRef = useRef<{ startX: number; startWidth: number } | null>(
     null,
   );
@@ -459,28 +245,13 @@ function BlockLab() {
     [commitRuntimeWidth, runtimeWidth],
   );
 
-  const clearRunTimers = useCallback(() => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-  }, []);
-
-  const appendLog = useCallback(
-    (text: string, kind: ConsoleLog["kind"] = "event") => {
-      setLogs((current) => [
-        ...current.slice(-5),
-        { time: formatTime(), text, kind },
-      ]);
-    },
-    [],
-  );
-
   const syncWorkspaceState = useCallback(() => {
     const workspace = workspaceRef.current;
     if (!workspace) return;
 
-    saveWorkspace(Blockly.serialization.workspaces.save(workspace));
+    const saved = saveWorkspace(Blockly.serialization.workspaces.save(workspace));
     setBlockCount(workspace.getAllBlocks(false).length);
-    setLastSavedAt("刚刚保存");
+    setLastSavedAt(saved ? "刚刚保存" : workspaceStorageBlocked ? "原草稿损坏，已保留；重置后恢复保存" : "保存失败，请检查浏览器存储");
   }, []);
 
   useEffect(() => {
@@ -527,162 +298,40 @@ function BlockLab() {
   }, [loadRobot, robotStatus]);
 
   useEffect(() => {
-    return () => {
-      clearRunTimers();
-      abortRef.current?.abort();
-    };
-  }, [clearRunTimers]);
-
-  useEffect(() => {
-    if (!estop) return;
-    abortRef.current?.abort();
+    if (estop && useProgramStore.getState().hardwareMode) stopProgram();
   }, [estop]);
 
-  const selectSimulationArm = useCallback(
-    async (robotId: string) => {
-      await loadRobot(robotId);
-      if (
-        useRobotStore.getState().currentId !== robotId ||
-        useRobotStore.getState().status !== "ready"
-      ) {
-        throw new Error(`机械臂 ${robotId} 加载失败`);
-      }
-    },
-    [loadRobot],
-  );
-
-  const createGateway = useCallback(
-    (signal: AbortSignal): BlockDeviceGateway => {
-      if (hardwareModeRef.current) {
-        const model = useRobotStore.getState().model;
-        if (!isDesktop() || !connected || estopRef.current) {
-          throw new Error("硬件执行需要：桌面端 + 串口已连接 + 非急停");
-        }
-        if (!model) throw new Error("硬件网关需要机械臂模型就绪");
-        return new HardwareDeviceGateway(model, {
-          onDetection: setLastDetection,
-          signal,
-        });
-      }
-      return new SimulationDeviceGateway({
-        getRuntime: () => runtimeRef.current,
-        getModel: () => useRobotStore.getState().model,
-        selectArm: selectSimulationArm,
-        onDetection: setLastDetection,
-      });
-    },
-    [connected, selectSimulationArm],
-  );
-
-  const handleRun = async () => {
-    const workspace = workspaceRef.current;
-    if (!workspace || runStatus === "running") return;
-    if (!workspaceHasProgram(workspace)) {
-      setRunStatus("error");
-      appendLog("开始积木后没有可执行动作", "warning");
-      return;
-    }
-    if (hardwareModeRef.current && (!isDesktop() || !connected || estop)) {
-      setRunStatus("error");
-      appendLog("硬件执行需要桌面端、串口连接且非急停", "warning");
-      return;
-    }
-
-    clearRunTimers();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    let gateway: BlockDeviceGateway;
-    try {
-      gateway = createGateway(controller.signal);
-    } catch (error) {
-      setRunStatus("error");
-      appendLog(
-        error instanceof Error ? error.message : "网关创建失败",
-        "warning",
-      );
-      return;
-    }
-
-    runtimeRef.current?.sim.stop();
-    setRunSteps([]);
-    setRunStatus("running");
-    appendLog(
-      hardwareModeRef.current ? "硬件程序开始运行" : "仿真程序开始运行",
-      "event",
-    );
-
-    try {
-      await executeWorkspace({
-        workspace,
-        gateway,
-        signal: controller.signal,
-        log: (message, kind = "event") => {
-          appendLog(message, kind);
-          if (message.includes("识别颜色") || message.includes("PnP")) {
-            // 检测值由网关日志更新；此处仅作为兜底界面提示。
-            setLastDetection((current) => current);
-          }
-        },
-      });
-      setRunStatus("complete");
-      setActiveStepId(null);
-    } catch (error) {
-      if (error instanceof ExecutionAborted || controller.signal.aborted) {
-        setRunStatus("stopped");
-        appendLog("程序已停止", "warning");
-      } else {
-        setRunStatus("error");
-        appendLog(
-          error instanceof Error ? error.message : "程序执行失败",
-          "error",
-        );
-      }
-      gateway.stop().catch(() => undefined);
-    } finally {
-      abortRef.current = null;
-    }
+  const handleRun = () => {
+    if (workspaceRef.current) void runProgram(workspaceRef.current);
   };
-
-  const handleStop = () => {
-    abortRef.current?.abort();
-    runtimeRef.current?.sim.stop();
-    setRunStatus("stopped");
-    setActiveStepId(null);
-    appendLog("仿真已停止", "warning");
-  };
-
+  const handleStop = () => stopProgram();
   const handleReset = () => {
-    abortRef.current?.abort();
-    runtimeRef.current?.sim.goHome();
-    setRunStatus("idle");
-    setActiveStepId(null);
-    setRunSteps([]);
-    setLastDetection(null);
-    setLogs(INITIAL_LOGS);
-
+    if (runStatus === "running" || recordingLocked || replay) return;
+    getRuntime()?.sim.goHome();
+    resetProgramStatus();
     const workspace = workspaceRef.current;
     if (!workspace) return;
+    workspaceStorageBlocked = false;
     loadState(workspace, DEFAULT_WORKSPACE);
     syncWorkspaceState();
   };
-
   const toggleHardwareMode = () => {
-    if (runStatus === "running") return;
-    setHardwareMode((current) => !current);
-    appendLog(
-      !hardwareMode ? "已切换硬件通道（仍需串口连接）" : "已切回仿真通道",
-      hardwareMode ? "event" : "warning",
-    );
+    if (runStatus === "running" || recordingLocked || replay) return;
+    setProgramHardwareMode(!hardwareMode);
+    appendProgramLog(hardwareMode ? "已切回仿真通道" : "已切换硬件通道（仍需串口连接）", "warning");
   };
   const statusLabel = STATUS_LABELS[runStatus];
-  const armStageMode =
-    activeStepId ?? (runStatus === "complete" ? "complete" : runStatus);
+  const armStageMode = runStatus;
   const layoutStyle = {
     "--block-console-runtime-width": `${runtimeWidth}px`,
   } as CSSProperties;
 
   return (
-    <main className="block-console">
+    <main className={`block-console block-console--${mobilePanel}`}>
+      <div className="workbench-panel-tabs" role="tablist" aria-label="积木面板">
+        <button type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => setMobilePanel("tools")}>程序</button>
+        <button type="button" role="tab" aria-selected={mobilePanel === "scene"} onClick={() => setMobilePanel("scene")}>场景与日志</button>
+      </div>
       <div
         ref={layoutRef}
         className={`block-console__layout${isResizing ? " block-console__layout--resizing" : ""}`}
@@ -705,7 +354,7 @@ function BlockLab() {
                 <span className="block-console__status-note">
                   {hardwareMode
                     ? "桌面硬件通道 · 需串口连接"
-                    : "本地通道 · 不连接真实设备"}
+                    : "本地仿真 · 新示例使用关节目标"}
                 </span>
               </div>
             </div>
@@ -730,6 +379,8 @@ function BlockLab() {
                 type="button"
                 className="console-button console-button--primary"
                 onClick={handleRun}
+                disabled={runStatus === "running" || replay || !model || (hardwareMode && estop) || recordingSuspended || serialTransition}
+                title={recordingSuspended ? "请等待实验保存或回放准备完成后运行" : serialTransition ? "串口正在切换，请稍候" : replay ? "请退出回放后运行" : !model ? "请等待模型就绪" : "使用程序快照运行，切页后继续执行"}
               >
                 <Play size={15} fill="currentColor" />
                 运行
@@ -747,7 +398,7 @@ function BlockLab() {
                 type="button"
                 className={`console-button ${hardwareMode ? "console-button--danger" : ""}`}
                 onClick={toggleHardwareMode}
-                disabled={!isDesktop() || runStatus === "running"}
+                disabled={!isDesktop() || runStatus === "running" || recordingLocked || replay}
                 title={
                   !isDesktop()
                     ? "浏览器预览不支持硬件执行"
@@ -760,6 +411,7 @@ function BlockLab() {
                 type="button"
                 className="console-button"
                 onClick={handleReset}
+                disabled={runStatus === "running" || recordingLocked || replay}
               >
                 <RotateCcw size={14} />
                 重置
@@ -783,7 +435,7 @@ function BlockLab() {
             <span>
               {hardwareMode
                 ? "硬件模式：动作将访问真实设备"
-                : "本地保存 · 不连接真实设备"}
+                : "新示例：J1 15° 与夹爪 · 先在仿真试运行"}
             </span>
           </footer>
         </section>
@@ -842,18 +494,11 @@ function BlockLab() {
               </span>
             </div>
             <div
+              data-runtime-slot
               className="block-console__arm-canvas"
               aria-label={currentArmLabel + " 机械臂仿真视图"}
             >
-              {model ? (
-                <RobotSimulationView
-                  key={modelLoads}
-                  model={model}
-                  assetBase={assetBase}
-                  runtimeRef={runtimeRef}
-                  cameraFeedRef={cameraFeedRef}
-                />
-              ) : (
+              {!model && (
                 <div className="block-console__arm-loading">
                   <span className="block-console__arm-loading-dot" />
                   <strong>
@@ -868,19 +513,6 @@ function BlockLab() {
                   </small>
                 </div>
               )}
-              <div
-                ref={cameraFeedRef}
-                className="block-console__camera-feed"
-                aria-label="仿真摄像头画面"
-              >
-                <span className="block-console__camera-feed-label">
-                  CAM-01 · SIM
-                </span>
-                <span className="block-console__camera-feed-status">
-                  <i />
-                  {model ? "LIVE" : "WAIT"}
-                </span>
-              </div>
             </div>
             <div className="block-console__arena-readout">
               <span>机械臂状态</span>
@@ -899,7 +531,7 @@ function BlockLab() {
             aria-label="视觉识别结果"
           >
             <header className="block-console__log-head">
-              <span>VISION</span>
+              <span>视觉识别 · 合成图像</span>
               <span>{lastDetection ? lastDetection.label : "NO TARGET"}</span>
             </header>
             <div className="block-console__vision-grid">
@@ -929,7 +561,7 @@ function BlockLab() {
                 执行日志
               </span>
               <span>
-                {runSteps.length > 0 ? `${runSteps.length} 步` : "待运行"}
+                {logs.length > 0 ? `${logs.length} 条` : "待运行"}
               </span>
             </header>
             <div className="block-console__log-list">

@@ -1,3 +1,5 @@
+// Created on 2026-09-26
+// @author: https://github.com/Linmoqian
 import {
   createContext,
   useCallback,
@@ -29,6 +31,9 @@ import {
   servoWritePosition,
 } from "../lib/serial";
 import { angleToPosition, positionToAngle } from "../lib/units";
+import { useActivityStore } from "../workbench/activity";
+import { useBridgeStore } from "../stores/bridgeStore";
+import { serialConnectionBlockedReason } from "../lib/serialConnectionGuard";
 
 /** 波特率（与 claw_arm/script 一致，SO-100 走 1M） */
 const BAUDRATE = 1_000_000;
@@ -46,6 +51,10 @@ export type DeviceContextValue = {
   // 连接
   ports: SerialPort[];
   scanning: boolean;
+  connectingPort: string | null;
+  disconnecting: boolean;
+  connectionError: string | null;
+  lastAttemptedPort: string | null;
   connected: boolean;
   deviceId: string | null;
   scanPorts: () => Promise<void>;
@@ -98,6 +107,14 @@ export function useDevice(): DeviceContextValue {
 export function DeviceProvider({ children }: { children: ReactNode }) {
   const [ports, setPorts] = useState<SerialPort[]>([]);
   const [scanning, setScanning] = useState(false);
+  const [connectingPort, setConnectingPort] = useState<string | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [lastAttemptedPort, setLastAttemptedPort] = useState<string | null>(
+    null,
+  );
+  const connectionBusyRef = useRef(false);
+  const scanningRef = useRef(false);
   const [connected, setConnected] = useState(false);
   const [deviceId, setDeviceId] = useState<string | null>(null);
 
@@ -142,7 +159,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
 
   // ---- 连接动作 ----
   const scanPorts = useCallback(async () => {
+    if (scanningRef.current || connectionBusyRef.current) return;
+    scanningRef.current = true;
     setScanning(true);
+    setConnectionError(null);
     try {
       if (isDesktop()) {
         const names = await listSerialPorts();
@@ -153,14 +173,36 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
       }
     } catch (e) {
       console.error("[scanPorts]", e);
+      setConnectionError(`扫描失败：${String(e)}。请检查设备连接后重试。`);
     } finally {
+      scanningRef.current = false;
       setScanning(false);
     }
   }, []);
 
   const connect = useCallback(async (portName: string) => {
     // 浏览器端无串口能力，不建立连接
-    if (!isDesktop()) return;
+    if (connectionBusyRef.current || connectedRef.current) return;
+    const bridge = useBridgeStore.getState();
+    const blockedReason = serialConnectionBlockedReason(
+      useActivityStore.getState(),
+      bridge.bridge.kind === "replay" || bridge.replay !== null,
+    );
+    if (blockedReason) {
+      setConnectionError(blockedReason);
+      return;
+    }
+    if (!isDesktop()) {
+      setConnectionError(
+        "串口连接需要桌面应用；浏览器中可以继续使用仿真与积木编程。",
+      );
+      return;
+    }
+    connectionBusyRef.current = true;
+    useActivityStore.setState({ serialTransition: true });
+    setConnectingPort(portName);
+    setLastAttemptedPort(portName);
+    setConnectionError(null);
     try {
       const id = await serialConnect(portName, BAUDRATE);
       setDeviceId(id);
@@ -168,21 +210,38 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
         prev.map((p) => (p.name === portName ? { ...p, inUse: true } : p)),
       );
       setConnected(true);
+      useActivityStore.setState({
+        serialConnected: true,
+        hardwareConnected: true,
+      });
     } catch (e) {
       console.error("[connect]", e);
+      setConnectionError(
+        `连接 ${portName} 失败：${String(e)}。请确认端口未被其他程序占用后重试。`,
+      );
+    } finally {
+      connectionBusyRef.current = false;
+      useActivityStore.setState({ serialTransition: false });
+      setConnectingPort(null);
     }
   }, []);
 
   const disconnect = useCallback(async () => {
+    if (connectionBusyRef.current) return;
+    connectionBusyRef.current = true;
+    useActivityStore.setState({ serialTransition: true });
+    setDisconnecting(true);
+    setConnectionError(null);
     try {
       if (isDesktop()) {
         await serialDisconnect();
       }
-    } catch (e) {
-      console.error("[disconnect]", e);
-    } finally {
       setPorts((prev) => prev.map((p) => ({ ...p, inUse: false })));
       setConnected(false);
+      useActivityStore.setState({
+        serialConnected: false,
+        hardwareConnected: false,
+      });
       setDeviceId(null);
       commLostRef.current = false;
       animTokens.current = {};
@@ -195,6 +254,13 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
           target: 0,
         })),
       );
+    } catch (e) {
+      console.error("[disconnect]", e);
+      setConnectionError(`断开失败：${String(e)}。尚未确认串口断开，请重试。`);
+    } finally {
+      connectionBusyRef.current = false;
+      useActivityStore.setState({ serialTransition: false });
+      setDisconnecting(false);
     }
   }, []);
 
@@ -371,6 +437,10 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
   const value: DeviceContextValue = {
     ports,
     scanning,
+    connectingPort,
+    disconnecting,
+    connectionError,
+    lastAttemptedPort,
     connected,
     deviceId,
     scanPorts,

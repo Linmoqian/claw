@@ -4,7 +4,7 @@
  * 松开/确认才提交目标；提交被拒（碰撞/限位）时保留预览供调整。
  * 仲裁规则委托 CommandArbiter（控制权唯一 + 系统命令抢占 + 轨迹锁）。
  *
- * Created on 2026-09-10
+ * Created on 2026-09-26
  * @author:  https://github.com/Linmoqian
  */
 import { create } from "zustand";
@@ -15,6 +15,7 @@ import { describeCollision } from "../robot/collision";
 import type { BaseSim } from "../robot/baseSim";
 import type { SimulationLoop } from "../robot/simulation";
 import { useTargetStore } from "./targetStore";
+import { useActivityStore } from "../workbench/activity";
 
 /** 结束态会话卡的自动消失时长（ms） */
 const DISMISS_MS = 2600;
@@ -108,6 +109,12 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   },
 
   begin: (source) => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) {
+      set({ session: { source, phase: "blocked", summary: null,
+        reason: useActivityStore.getState().replayPreparing ? "正在准备回放，请稍候" : "请等待实验保存完成；保存失败时请先重试", startedAt: performance.now() } });
+      scheduleDismiss(set);
+      return false;
+    }
     const decision = arbiter.acquire(source);
     if (!decision.allowed) {
       // 被阻塞：短暂展示原因（不开启会话）
@@ -130,6 +137,7 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   },
 
   previewJoint: (source, jointIndex, jointCode, deg) => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     if (arbiter.check(source).allowed === false) return;
     const s = get().session;
     if (!sim || !s || s.phase !== "preview") return;
@@ -145,6 +153,7 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   },
 
   previewTcp: (source, pose) => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     if (arbiter.check(source).allowed === false) return;
     const s = get().session;
     if (!sim || !s || s.phase !== "preview") return;
@@ -173,6 +182,7 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   },
 
   previewBase: (source, x, y) => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     if (arbiter.check(source).allowed === false) return;
     const s = get().session;
     if (!baseSim || !s || s.phase !== "preview") return;
@@ -186,6 +196,10 @@ export const useSessionStore = create<SessionStoreState>()((set, get) => ({
   },
 
   commit: (source) => {
+    if ((useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) {
+      get().cancel(source);
+      return;
+    }
     const s = get().session;
     if (!s || s.source !== source) return;
     if (s.phase !== "preview") return;

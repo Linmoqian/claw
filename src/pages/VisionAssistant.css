@@ -1,4 +1,4 @@
-/* Created on 2026-09-16; updated on 2026-09-17
+/* Created on 2026-09-16; updated on 2026-09-26
  * @author: https://github.com/Linmoqian */
 
 .vision-assistant {
@@ -18,7 +18,7 @@
 .vision-assistant__header h1 {
   margin: 8px 0 6px;
   color: var(--ink-strong);
-  font-size: clamp(28px, 4vw, 42px);
+  font-size: 26px;
   letter-spacing: -0.04em;
 }
 

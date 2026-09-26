@@ -1,10 +1,10 @@
 /**
  * BlockLab 自定义积木定义；编程语言积木复用 Blockly 内建实现。
  *
- * Created on 2026-09-21
+ * Created on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
-import * as Blockly from "blockly/core";
+import * as Blockly from "blockly";
 import * as ZhHans from "blockly/msg/zh-hans";
 import { ROBOT_CATALOG } from "../stores/robotStore";
 import { DEFAULT_TOOL_PROFILES } from "./toolProfiles";
@@ -97,7 +97,8 @@ export function registerBlockLabBlocks(): void {
     },
     {
       type: "move_steps",
-      message0: "向前走 %1 格",
+      message0: "旧演示步数 %1 格（不驱动运动）",
+      tooltip: "保留旧草稿兼容性；请用关节角度或末端位姿积木控制运动。",
       args0: [
         {
           type: "field_number",

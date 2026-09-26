@@ -1,64 +1,74 @@
-import { useState, type ComponentType } from "react";
-import { NavLink } from "react-router";
+/** 工作台任务导航。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+import { useState } from "react";
+import { NavLink, useLocation } from "react-router";
 import {
-  Plug,
-  Box,
-  Cpu,
-  ToggleRight,
-  SlidersHorizontal,
   Activity,
-  Database,
-  ShieldAlert,
-  Info,
-  MoreHorizontal,
+  Box,
+  BrainCircuit,
   ChevronDown,
-  ChevronRight,
+  Cpu,
+  Database,
+  FlaskConical,
+  Gauge,
+  House,
+  Info,
   PanelLeftClose,
   PanelLeftOpen,
-  Swords,
-  BrainCircuit,
+  Plug,
   ScanEye,
+  ShieldAlert,
+  SlidersHorizontal,
+  Swords,
+  ToggleRight,
+  type LucideIcon,
 } from "lucide-react";
 import "./Sidebar.css";
-import { useDevice } from "../store/DeviceContext";
-import { useLocation } from "react-router";
 
-type NavItem = {
+interface NavigationItem {
   to: string;
   label: string;
-  Icon: ComponentType<{ className?: string }>;
-  group: "workspace" | "system";
-};
+  icon: LucideIcon;
+}
+interface NavigationGroup {
+  id: string;
+  label: string;
+  items: NavigationItem[];
+}
 
-const NAV_ITEMS: NavItem[] = [
-  { to: "/blocks", label: "积木控制台", Icon: BrainCircuit, group: "workspace" },
-  { to: "/studio", label: "仿真与调参", Icon: Box, group: "workspace" },
-  { to: "/connect", label: "设备连接", Icon: Plug, group: "workspace" },
-  { to: "/data", label: "数据采集", Icon: Database, group: "workspace" },
-  { to: "/safety", label: "故障与安全", Icon: ShieldAlert, group: "system" },
-  { to: "/about", label: "关于应用", Icon: Info, group: "system" },
-];
-
-const MORE_ITEMS: NavItem[] = [
-  { to: "/monitor", label: "关节状态", Icon: Cpu, group: "workspace" },
-  { to: "/control", label: "基础控制", Icon: ToggleRight, group: "workspace" },
+const GROUPS: NavigationGroup[] = [
   {
-    to: "/mode",
-    label: "控制模式",
-    Icon: SlidersHorizontal,
-    group: "workspace",
+    id: "experiment",
+    label: "实验操作",
+    items: [
+      { to: "/studio", label: "仿真与调参", icon: Box },
+      { to: "/blocks", label: "积木编程", icon: BrainCircuit },
+      { to: "/experiments", label: "实验记录", icon: FlaskConical },
+    ],
   },
-  { to: "/scope", label: "实时曲线", Icon: Activity, group: "workspace" },
-  { to: "/training", label: "对抗训练", Icon: Swords, group: "workspace" },
-  { to: "/model-training", label: "智能训练", Icon: BrainCircuit, group: "workspace" },
-  { to: "/vision", label: "视觉助手", Icon: ScanEye, group: "workspace" },
+  {
+    id: "intelligence",
+    label: "数据与智能",
+    items: [
+      { to: "/data", label: "数据资源", icon: Database },
+      { to: "/model-training", label: "智能训练", icon: BrainCircuit },
+      { to: "/training", label: "对抗训练", icon: Swords },
+      { to: "/vision", label: "视觉助手", icon: ScanEye },
+    ],
+  },
+  {
+    id: "device",
+    label: "设备与诊断",
+    items: [
+      { to: "/connect", label: "设备连接", icon: Plug },
+      { to: "/monitor", label: "关节状态", icon: Cpu },
+      { to: "/control", label: "基础控制", icon: ToggleRight },
+      { to: "/mode", label: "控制模式", icon: SlidersHorizontal },
+      { to: "/pid", label: "PID 参数", icon: Gauge },
+      { to: "/scope", label: "实时曲线", icon: Activity },
+      { to: "/safety", label: "故障与安全", icon: ShieldAlert },
+    ],
+  },
 ];
-
-const GROUP_LABELS = {
-  workspace: "工作台",
-  system: "诊断与系统",
-};
-
 const STORAGE_KEY = "xiakao:sidebar:collapsed";
 
 function readCollapsed(): boolean {
@@ -70,127 +80,97 @@ function readCollapsed(): boolean {
 }
 
 export default function Sidebar() {
-  const [collapsed, setCollapsed] = useState<boolean>(readCollapsed);
-  const [moreOpen, setMoreOpen] = useState(false);
-  const location = useLocation();
-  const { connected, selectedId, motors } = useDevice();
-  const selected = motors.find((motor) => motor.id === selectedId);
-  const moreActive = MORE_ITEMS.some((item) => location.pathname === item.to);
-  const showMore = moreOpen || moreActive;
-
-  const toggle = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
-      } catch {
-        // 忽略存储失败（隐私模式等）
-      }
-      return next;
-    });
+  const [collapsed, setCollapsed] = useState(readCollapsed);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({
+    experiment: true,
+    intelligence: true,
+  });
+  const { pathname } = useLocation();
+  const toggle = (): void => {
+    const next = !collapsed;
+    setCollapsed(next);
+    try {
+      localStorage.setItem(STORAGE_KEY, next ? "1" : "0");
+    } catch {
+      /* 布局偏好不可写时仍可在本次会话切换。 */
+    }
   };
+  const renderItem = ({ to, label, icon: Icon }: NavigationItem) => (
+    <NavLink
+      key={to}
+      to={to}
+      className="sidebar__item"
+      title={collapsed ? label : undefined}
+      aria-label={label}
+    >
+      <Icon className="sidebar__icon" aria-hidden="true" />
+      <span className="sidebar__label">{label}</span>
+    </NavLink>
+  );
 
   return (
     <aside className="sidebar" data-collapsed={collapsed || undefined}>
-      <div className="sidebar__brand">
-        <img
-          className="sidebar__logo"
-          src="/brand/xiakao-logo.png"
-          alt="虾烤工作台"
-        />
+      <NavLink
+        to="/workbench"
+        className="sidebar__brand"
+        aria-label="虾烤工作台首页"
+      >
+        <img className="sidebar__logo" src="/brand/xiakao-logo.png" alt="" />
         <span className="sidebar__brand-copy">
-          <strong>虾烤</strong>
-          <small>Robot Workbench</small>
+          <strong>虾烤工作台</strong>
+          <small>实验室 · 本地工作空间</small>
         </span>
-      </div>
+      </NavLink>
       <nav className="sidebar__nav" aria-label="主导航">
-        {(Object.keys(GROUP_LABELS) as Array<keyof typeof GROUP_LABELS>).map(
-          (group) => (
-            <div className="sidebar__group" key={group}>
-              <span className="sidebar__group-label">
-                {GROUP_LABELS[group]}
-              </span>
-              {NAV_ITEMS.filter((item) => item.group === group).map(
-                ({ to, label, Icon }) => (
-                  <NavLink
-                    key={to}
-                    to={to}
-                    className="sidebar__item"
-                    title={collapsed ? label : undefined}
-                  >
-                    <Icon className="sidebar__icon" />
-                    <span className="sidebar__label">{label}</span>
-                  </NavLink>
-                ),
+        {renderItem({ to: "/workbench", label: "工作台总览", icon: House })}
+        {GROUPS.map((group) => {
+          const active = group.items.some(
+            (item) =>
+              pathname === item.to || pathname.startsWith(`${item.to}/`),
+          );
+          const open = collapsed || expanded[group.id] || active;
+          return (
+            <div className="sidebar__group" key={group.id}>
+              <button
+                className="sidebar__group-heading"
+                type="button"
+                aria-expanded={open}
+                aria-controls={`nav-${group.id}`}
+                onClick={() =>
+                  setExpanded((current) => ({ ...current, [group.id]: !open }))
+                }
+                title={active ? "当前页面所在分组保持展开" : undefined}
+              >
+                <span>{group.label}</span>
+                <ChevronDown size={13} className={open ? "" : "is-closed"} />
+              </button>
+              {open && (
+                <div id={`nav-${group.id}`} className="sidebar__group-items">
+                  {group.items.map(renderItem)}
+                </div>
               )}
             </div>
-          ),
-        )}
-        <div className="sidebar__group sidebar__advanced">
-          <button
-            type="button"
-            className={`sidebar__item sidebar__more-toggle ${showMore ? "is-open" : ""}`}
-            onClick={() => setMoreOpen((prev) => !prev)}
-            aria-expanded={showMore}
-            title={collapsed ? "更多工具" : undefined}
-          >
-            <MoreHorizontal className="sidebar__icon" />
-            <span className="sidebar__label">更多工具</span>
-            {showMore ? (
-              <ChevronDown
-                className="sidebar__more-chevron"
-                aria-hidden="true"
-              />
-            ) : (
-              <ChevronRight
-                className="sidebar__more-chevron"
-                aria-hidden="true"
-              />
-            )}
-          </button>
-          {showMore && (
-            <div className="sidebar__more-items" aria-label="更多工具">
-              {MORE_ITEMS.map(({ to, label, Icon }) => (
-                <NavLink
-                  key={to}
-                  to={to}
-                  className="sidebar__item"
-                  title={collapsed ? label : undefined}
-                >
-                  <Icon className="sidebar__icon" />
-                  <span className="sidebar__label">{label}</span>
-                </NavLink>
-              ))}
-            </div>
-          )}
-        </div>
+          );
+        })}
       </nav>
-      <div className="sidebar__context">
-        <span
-          className={`sidebar__context-dot ${connected ? "is-online" : ""}`}
-        />
-        <span className="sidebar__context-copy">
-          <strong>{connected ? "设备已连接" : "未连接"}</strong>
-          <small>
-            {selected?.code ?? "J1"} · {selected?.name ?? "基座旋转"}
-          </small>
-        </span>
+      <div className="sidebar__footer">
+        {renderItem({ to: "/about", label: "关于工作台", icon: Info })}
+        <button
+          type="button"
+          className="sidebar__toggle"
+          onClick={toggle}
+          aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
+          aria-expanded={!collapsed}
+          title={collapsed ? "展开侧边栏" : "收起侧边栏"}
+        >
+          {collapsed ? (
+            <PanelLeftOpen className="sidebar__icon" />
+          ) : (
+            <PanelLeftClose className="sidebar__icon" />
+          )}
+          <span className="sidebar__label">收起导航</span>
+        </button>
       </div>
-      <button
-        type="button"
-        className="sidebar__toggle"
-        onClick={toggle}
-        aria-label={collapsed ? "展开侧边栏" : "收起侧边栏"}
-        aria-expanded={!collapsed}
-        title={collapsed ? "展开侧边栏" : "收起侧边栏"}
-      >
-        {collapsed ? (
-          <PanelLeftOpen className="sidebar__icon" />
-        ) : (
-          <PanelLeftClose className="sidebar__icon" />
-        )}
-        <span className="sidebar__label">收起</span>
-      </button>
     </aside>
   );
 }

@@ -1,10 +1,10 @@
 /**
- * Created on 2026-09-15
+ * Created on 2026-09-15; updated on 2026-09-26
  * @author: https://github.com/Linmoqian
  *
  * 对抗训练工作区：运行可复现的仿真最小-最大基线并展示最坏回报。
  */
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -14,27 +14,9 @@ import {
   Swords,
   Target,
 } from "lucide-react";
-import {
-  runAdversarialTraining,
-  type AdversarialTrainingConfig,
-  type AdversarialTrainingResult,
-} from "../robot/adversarialTraining";
+import { useAdversarialTrainingStore } from "../stores/trainingSessionStore";
 import { DEFAULT_ROBOT_ID, useRobotStore } from "../stores/robotStore";
 import "./AdversarialTraining.css";
-
-type TrainingControls = Required<
-  Pick<
-    AdversarialTrainingConfig,
-    "epochs" | "adversaryPopulation" | "perturbationDeg" | "learningRate"
-  >
->;
-
-const DEFAULT_CONTROLS: TrainingControls = {
-  epochs: 24,
-  adversaryPopulation: 8,
-  perturbationDeg: 8,
-  learningRate: 0.42,
-};
 
 function formatReward(value: number): string {
   return value.toFixed(2);
@@ -46,13 +28,19 @@ function formatMillimeters(value: number | null): string {
 
 export default function AdversarialTraining() {
   const model = useRobotStore((state) => state.model);
+  const currentRobotId = useRobotStore((state) => state.currentId);
   const status = useRobotStore((state) => state.status);
   const loadRobot = useRobotStore((state) => state.loadRobot);
-  const [controls, setControls] = useState<TrainingControls>(DEFAULT_CONTROLS);
-  const [result, setResult] = useState<AdversarialTrainingResult | null>(null);
-  const [running, setRunning] = useState(false);
-  const [notice, setNotice] = useState<string | null>(null);
-
+  const {
+    controls,
+    result,
+    resultProvenance,
+    running,
+    notice,
+    updateControl,
+    startTraining,
+    reset,
+  } = useAdversarialTrainingStore();
   useEffect(() => {
     if (status === "idle") void loadRobot(DEFAULT_ROBOT_ID);
   }, [loadRobot, status]);
@@ -69,34 +57,6 @@ export default function AdversarialTraining() {
     );
   }, [result]);
 
-  const updateControl = <K extends keyof TrainingControls>(
-    key: K,
-    value: TrainingControls[K],
-  ) => {
-    setControls((current) => ({ ...current, [key]: value }));
-    setResult(null);
-    setNotice(null);
-  };
-
-  const startTraining = () => {
-    if (!model || running) return;
-    setRunning(true);
-    setNotice(null);
-    // 该基线是小规模同步离线计算，保持一次点击即可得到完整可复现结果。
-    const output = runAdversarialTraining(model, controls);
-    setResult(output);
-    setRunning(false);
-    setNotice(
-      `训练完成 · ${output.config.epochs} 轮 · 最坏回报 ${formatReward(output.bestWorstReward)}`,
-    );
-  };
-
-  const reset = () => {
-    setControls(DEFAULT_CONTROLS);
-    setResult(null);
-    setNotice(null);
-  };
-
   return (
     <div className="stage adversarial-training">
       <header className="adversarial-training__header">
@@ -107,7 +67,7 @@ export default function AdversarialTraining() {
               ADVERSARIAL TRAINING
             </span>
           </div>
-          <h1>先把策略放进最坏情况里。</h1>
+          <h1>对抗训练</h1>
           <p>
             策略生成关节轨迹，攻击者施加有界扰动；每轮保留最坏
             episode，再用有限差分更新策略偏置。
@@ -129,7 +89,7 @@ export default function AdversarialTraining() {
               : "等待机器人模型"}
         </span>
         <span className="adversarial-training__status-note">
-          场景目标：水杯 · 障碍：咖啡机
+          内置合成数据 / 离线基线 · 目标：水杯
         </span>
       </div>
 
@@ -150,6 +110,7 @@ export default function AdversarialTraining() {
             <output className="tnum">{controls.epochs}</output>
             <input
               type="range"
+              disabled={running}
               min="4"
               max="80"
               step="1"
@@ -164,6 +125,7 @@ export default function AdversarialTraining() {
             <output className="tnum">{controls.adversaryPopulation}</output>
             <input
               type="range"
+              disabled={running}
               min="2"
               max="20"
               step="1"
@@ -178,6 +140,7 @@ export default function AdversarialTraining() {
             <output className="tnum">{controls.perturbationDeg}°</output>
             <input
               type="range"
+              disabled={running}
               min="0"
               max="20"
               step="1"
@@ -192,6 +155,7 @@ export default function AdversarialTraining() {
             <output className="tnum">{controls.learningRate.toFixed(2)}</output>
             <input
               type="range"
+              disabled={running}
               min="0.05"
               max="1"
               step="0.01"
@@ -206,7 +170,7 @@ export default function AdversarialTraining() {
             <button
               type="button"
               className="adversarial-training__run"
-              disabled={!model || running}
+              disabled={status !== "ready" || !model || running}
               onClick={startTraining}
             >
               <Play size={15} />
@@ -217,12 +181,22 @@ export default function AdversarialTraining() {
               className="adversarial-training__reset"
               onClick={reset}
               aria-label="重置训练配置"
+              disabled={running}
             >
               <RotateCcw size={14} />
               重置
             </button>
           </div>
-          {notice && <p className="adversarial-training__notice">{notice}</p>}
+          {status !== "ready" && (
+            <p className="adversarial-training__notice" role="status">
+              请先等待机型加载完成；加载失败时可返回仿真页重新选择机型。
+            </p>
+          )}
+          {notice && (
+            <p className="adversarial-training__notice" role="status">
+              {notice}
+            </p>
+          )}
         </section>
 
         <section className="adversarial-training__card adversarial-training__metrics">
@@ -235,6 +209,14 @@ export default function AdversarialTraining() {
             </div>
             <Target size={19} aria-hidden="true" />
           </div>
+          {resultProvenance && (
+            <p className="adversarial-training__provenance">
+              {resultProvenance.source} · 结果机型：{resultProvenance.robotName}
+              {resultProvenance.robotId !== currentRobotId
+                ? " · 与当前机型不同，请重新训练以比较"
+                : ""}
+            </p>
+          )}
           {latest ? (
             <div className="adversarial-training__metric-grid">
               <div>

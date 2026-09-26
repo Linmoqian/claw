@@ -1,3 +1,4 @@
+/* Created on 2026-09-26; @author: https://github.com/Linmoqian */
 .model-training {
   max-width: 1180px;
   gap: 18px;
@@ -29,8 +30,8 @@
 .model-training__header h1 {
   max-width: 700px;
   margin: 0 0 8px;
-  font-family: var(--font-serif);
-  font-size: clamp(26px, 3vw, 38px);
+  font-family: var(--font-sans);
+  font-size: 26px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
   line-height: 1.18;
@@ -40,7 +41,7 @@
   max-width: 720px;
   margin: 0;
   color: var(--text-tertiary);
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.65;
 }
@@ -185,7 +186,7 @@
 
 .model-training__card h2 {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
   font-size: 21px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -484,4 +485,11 @@
   .model-training__metric-grid > div:last-child {
     grid-column: 1 / -1;
   }
+}
+
+.model-training__provenance {
+  margin: 12px 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.6;
 }

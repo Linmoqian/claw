@@ -1,6 +1,6 @@
+/** 桌面窗口操作。Created on 2026-09-26 @author: https://github.com/Linmoqian */
 import { useEffect, useState } from "react";
 import { Copy, Minus, Square, X } from "lucide-react";
-import { useDevice } from "../store/DeviceContext";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isTauri } from "@tauri-apps/api/core";
 import "./TitleBar.css";
@@ -9,9 +9,8 @@ type UnlistenFn = () => void;
 
 export default function TitleBar() {
   const [maximized, setMaximized] = useState<boolean>(false);
-  const { connected, deviceId } = useDevice();
   // 浏览器预览（非 Tauri 运行时）下优雅降级，避免 getCurrentWindow 崩溃
-  const appWindow = isTauri() ? getCurrentWindow() : null;
+  const [appWindow] = useState(() => isTauri() ? getCurrentWindow() : null);
 
   useEffect(() => {
     if (!appWindow) return;
@@ -84,18 +83,15 @@ export default function TitleBar() {
       <div className="titlebar__drag" data-tauri-drag-region>
         <span className="titlebar__title">虾烤工作台</span>
         <span className="titlebar__divider" />
-        <span className="titlebar__model">ROBOT WORKBENCH · SO-100 配置</span>
-        <span className={`titlebar__status ${connected ? "is-online" : ""}`}>
-          <i />
-          {connected ? (deviceId ?? "控制器在线") : "离线工作台"}
-        </span>
+        <span className="titlebar__model">LAB WORKSPACE</span>
+        <span className="titlebar__status">{appWindow ? "本地桌面" : "浏览器预览"}</span>
       </div>
-      <div className="titlebar__controls">
+      {appWindow && <div className="titlebar__controls">
         <button
           type="button"
           className="titlebar__btn titlebar__btn--min"
           onClick={handleMinimize}
-          aria-label="Minimize"
+          aria-label="最小化窗口"
         >
           <Minus />
         </button>
@@ -103,7 +99,7 @@ export default function TitleBar() {
           type="button"
           className="titlebar__btn titlebar__btn--max"
           onClick={handleToggleMaximize}
-          aria-label={maximized ? "Restore" : "Maximize"}
+          aria-label={maximized ? "还原窗口" : "最大化窗口"}
         >
           {maximized ? <Copy /> : <Square />}
         </button>
@@ -111,11 +107,11 @@ export default function TitleBar() {
           type="button"
           className="titlebar__btn titlebar__btn--close"
           onClick={handleClose}
-          aria-label="Close"
+          aria-label="关闭窗口"
         >
           <X />
         </button>
-      </div>
+      </div>}
     </header>
   );
 }

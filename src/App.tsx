@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+/** 工作台入口与持久运行宿主。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+import { Suspense, lazy, useEffect, useLayoutEffect } from "react";
 import { MotionConfig } from "motion/react";
 import { Info, Plug, RotateCw } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
@@ -16,16 +17,30 @@ import PidTuner from "./pages/PidTuner";
 import Scope from "./pages/Scope";
 import Safety from "./pages/Safety";
 import About from "./pages/About";
-import Studio from "./pages/Studio";
 import DataCollection from "./pages/DataCollection";
-import AdversarialTraining from "./pages/AdversarialTraining";
-import ModelTraining from "./pages/ModelTraining";
-import VisionAssistant from "./pages/VisionAssistant";
-import BlockLab from "./pages/BlockLab";
+import WorkbenchHome from "./pages/WorkbenchHome";
+import Experiments from "./pages/Experiments";
+import ExperimentDetail from "./pages/ExperimentDetail";
+import ExperimentBar from "./components/workbench/ExperimentBar";
+import PageBoundary from "./components/workbench/PageBoundary";
+import RuntimeBoundary from "./components/workbench/RuntimeBoundary";
+import RuntimeHost from "./workbench/RuntimeHost";
 import "./App.css";
+import "./workbench-theme.css";
+
+const Studio = lazy(() => import("./pages/Studio"));
+const BlockLab = lazy(() => import("./pages/BlockLab"));
+const AdversarialTraining = lazy(() => import("./pages/AdversarialTraining"));
+const ModelTraining = lazy(() => import("./pages/ModelTraining"));
+const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 
 const contextItems: ContextMenuItem[] = [
-  { id: "reload", label: "刷新", icon: RotateCw, onClick: () => window.location.reload() },
+  {
+    id: "reload",
+    label: "刷新",
+    icon: RotateCw,
+    onClick: () => window.location.reload(),
+  },
   {
     id: "about",
     label: "关于",
@@ -59,36 +74,83 @@ function DebugBridge() {
 }
 
 function App() {
+  const location = useLocation();
+  useLayoutEffect(() => {
+    document.getElementById("main-content")?.scrollTo({ top: 0, left: 0 });
+  }, [location.pathname]);
   return (
     <MotionConfig reducedMotion="user">
       <DeviceProvider>
         <div className="app-shell">
+          <a
+            className="wb-skip-link"
+            href="#main-content"
+            onClick={(event) => {
+              event.preventDefault();
+              document.getElementById("main-content")?.focus();
+            }}
+          >
+            跳到主要内容
+          </a>
           <DebugBridge />
-          <div className="app-aurora" aria-hidden="true" />
           <TitleBar />
           <div className="app-body">
             <Sidebar />
-            <main className="app-content">
-              <Routes>
-                <Route path="/" element={<Navigate to="/studio" replace />} />
-                <Route path="/studio" element={<Studio />} />
-                <Route path="/blocks" element={<BlockLab />} />
-                <Route path="/connect" element={<Connect />} />
-                <Route path="/data" element={<DataCollection />} />
-                <Route path="/training" element={<AdversarialTraining />} />
-                <Route path="/model-training" element={<ModelTraining />} />
-                <Route path="/vision" element={<VisionAssistant />} />
-                <Route path="/monitor" element={<Monitor />} />
-                <Route path="/control" element={<Control />} />
-                <Route path="/mode" element={<ModeControl />} />
-                <Route path="/pid" element={<PidTuner />} />
-                <Route path="/scope" element={<Scope />} />
-                <Route path="/safety" element={<Safety />} />
-                <Route path="/about" element={<About />} />
-                <Route path="*" element={<Navigate to="/connect" replace />} />
-              </Routes>
-            </main>
+            <div className="app-workspace">
+              <ExperimentBar />
+              <main className="app-content" id="main-content" tabIndex={-1}>
+                <PageBoundary key={location.pathname}>
+                  <Suspense
+                    fallback={
+                      <div className="wb-loading" role="status">
+                        正在准备工作区…
+                      </div>
+                    }
+                  >
+                    <Routes>
+                      <Route
+                        path="/"
+                        element={<Navigate to="/workbench" replace />}
+                      />
+                      <Route path="/workbench" element={<WorkbenchHome />} />
+                      <Route path="/experiments" element={<Experiments />} />
+                      <Route
+                        path="/experiments/:id"
+                        element={<ExperimentDetail />}
+                      />
+                      <Route path="/studio" element={<Studio />} />
+                      <Route path="/blocks" element={<BlockLab />} />
+                      <Route path="/connect" element={<Connect />} />
+                      <Route path="/data" element={<DataCollection />} />
+                      <Route
+                        path="/training"
+                        element={<AdversarialTraining />}
+                      />
+                      <Route
+                        path="/model-training"
+                        element={<ModelTraining />}
+                      />
+                      <Route path="/vision" element={<VisionAssistant />} />
+                      <Route path="/monitor" element={<Monitor />} />
+                      <Route path="/control" element={<Control />} />
+                      <Route path="/mode" element={<ModeControl />} />
+                      <Route path="/pid" element={<PidTuner />} />
+                      <Route path="/scope" element={<Scope />} />
+                      <Route path="/safety" element={<Safety />} />
+                      <Route path="/about" element={<About />} />
+                      <Route
+                        path="*"
+                        element={<Navigate to="/workbench" replace />}
+                      />
+                    </Routes>
+                  </Suspense>
+                </PageBoundary>
+              </main>
+            </div>
           </div>
+          <RuntimeBoundary>
+            <RuntimeHost />
+          </RuntimeBoundary>
           <ContextMenu items={contextItems} />
           <EstopButton />
         </div>

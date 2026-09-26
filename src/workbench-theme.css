@@ -1,0 +1,117 @@
+/* 工作台基础视觉规范。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+:root {
+  --font-serif: var(--font-sans);
+  --bg: #f2f4f7;
+  --bg-elevated: #f7f8fa;
+  --surface: #ffffff;
+  --text: #27313c;
+  --text-secondary: #626e7b;
+  --text-tertiary: #7c8794;
+  --text-quaternary: #89939f;
+  --border: #e3e7ec;
+  --border-strong: #cfd6de;
+  --radius-sm: 6px;
+  --radius-md: 9px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --shadow-sm: 0 1px 3px rgba(30, 40, 50, 0.035);
+  --shadow-md: 0 6px 24px rgba(30, 40, 50, 0.06);
+  --tracking-eyebrow: 0.06em;
+}
+body {
+  background: var(--bg);
+}
+body::before {
+  display: none;
+}
+.app-content {
+  background: var(--bg);
+  position: relative;
+}
+.app-content:focus {
+  outline: none;
+}
+.stage {
+  padding: 24px 28px 80px;
+  gap: 20px;
+}
+.app-shell
+  :is(h1, h2, h3, .console__label, .advanced-toggle, .advanced-group__title) {
+  font-style: normal;
+}
+.app-shell .stage h1 {
+  font-size: 24px;
+  line-height: 1.4;
+}
+.app-shell .stage h2 {
+  line-height: 1.4;
+}
+.app-shell .stage .section-label {
+  margin-bottom: 0;
+}
+.app-shell :is(textarea, select):focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+}
+.app-shell :is(button, a):focus-visible {
+  outline: 2px solid var(--indigo);
+  outline-offset: 2px;
+  box-shadow: none;
+}
+.app-shell button:disabled {
+  opacity: 0.5;
+}
+.app-shell
+  :is(
+    .app-content,
+    .sidebar__nav,
+    .studio__panel,
+    .wb-dialog,
+    .block-console__program-panel,
+    .vision-assistant__messages
+  ) {
+  scrollbar-width: thin;
+  scrollbar-color: #c4cdd5 transparent;
+}
+.app-shell ::-webkit-scrollbar {
+  display: block;
+  width: 5px;
+  height: 5px;
+}
+.app-shell ::-webkit-scrollbar-thumb {
+  background: #c4cdd5;
+  border-radius: 4px;
+}
+.app-shell ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.console {
+  padding: 24px 28px 80px;
+  gap: 18px;
+}
+.console__label::after {
+  display: none;
+}
+.dashboard > *,
+.motor-nav > * {
+  animation: none;
+}
+.wave-region::after,
+.about-card::after {
+  display: none;
+}
+.about-card {
+  max-width: 800px;
+  padding: 28px;
+}
+.about-card__lead {
+  font-size: 14px;
+}
+@media (max-width: 1100px) {
+  .stage {
+    padding: 20px 18px 80px;
+  }
+  .console {
+    padding: 20px 18px 80px;
+  }
+}

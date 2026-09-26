@@ -1,3 +1,4 @@
+/* Created on 2026-09-27 · @author: https://github.com/Linmoqian */
 /* ===== 虾烤工作台主工作区：全局浅色主题下的数字孪生、控制与调参 ===== */
 .studio {
   --s-bg: #eef0f3;
@@ -28,7 +29,7 @@
 
 /* ===== 左：控制台（340px 面板） ===== */
 .studio__console {
-  width: 348px;
+  width: var(--studio-console-width, 348px);
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -38,7 +39,31 @@
   border: 1px solid var(--s-border);
   border-radius: 18px;
   box-shadow: var(--s-shadow);
+  overflow: hidden;
+}
+
+.studio__console-scroll {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+.studio__tab-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.studio .studio__panel-tabs .studio__quick-stop {
+  margin-left: auto;
+  color: #fff;
+  background: var(--s-danger);
+  border-color: var(--s-danger);
+  font-weight: 600;
+  white-space: nowrap;
 }
 
 .studio__title-row {
@@ -49,7 +74,7 @@
 
 .studio__title {
   margin: 0;
-  font-family: var(--font-serif);
+  font-family: var(--font-sans, sans-serif);
   font-size: 24px;
   font-weight: 600;
   letter-spacing: var(--tracking-tight);
@@ -157,6 +182,10 @@
 
 /* 关节卡片列表 */
 .studio__joints {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  min-inline-size: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -219,9 +248,10 @@
 /* 动作区 */
 .studio__actions {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
-  margin-top: auto;
+  flex-shrink: 0;
+  margin-top: 0;
 }
 
 .studio__btn {
@@ -1203,6 +1233,26 @@
   flex-wrap: wrap;
 }
 
+.studio__replay-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.studio__replay-actions .studio__link-btn {
+  min-height: 32px;
+  padding: 6px 4px;
+}
+
+.studio__replay-actions .studio__link-btn:last-child {
+  grid-column: 1 / -1;
+}
+
+.studio__replay-actions .studio__link-btn[aria-pressed="true"] {
+  border-color: #e5b197;
+  color: #aa4f23;
+  background: #fff1e8;
+}
+
 .studio__link-chip.is-live {
   background: rgba(220, 38, 38, 0.12);
   color: #dc2626;
@@ -1500,4 +1550,22 @@
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }
+}
+
+/* 场景由常驻宿主绘制，页面只保留交互覆盖层。 */
+.studio__stage { background: transparent; z-index: 2; pointer-events: none; }
+.studio__stage > * { pointer-events: auto; }
+.studio__console { position: relative; z-index: 2; }
+.studio__width-control { display: flex; gap: 10px; align-items: center; font-size: 11px; color: #64748b; }
+.studio__width-control input { width: 110px; }
+.studio__experiment-note { margin: 8px 0; color: #64748b; font-size: 11px; line-height: 1.6; }
+.studio__replay-row select { width: 100%; min-height: 30px; border: 1px solid #dce2e9; border-radius: 6px; background: #fff; }
+@media (min-width: 1100px) { .studio__console { width: var(--studio-console-width, 348px); } }
+@media (max-width: 1099px) {
+  .studio { flex-direction: column; padding: 10px; gap: 10px; }
+  .studio__console { width: 100%; min-height: 0; flex: 1; }
+  .studio__stage { width: 100%; min-height: 340px; }
+  .studio--tools .studio__stage, .studio--scene .studio__console { display: none; }
+  .studio__width-control { display: none; }
+  .studio__tuning.is-open { top: 52px; }
 }

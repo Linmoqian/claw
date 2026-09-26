@@ -1,30 +1,17 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ChangeEvent,
-  type FormEvent,
-} from "react";
-import {
-  Check,
-  Database,
-  FileUp,
-  Play,
-  Plus,
-  Save,
-  Square,
-  X,
-} from "lucide-react";
-import { computeLinkPoses, computeTcpPose } from "../robot/kinematics";
-import { degreesToRadians, radiansToDegrees } from "../robot/model";
-import { sampleTrajectory, so100DemoLoop } from "../robot/trajectory";
-import { DEFAULT_ROBOT_ID, useRobotStore } from "../stores/robotStore";
+/** 数据入口：新实验采集与旧数据集的兼容查看。
+ * Created on 2026-09-26
+ * @author:  https://github.com/Linmoqian
+ */
+import { useRef, useState, type ChangeEvent } from "react";
+import { Link, useNavigate } from "react-router";
+import { Database, FileUp, ArrowRight, Square } from "lucide-react";
+import { useExperimentStore } from "../experiments/experimentStore";
+import { useRobotStore } from "../stores/robotStore";
 import "./DataCollection.css";
+import "./Experiments.css";
 
 type DatasetSource = "simulation" | "telemetry" | "replay" | "import";
-
-type Dataset = {
+interface Dataset {
   id: string;
   name: string;
   description: string;
@@ -33,39 +20,19 @@ type Dataset = {
   records: number;
   fields: string[];
   createdAt: string;
-  samples?: SimulationSample[];
-  lastSample?: SimulationSample;
-};
-
-type SimulationSample = {
-  timestampS: number;
-  jointPositionRad: number[];
-  tcpPositionM: [number, number, number];
-  mode: "simulation";
-};
-
-type Notice = {
-  tone: "success" | "error";
-  text: string;
-};
-
+}
+interface DatasetRead {
+  datasets: Dataset[];
+  error: string | null;
+  writable: boolean;
+}
 const STORAGE_KEY = "xiakao:data-collection:datasets:v3";
-
 const SOURCE_LABELS: Record<DatasetSource, string> = {
-  simulation: "仿真数据",
-  telemetry: "真机遥测",
-  replay: "回放记录",
-  import: "文件导入",
+  simulation: "旧版演示样本",
+  telemetry: "旧版遥测数据集",
+  replay: "旧版回放数据集",
+  import: "导入摘要",
 };
-
-const DEFAULT_FIELDS: Record<Exclude<DatasetSource, "import">, string[]> = {
-  simulation: ["timestamp_s", "joint_position_rad", "tcp_position_m", "mode"],
-  telemetry: ["timestamp", "joint_state", "temperature", "current"],
-  replay: ["timestamp", "joint_state", "base_pose"],
-};
-
-const SIMULATION_TRAJECTORY = so100DemoLoop();
-const MAX_STORED_SAMPLES = 2400;
 
 function isDataset(value: unknown): value is Dataset {
   if (!value || typeof value !== "object") return false;
@@ -74,270 +41,214 @@ function isDataset(value: unknown): value is Dataset {
     typeof candidate.id === "string" &&
     typeof candidate.name === "string" &&
     typeof candidate.description === "string" &&
-    typeof candidate.source === "string" &&
+    (candidate.source === "simulation" ||
+      candidate.source === "telemetry" ||
+      candidate.source === "replay" ||
+      candidate.source === "import") &&
     typeof candidate.records === "number" &&
     Array.isArray(candidate.fields) &&
+    candidate.fields.every((field) => typeof field === "string") &&
     typeof candidate.createdAt === "string"
   );
 }
 
-function readDatasets(): Dataset[] {
+function readDatasets(): DatasetRead {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
+    if (!raw) return { datasets: [], error: null, writable: true };
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter(isDataset) : [];
+    if (!Array.isArray(parsed) || !parsed.every(isDataset))
+      return {
+        datasets: Array.isArray(parsed) ? parsed.filter(isDataset) : [],
+        error:
+          "部分旧数据无法读取，原存储内容已保留。修复前暂不可添加摘要，新实验采集仍可使用。",
+        writable: false,
+      };
+    return { datasets: parsed, error: null, writable: true };
   } catch {
-    return [];
+    return {
+      datasets: [],
+      error: "旧数据读取失败，原存储内容已保留。新实验记录使用独立数据库。",
+      writable: false,
+    };
   }
 }
 
-function makeId(): string {
-  return `dataset-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
-function monotonicNow(): number {
-  return performance.now();
-}
-
-function makeSimulationSample(timestampS: number): SimulationSample {
-  const model = useRobotStore.getState().model;
-  const qDegFromTrajectory = sampleTrajectory(
-    SIMULATION_TRAJECTORY,
-    timestampS,
-  );
-  const jointCount = model?.active.length ?? qDegFromTrajectory.length;
-  const qDeg = Array.from(
-    { length: jointCount },
-    (_, index) => qDegFromTrajectory[index] ?? 0,
-  );
-  const tcp = model
-    ? computeTcpPose(model, computeLinkPoses(model, qDeg)).position
-    : null;
-  return {
-    timestampS: Number(timestampS.toFixed(3)),
-    jointPositionRad: qDeg.map(degreesToRadians),
-    tcpPositionM: tcp
-      ? [
-          Number(tcp.x.toFixed(5)),
-          Number(tcp.y.toFixed(5)),
-          Number(tcp.z.toFixed(5)),
-        ]
-      : [0, 0, 0],
-    mode: "simulation",
-  };
-}
-
-function parseJsonSummary(value: unknown): {
-  records: number;
-  fields: string[];
-} {
+function parseSummary(
+  text: string,
+  csv: boolean,
+): { records: number; fields: string[] } {
+  if (csv) {
+    const lines = text
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (!lines.length) throw new Error("文件为空");
+    return {
+      records: Math.max(0, lines.length - 1),
+      fields: lines[0]
+        .split(",")
+        .map((field) => field.trim().replace(/^"|"$/g, "")),
+    };
+  }
+  const value: unknown = JSON.parse(text);
   const rows = Array.isArray(value)
     ? value
     : value &&
         typeof value === "object" &&
-        Array.isArray((value as { data?: unknown }).data)
-      ? (value as { data: unknown[] }).data
+        "data" in value &&
+        Array.isArray(value.data)
+      ? value.data
       : [value];
   const first = rows.find(
-    (row) => row && typeof row === "object" && !Array.isArray(row),
+    (row: unknown) => row && typeof row === "object" && !Array.isArray(row),
   );
-  const fields = first && typeof first === "object" ? Object.keys(first) : [];
-  return { records: rows.length, fields };
-}
-
-function parseCsvSummary(text: string): { records: number; fields: string[] } {
-  const lines = text
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0) throw new Error("文件为空");
-  const fields = lines[0]
-    .split(",")
-    .map((field) => field.trim().replace(/^"|"$/g, ""))
-    .filter(Boolean);
-  if (fields.length === 0) throw new Error("CSV 缺少表头");
-  return { records: Math.max(0, lines.length - 1), fields };
-}
-
-function formatDate(value: string): string {
-  return new Intl.DateTimeFormat("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date(value));
+  return {
+    records: rows.length,
+    fields: first && typeof first === "object" ? Object.keys(first) : [],
+  };
 }
 
 export default function DataCollection() {
-  const [datasets, setDatasets] = useState<Dataset[]>(readDatasets);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [source, setSource] =
-    useState<Exclude<DatasetSource, "import">>("simulation");
-  const [sampleRate, setSampleRate] = useState(20);
-  const [notice, setNotice] = useState<Notice | null>(null);
-  const [collectingId, setCollectingId] = useState<string | null>(null);
+  const [legacy, setLegacy] = useState<DatasetRead>(readDatasets);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const robotStatus = useRobotStore((state) => state.status);
-  const loadRobot = useRobotStore((state) => state.loadRobot);
-  const captureRef = useRef<{
-    datasetId: string;
-    startedAt: number;
-    timer: number;
-  } | null>(null);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets));
-    } catch {
-      // 本地存储不可用时仍保留当前会话中的数据集。
-    }
-  }, [datasets]);
-
-  useEffect(() => {
-    if (robotStatus === "idle") void loadRobot(DEFAULT_ROBOT_ID);
-  }, [loadRobot, robotStatus]);
-
-  useEffect(
-    () => () => {
-      if (captureRef.current) window.clearInterval(captureRef.current.timer);
-    },
-    [],
-  );
-
-  const totalRecords = useMemo(
-    () => datasets.reduce((total, dataset) => total + dataset.records, 0),
-    [datasets],
-  );
-
-  const submitCreate = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const trimmedName = name.trim();
-    if (!trimmedName) return;
-    const dataset: Dataset = {
-      id: makeId(),
-      name: trimmedName,
-      description: description.trim() || "等待采集数据",
-      source,
-      sampleRate,
-      records: 0,
-      fields: DEFAULT_FIELDS[source],
-      createdAt: new Date().toISOString(),
-    };
-    setDatasets((current) => [dataset, ...current]);
-    setName("");
-    setDescription("");
-    setSource("simulation");
-    setSampleRate(20);
-    setCreateOpen(false);
-    setNotice({ tone: "success", text: `已创建数据集「${dataset.name}」` });
-  };
-
-  const stopCapture = () => {
-    const capture = captureRef.current;
-    if (!capture) return;
-    window.clearInterval(capture.timer);
-    captureRef.current = null;
-    setCollectingId(null);
-    setNotice({ tone: "success", text: "仿真采集已停止，数据集已保存" });
-  };
-
-  const startCapture = (dataset: Dataset) => {
-    if (dataset.source !== "simulation") return;
-    stopCapture();
-    const startedAt = monotonicNow();
-    const intervalMs = Math.max(
-      50,
-      1000 / Math.max(1, dataset.sampleRate ?? 20),
-    );
-    const timer = window.setInterval(() => {
-      const timestampS = (monotonicNow() - startedAt) / 1000;
-      const sample = makeSimulationSample(timestampS);
-      setDatasets((current) =>
-        current.map((item) => {
-          if (item.id !== dataset.id) return item;
-          const samples = [...(item.samples ?? []), sample].slice(
-            -MAX_STORED_SAMPLES,
-          );
-          return {
-            ...item,
-            records: item.records + 1,
-            fields: DEFAULT_FIELDS.simulation,
-            samples,
-            lastSample: sample,
-          };
-        }),
-      );
-    }, intervalMs);
-    captureRef.current = { datasetId: dataset.id, startedAt, timer };
-    setCollectingId(dataset.id);
-    setNotice({ tone: "success", text: `正在采集「${dataset.name}」仿真数据` });
-  };
-
-  const toggleCapture = (dataset: Dataset) => {
-    if (collectingId === dataset.id) stopCapture();
-    else startCapture(dataset);
-  };
+  const active = useExperimentStore((state) => state.active);
+  const count = useExperimentStore((state) => state.sampleCount);
+  const elapsed = useExperimentStore((state) => state.elapsedS);
+  const saving = useExperimentStore((state) => state.saving);
+  const error = useExperimentStore((state) => state.error);
+  const robotReady = useRobotStore((state) => state.status === "ready");
+  const navigate = useNavigate();
 
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
+    if (!file || !legacy.writable) return;
+    setImporting(true);
     try {
-      const text = await file.text();
-      const isCsv = file.name.toLowerCase().endsWith(".csv");
-      const summary = isCsv
-        ? parseCsvSummary(text)
-        : parseJsonSummary(JSON.parse(text));
+      const summary = parseSummary(
+        await file.text(),
+        file.name.toLowerCase().endsWith(".csv"),
+      );
       const dataset: Dataset = {
-        id: makeId(),
-        name: file.name.replace(/\.[^.]+$/, "") || "导入数据集",
-        description: `从 ${file.name} 导入`,
+        id: crypto.randomUUID(),
+        name: file.name.replace(/\.[^.]+$/, ""),
+        description: "仅保存行数和字段摘要，不包含可回放的运动帧。",
         source: "import",
         sampleRate: null,
         records: summary.records,
         fields: summary.fields,
         createdAt: new Date().toISOString(),
       };
-      setDatasets((current) => [dataset, ...current]);
-      setNotice({
-        tone: "success",
-        text: `已添加「${dataset.name}」· ${dataset.records} 条记录`,
-      });
-    } catch (error) {
-      setNotice({
-        tone: "error",
-        text: `导入失败：${error instanceof Error ? error.message : "无法解析文件"}`,
-      });
+      // 只在明确导入时写入；先验证最新值，避免覆盖损坏内容或其他页面的新增数据。
+      const latest = readDatasets();
+      if (!latest.writable) {
+        setLegacy(latest);
+        throw new Error("旧数据发生变化，已保留原内容，请先修复后再导入");
+      }
+      const datasets = [dataset, ...latest.datasets];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets));
+      setLegacy({ datasets, writable: true, error: null });
+      setNotice(`已保存「${dataset.name}」的字段与行数摘要。`);
+    } catch (reason) {
+      setNotice(
+        `导入未保存：${reason instanceof Error ? reason.message : String(reason)}`,
+      );
+    } finally {
+      setImporting(false);
     }
   };
 
+  const start = async () => {
+    await useExperimentStore.getState().start("", "studio");
+    if (useExperimentStore.getState().active?.status === "recording")
+      navigate("/studio");
+  };
+
   return (
-    <div className="stage data-collection">
+    <div className="stage data-collection experiments">
       <header className="data-collection__header">
         <div>
           <div className="section-label">
-            <span className="section-label__title">数据采集</span>
+            <span className="section-label__title">数据与智能</span>
             <span className="data-collection__eyebrow">DATA COLLECTION</span>
           </div>
-          <h1>把每一次运动，留成可追溯的数据。</h1>
+          <h1>采集每一次实际运动</h1>
           <p>
-            管理仿真、遥测与回放样本，为调参、诊断和后续分析保留统一的数据入口。
+            新采集统一保存在实验记录中，保留实际关节、底盘和
+            TCP，并关联程序与场景。
           </p>
         </div>
         <Database className="data-collection__header-icon" aria-hidden="true" />
       </header>
-
-      <section className="data-collection__toolbar" aria-label="数据集操作">
+      {(error || legacy.error) && (
+        <div className="experiments__notice is-error" role="alert">
+          {error ?? legacy.error}
+          {active && (
+            <>
+              <button
+                type="button"
+                onClick={() => void useExperimentStore.getState().retrySave()}
+              >
+                重试保存
+              </button>
+              <button
+                type="button"
+                onClick={() => useExperimentStore.getState().exportActive()}
+              >
+                导出当前数据
+              </button>
+            </>
+          )}
+        </div>
+      )}
+      <section className="experiments__panel">
+        <div className="experiments__active">
+          <div>
+            <h2>{active ? active.name : "当前仿真采集"}</h2>
+            <p>
+              {active
+                ? `${active.status === "recording" ? "正在采集" : "待保存"} · ${elapsed.toFixed(1)} s · ${count} 帧 · 20 Hz`
+                : "开始实验后按 20 Hz 采样，切换页面会继续记录。"}
+            </p>
+          </div>
+          {active ? (
+            <button
+              type="button"
+              className="experiments__button is-primary"
+              disabled={saving}
+              onClick={() => void useExperimentStore.getState().finish()}
+            >
+              <Square size={14} />
+              {saving ? "保存中…" : "结束并保存"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="experiments__button is-primary"
+              disabled={saving || !robotReady}
+              onClick={() => void start()}
+            >
+              开始实验采集
+            </button>
+          )}
+          <Link to="/experiments" className="experiments__button">
+            查看实验记录 <ArrowRight size={14} />
+          </Link>
+        </div>
+        {!robotReady && (
+          <p>
+            机器人尚未就绪，先<Link to="/studio">进入仿真</Link>完成加载。
+          </p>
+        )}
+      </section>
+      <section className="data-collection__toolbar" aria-label="兼容数据集操作">
         <div className="data-collection__stats">
           <div>
-            <strong>{datasets.length}</strong>
-            <span>个数据集</span>
-          </div>
-          <div>
-            <strong>{totalRecords.toLocaleString("zh-CN")}</strong>
-            <span>条记录</span>
+            <strong>{legacy.datasets.length}</strong>
+            <span>个旧数据集 / 摘要</span>
           </div>
         </div>
         <div className="data-collection__actions">
@@ -346,161 +257,47 @@ export default function DataCollection() {
             type="file"
             accept=".json,.csv,application/json,text/csv"
             hidden
-            onChange={handleImport}
+            onChange={(event) => void handleImport(event)}
           />
           <button
             type="button"
-            className="data-collection__btn data-collection__btn--secondary"
+            className="experiments__button"
+            disabled={!legacy.writable || importing}
             onClick={() => fileInputRef.current?.click()}
           >
             <FileUp size={15} />
-            添加数据集
-          </button>
-          <button
-            type="button"
-            className="data-collection__btn data-collection__btn--primary"
-            onClick={() => {
-              setCreateOpen(true);
-              setNotice(null);
-            }}
-          >
-            <Plus size={15} />
-            创建数据集
+            {importing ? "正在读取…" : "添加文件摘要"}
           </button>
         </div>
       </section>
-
       {notice && (
-        <div
-          className={`data-collection__notice is-${notice.tone}`}
-          role="status"
-        >
-          {notice.tone === "success" ? <Check size={15} /> : <X size={15} />}
-          {notice.text}
+        <div className="experiments__notice" role="status">
+          {notice}
         </div>
       )}
-
-      {collectingId && (
-        <div className="data-collection__capture-status" role="status">
-          <span className="data-collection__capture-dot" />
-          <strong>仿真采集中</strong>
-          <span>内置 SO-100 安全轨迹 · 按数据集采样频率写入</span>
-        </div>
-      )}
-
-      {createOpen && (
-        <form className="data-collection__create" onSubmit={submitCreate}>
-          <div className="data-collection__create-head">
-            <div>
-              <span className="data-collection__card-kicker">NEW DATASET</span>
-              <h2>创建数据集</h2>
-            </div>
-            <button
-              type="button"
-              className="data-collection__icon-btn"
-              onClick={() => setCreateOpen(false)}
-              aria-label="取消创建"
-            >
-              <X size={16} />
-            </button>
-          </div>
-          <div className="data-collection__form-grid">
-            <label>
-              <span>名称</span>
-              <input
-                required
-                maxLength={48}
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="例如：SO-100 轨迹样本"
-              />
-            </label>
-            <label>
-              <span>数据来源</span>
-              <select
-                value={source}
-                onChange={(event) =>
-                  setSource(event.target.value as typeof source)
-                }
-              >
-                <option value="simulation">仿真数据</option>
-                <option value="telemetry">真机遥测</option>
-                <option value="replay">回放记录</option>
-              </select>
-            </label>
-            <label className="data-collection__form-wide">
-              <span>说明</span>
-              <textarea
-                rows={2}
-                maxLength={160}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="记录这组数据的用途或采集场景"
-              />
-            </label>
-            <label>
-              <span>采样频率（Hz）</span>
-              <input
-                type="number"
-                min={1}
-                max={1000}
-                step={1}
-                value={sampleRate}
-                onChange={(event) =>
-                  setSampleRate(Number(event.target.value) || 1)
-                }
-              />
-            </label>
-          </div>
-          <footer className="data-collection__create-actions">
-            <span>创建后可在此处继续接入采集源。</span>
-            <button
-              type="submit"
-              className="data-collection__btn data-collection__btn--primary"
-            >
-              <Save size={15} />
-              创建并添加
-            </button>
-          </footer>
-        </form>
-      )}
-
-      <section className="data-collection__list" aria-label="数据集列表">
+      <section
+        className="data-collection__list"
+        aria-label="旧数据集与文件摘要"
+      >
         <div className="data-collection__list-head">
           <div>
-            <span className="data-collection__card-kicker">DATASETS</span>
-            <h2>数据集</h2>
+            <span className="data-collection__card-kicker">历史兼容</span>
+            <h2>旧数据集与文件摘要</h2>
           </div>
-          <span>{datasets.length ? "按最近创建排序" : "尚未建立数据集"}</span>
+          <span>保留原始内容</span>
         </div>
-
-        {datasets.length === 0 ? (
+        <p className="data-collection__legacy-note">
+          旧版仿真样本来自固定演示轨迹；导入文件仅保留摘要。此处内容不作为新实验运动记录或回放来源。
+        </p>
+        {legacy.datasets.length === 0 ? (
           <div className="data-collection__empty">
             <Database size={26} />
-            <strong>从一个干净的数据集开始</strong>
-            <p>创建采集容器，或导入已有的 JSON / CSV 文件。</p>
-            <div>
-              <button
-                type="button"
-                className="data-collection__btn data-collection__btn--primary"
-                onClick={() => setCreateOpen(true)}
-              >
-                <Plus size={15} />
-                创建数据集
-              </button>
-              <button
-                type="button"
-                className="data-collection__btn data-collection__btn--ghost"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FileUp size={15} />
-                导入文件
-              </button>
-            </div>
+            <strong>暂无旧数据集或文件摘要</strong>
+            <p>新采集请使用上方“开始实验采集”。</p>
           </div>
         ) : (
           <div className="data-collection__grid">
-            {datasets.map((dataset) => (
+            {legacy.datasets.map((dataset) => (
               <article className="dataset-card" key={dataset.id}>
                 <div className="dataset-card__head">
                   <span className={`dataset-card__icon is-${dataset.source}`}>
@@ -517,65 +314,21 @@ export default function DataCollection() {
                   <span>
                     {dataset.sampleRate
                       ? `${dataset.sampleRate} Hz`
-                      : "外部文件"}
+                      : "文件摘要"}
                   </span>
                 </div>
                 <div className="dataset-card__fields">
-                  {dataset.fields.length > 0 ? (
-                    dataset.fields
-                      .slice(0, 4)
-                      .map((field) => <code key={field}>{field}</code>)
-                  ) : (
-                    <span>等待采集字段</span>
-                  )}
-                  {dataset.fields.length > 4 && (
-                    <span>+{dataset.fields.length - 4}</span>
-                  )}
+                  {dataset.fields.slice(0, 4).map((field, index) => (
+                    <code key={`${field}-${index}`}>{field}</code>
+                  ))}
                 </div>
-                {dataset.lastSample && (
-                  <div className="dataset-card__sample">
-                    <span>最近样本</span>
-                    <code>
-                      J1{" "}
-                      {radiansToDegrees(
-                        dataset.lastSample.jointPositionRad[0] ?? 0,
-                      ).toFixed(1)}
-                      ° · TCP{" "}
-                      {dataset.lastSample.tcpPositionM
-                        .map((value) => value.toFixed(3))
-                        .join(", ")}{" "}
-                      m
-                    </code>
-                  </div>
-                )}
                 <footer className="dataset-card__foot">
-                  <span>创建于 {formatDate(dataset.createdAt)}</span>
-                  <span className="dataset-card__ready">
-                    {dataset.source === "simulation" ? (
-                      <button
-                        type="button"
-                        className={`dataset-card__capture ${collectingId === dataset.id ? "is-active" : ""}`}
-                        disabled={robotStatus !== "ready"}
-                        onClick={() => toggleCapture(dataset)}
-                      >
-                        {collectingId === dataset.id ? (
-                          <>
-                            <Square size={11} />
-                            停止采集
-                          </>
-                        ) : (
-                          <>
-                            <Play size={11} />
-                            {dataset.records > 0 ? "继续采集" : "开始采集"}
-                          </>
-                        )}
-                      </button>
-                    ) : dataset.records === 0 ? (
-                      "待接入"
-                    ) : (
-                      "已导入"
-                    )}
+                  <span>
+                    {Number.isFinite(Date.parse(dataset.createdAt))
+                      ? new Date(dataset.createdAt).toLocaleDateString("zh-CN")
+                      : "日期未知"}
                   </span>
+                  <span>兼容查看 · 不支持回放</span>
                 </footer>
               </article>
             ))}

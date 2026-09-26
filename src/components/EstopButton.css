@@ -40,6 +40,13 @@
   animation: estop-pulse 1.1s var(--ease-ink) infinite;
 }
 
+.estop__scope {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
 @keyframes estop-pulse {
   0%,
   100% {

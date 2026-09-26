@@ -1,8 +1,10 @@
-/** robotStore：机器人模型加载状态（URDF → RobotDef → RobotModel），支持多机型切换。 */
+// 机器人模型加载与实验期间机型锁。Created on 2026-09-26
+// @author: https://github.com/Linmoqian
 import { create } from "zustand";
 import { buildRobotModel } from "../robot/model";
 import { parseUrdf } from "../robot/urdf";
 import type { RobotDef, RobotModel } from "../robot/types";
+import { useActivityStore } from "../workbench/activity";
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 
@@ -51,7 +53,7 @@ interface RobotStore {
   assetBase: string;
   loads: number;
   /** 按机型 id 加载 URDF 并构建运行时模型（同机型已就绪时跳过，切换期间旧请求结果作废） */
-  loadRobot: (id: string) => Promise<void>;
+  loadRobot: (id: string, options?: { replayPreparation?: boolean }) => Promise<void>;
 }
 
 /** 加载请求序号：仅最新一次请求允许落地（防快速切换时的竞态回写） */
@@ -64,7 +66,15 @@ export const useRobotStore = create<RobotStore>((set, get) => ({
   currentId: null,
   assetBase: "models/so100",
   loads: 0,
-  loadRobot: async (id) => {
+  loadRobot: async (id, options) => {
+    if (useActivityStore.getState().replayPreparing && !options?.replayPreparation) {
+      set({ error: "正在准备回放，请等待完成后切换机型" });
+      return;
+    }
+    if (useActivityStore.getState().recordingLocked && get().currentId !== id) {
+      set({ error: "实验采集或保存期间不能切换机型，请先结束实验" });
+      return;
+    }
     const entry = findRobotEntry(id);
     if (!entry) {
       set({ status: "error", error: `未知机型：${id}` });

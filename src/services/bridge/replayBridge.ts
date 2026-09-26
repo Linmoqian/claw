@@ -3,7 +3,7 @@
  * 载入录像帧后按倍速推进播放头，线性插值重建 RobotState
  * → 与 WS 桥同构地喂给订阅方（bridgeStore → worldStore → 3D 复盘）。
  *
- * Created on 2026-09-10
+ * Created on 2026-09-26
  * @author:  https://github.com/Linmoqian
  */
 import type { RobotState } from "../../core/world/state";
@@ -11,6 +11,7 @@ import { yawQuaternion } from "../../core/world/pose";
 import type { RecFrame } from "../protocol/recording";
 import { recordingDuration } from "../protocol/recording";
 import type { BridgeStatus, RobotBridge } from "./robotBridge";
+import { degreesToRadians } from "../../robot/model";
 
 /** 回放驱动周期（ms；30Hz 与 worldStore 低频纪律一致） */
 const REPLAY_TICK_MS = 33;
@@ -155,7 +156,9 @@ export class ReplayBridge implements RobotBridge {
     };
     const joints: Record<string, number> = {};
     for (const key of Object.keys(a.joints)) {
-      joints[key] = lerp(a.joints[key] ?? 0, b.joints[key] ?? 0, alpha);
+      joints[key] = degreesToRadians(
+        lerp(a.joints[key] ?? 0, b.joints[key] ?? 0, alpha),
+      );
     }
     return {
       pose: {
@@ -181,7 +184,12 @@ function toRobotState(f: RecFrame): RobotState {
       linear: { x: 0, y: 0, z: 0 },
       angular: { x: 0, y: 0, z: 0 },
     },
-    joints: { ...f.joints },
+    joints: Object.fromEntries(
+      Object.entries(f.joints).map(([key, degrees]) => [
+        key,
+        degreesToRadians(degrees),
+      ]),
+    ),
   };
 }
 

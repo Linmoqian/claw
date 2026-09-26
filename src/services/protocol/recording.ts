@@ -2,7 +2,7 @@
  * recording —— 录像帧格式与导入导出（录制回放功能的数据层）。
  * 帧直接录 RobotState 快照（底盘位姿 + 关节角），回放侧逐帧重建。
  *
- * Created on 2026-09-10
+ * Created on 2026-09-26
  * @author:  https://github.com/Linmoqian
  */
 import type { RobotState } from "../../core/world/state";
@@ -46,11 +46,31 @@ export function parseRecording(text: string): RecordingFile {
     throw new Error("不是合法的 claw 录像文件");
   }
   const file = raw as RecordingFile;
+  if (file.version !== RECORDING_VERSION) throw new Error("不支持的录像版本");
+  if (
+    !Number.isFinite(file.fps) ||
+    file.fps <= 0 ||
+    !Number.isFinite(file.recordedAt)
+  )
+    throw new Error("录像元信息损坏");
   if (file.frames.length === 0) throw new Error("录像是空的");
+  let previousTime = -Infinity;
   for (const f of file.frames) {
-    if (typeof f.t !== "number" || typeof f.pose?.x !== "number") {
+    if (
+      !f ||
+      !Number.isFinite(f.t) ||
+      f.t < 0 ||
+      f.t <= previousTime ||
+      !f.pose ||
+      ![f.pose.x, f.pose.y, f.pose.z, f.pose.yaw].every(Number.isFinite) ||
+      !f.joints ||
+      typeof f.joints !== "object" ||
+      Array.isArray(f.joints) ||
+      !Object.values(f.joints).every(Number.isFinite)
+    ) {
       throw new Error("录像帧结构损坏");
     }
+    previousTime = f.t;
   }
   return file;
 }
@@ -64,7 +84,10 @@ export function frameFromRobotState(
   const p = robot.pose.position;
   const q = robot.pose.orientation;
   // 平面航向从四元数提取（与 world 侧 Z-up 语义一致）
-  const yaw = Math.atan2(2 * (q.w * q.z + q.x * q.y), 1 - 2 * (q.y * q.y + q.z * q.z));
+  const yaw = Math.atan2(
+    2 * (q.w * q.z + q.x * q.y),
+    1 - 2 * (q.y * q.y + q.z * q.z),
+  );
   return { t, pose: { x: p.x, y: p.y, z: p.z, yaw }, joints };
 }
 

@@ -1,0 +1,249 @@
+/* 实验列表与结果界面。Created on 2026-09-26
+ * @author: https://github.com/Linmoqian */
+.experiments {
+  max-width: 1240px;
+  gap: 22px;
+  min-width: 0;
+}
+.experiments__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 24px;
+}
+.experiments__header > svg {
+  color: var(--accent);
+  margin-top: 20px;
+}
+.experiments__header h1 {
+  margin: 8px 0 10px;
+  font-size: 30px;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+}
+.experiments__header p,
+.experiments__panel p,
+.experiments__empty p {
+  color: var(--text-secondary);
+  line-height: 1.7;
+  margin: 6px 0;
+  font-size: 13px;
+}
+.experiments__eyebrow {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+.experiments__panel {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 22px;
+}
+.experiments h2 {
+  font-size: 17px;
+  font-weight: 650;
+  margin: 0;
+}
+.experiments__start {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.experiments__start > div {
+  flex: 1 0 100%;
+}
+.experiments__start label {
+  display: grid;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.experiments__start label:first-of-type {
+  flex: 1;
+  min-width: 180px;
+}
+.experiments input,
+.experiments select {
+  min-height: 39px;
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 8px 11px;
+  font: inherit;
+}
+.experiments__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 39px;
+  border: 1px solid var(--border);
+  padding: 8px 13px;
+  border-radius: 7px;
+  color: var(--text-primary);
+  background: var(--surface);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.experiments__button:hover {
+  border-color: var(--accent);
+}
+.experiments__button.is-primary {
+  color: white;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.experiments__button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.experiments__hint {
+  flex: 1 0 100%;
+}
+.experiments__active {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.experiments__active > div {
+  flex: 1;
+  min-width: 220px;
+}
+.experiments__notice {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 13px;
+}
+.experiments__notice.is-error {
+  color: #933622;
+  background: #fff4ed;
+  border-color: #ebc9b8;
+}
+.experiments__notice button {
+  background: white;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  padding: 5px 9px;
+  color: inherit;
+  cursor: pointer;
+}
+.experiments__section-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.experiments__section-title > span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+.experiments__empty {
+  padding: 45px 24px;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+}
+.experiments__empty > svg {
+  margin-bottom: 16px;
+  color: var(--accent);
+}
+.experiments__empty > div {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 18px;
+}
+.experiments__list {
+  display: grid;
+  gap: 12px;
+}
+.experiments__record {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  text-decoration: none;
+  color: var(--text-primary);
+  padding: 21px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  transition: border-color 0.15s;
+}
+.experiments__record:hover {
+  border-color: var(--accent);
+}
+.experiments__record > div:first-child {
+  flex: 1;
+  min-width: 0;
+}
+.experiments__record h3 {
+  margin: 9px 0 7px;
+  font-size: 16px;
+  overflow-wrap: anywhere;
+}
+.experiments__record p {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+.experiments__record-metrics {
+  display: grid;
+  gap: 6px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+.experiments__record-metrics strong {
+  font-size: 19px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.experiments__record-metrics small {
+  font-size: 11px;
+}
+.experiments__status {
+  padding: 3px 7px;
+  border-radius: 4px;
+  color: #2c6251;
+  background: #eaf3ee;
+  font-size: 10px;
+}
+.experiments__status.is-recording {
+  background: #fff0df;
+  color: #995215;
+}
+.experiments__status.is-interrupted {
+  background: #fff1eb;
+  color: #9e452f;
+}
+.experiments :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+@media (max-width: 700px) {
+  .experiments__header h1 {
+    font-size: 25px;
+  }
+  .experiments__panel {
+    padding: 16px;
+  }
+  .experiments__record {
+    padding: 16px;
+    gap: 12px;
+  }
+  .experiments__record p {
+    line-height: 1.8;
+  }
+}

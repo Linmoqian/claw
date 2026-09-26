@@ -1,7 +1,7 @@
-// Created on 2026-09-16; updated on 2026-09-17
+// Created on 2026-09-16; updated on 2026-09-26
 // @author:  https://github.com/Linmoqian
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, type FormEvent } from "react";
 import {
   BrainCircuit,
   ImagePlus,
@@ -12,27 +12,12 @@ import {
   Trash2,
   XCircle,
 } from "lucide-react";
+import { isAiDesktop, type AiProviderConfig } from "../lib/ai";
 import {
-  chatWithAi,
-  clearAiConversation,
-  getAiConfig,
-  isAiDesktop,
-  selectAiImage,
-  startAi,
-  stopAi,
-  type AiProviderConfig,
-} from "../lib/ai";
+  useAiSessionStore,
+  type AssistantStatus,
+} from "../stores/aiSessionStore";
 import "./VisionAssistant.css";
-
-type AssistantStatus = "idle" | "loading" | "ready" | "busy" | "error";
-
-type ChatMessage = {
-  id: string;
-  role: "user" | "assistant";
-  text: string;
-  imageName?: string;
-};
-
 const STATUS_LABELS: Record<AssistantStatus, string> = {
   idle: "模型未启动",
   loading: "正在加载模型",
@@ -41,154 +26,55 @@ const STATUS_LABELS: Record<AssistantStatus, string> = {
   error: "模型异常",
 };
 
-const FALLBACK_CONFIG: AiProviderConfig = {
-  provider: "zdtaichu",
-  model: "ZDTaichu5.0-9B",
-  baseUrl: "http://127.0.0.1:1234/v1",
-  apiKey: "",
-  supportsVision: true,
-  maxTokens: 128,
-  modelPath: "D:\\models\\ZDTaichu5.0-9B",
-  pythonPath: "C:\\Users\\30470\\Anaconda3\\envs\\zdtaichu\\python.exe",
-};
-
 function fileNameOf(path: string): string {
   return path.split(/[\\/]/).pop() ?? path;
 }
 
-function nextMessageId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
 export default function VisionAssistant() {
-  const [status, setStatus] = useState<AssistantStatus>("idle");
-  const [config, setConfig] = useState<AiProviderConfig>(FALLBACK_CONFIG);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [prompt, setPrompt] = useState("");
-  const [imagePath, setImagePath] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  const {
+    status,
+    config,
+    messages,
+    prompt,
+    imagePath,
+    error,
+    configLoading,
+    sessionActive,
+    operation,
+    initialize,
+    setConfig,
+    setPrompt,
+    setImagePath,
+    start: handleStart,
+    stop: handleStop,
+    clear: handleClear,
+    pickImage: handlePickImage,
+    submit,
+  } = useAiSessionStore();
   const desktop = isAiDesktop();
-  const canChat = status === "ready";
-  const configEditable = status === "idle" || status === "error";
+  const canChat = sessionActive && !operation;
+  const configEditable = !sessionActive && !operation && !configLoading;
 
   useEffect(() => {
-    if (!desktop) return;
-    getAiConfig().then(setConfig).catch((reason) => setError(String(reason)));
-  }, [desktop]);
+    void initialize();
+  }, [initialize]);
 
-  const handleStart = async () => {
-    if (!desktop) {
-      setError("视觉助手需要在 Tauri 桌面端运行。");
-      return;
-    }
-    setError(null);
-    setStatus("loading");
-    try {
-      await startAi(config);
-      setStatus("ready");
-    } catch (reason) {
-      setStatus("error");
-      setError(String(reason));
-    }
-  };
-
-  const handleStop = async () => {
-    setError(null);
-    try {
-      await stopAi();
-      setStatus("idle");
-    } catch (reason) {
-      setStatus("error");
-      setError(String(reason));
-    }
-  };
-
-  const handlePickImage = async () => {
-    if (!desktop) {
-      setError("图片选择仅在 Tauri 桌面端可用。");
-      return;
-    }
-    if (!config.supportsVision) {
-      setError("当前供应商未启用图片输入，请在配置中打开“支持图片输入”。");
-      return;
-    }
-    setError(null);
-    try {
-      const selected = await selectAiImage();
-      if (selected) setImagePath(selected);
-    } catch (reason) {
-      setError(String(reason));
-    }
-  };
-
-  const handleClear = async () => {
-    if (status === "idle") {
-      setMessages([]);
-      setImagePath(null);
-      return;
-    }
-    setError(null);
-    try {
-      await clearAiConversation();
-      setMessages([]);
-      setImagePath(null);
-    } catch (reason) {
-      setError(String(reason));
-    } finally {
-      setMessages([]);
-      setImagePath(null);
-    }
-  };
-
-  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const text = prompt.trim();
-    if (!text || !canChat) return;
-
-    const pendingImage = imagePath;
-    if (pendingImage && !config.supportsVision) {
-      setError("当前供应商未启用图片输入，请先更换供应商或打开图片能力。");
-      return;
-    }
-    setMessages((current) => [
-      ...current,
-      {
-        id: nextMessageId(),
-        role: "user",
-        text,
-        imageName: pendingImage ? fileNameOf(pendingImage) : undefined,
-      },
-    ]);
-    setPrompt("");
-    setImagePath(null);
-    setError(null);
-    setStatus("busy");
-
-    try {
-      const answer = await chatWithAi(text, pendingImage ?? undefined);
-      setMessages((current) => [
-        ...current,
-        { id: nextMessageId(), role: "assistant", text: answer },
-      ]);
-      setStatus("ready");
-    } catch (reason) {
-      setStatus("error");
-      setError(String(reason));
-    }
+    void submit();
   };
-
   return (
     <div className="stage vision-assistant">
       <header className="vision-assistant__header">
         <div>
-          <span className="section-label">LOCAL MULTIMODAL ASSISTANT</span>
+          <span className="section-label">数据与智能</span>
           <h1>视觉助手</h1>
-          <p>
-          使用可切换的本地模型或 OpenAI-compatible 供应商进行文本聊天和单图分析。
-          </p>
+          <p>文本对话与单图分析。会话在应用内切页时保留，关闭应用后清除。</p>
         </div>
-        <BrainCircuit className="vision-assistant__header-icon" aria-hidden="true" />
+        <BrainCircuit
+          className="vision-assistant__header-icon"
+          aria-hidden="true"
+        />
       </header>
 
       <section className="vision-assistant__status" aria-live="polite">
@@ -206,7 +92,7 @@ export default function VisionAssistant() {
 
       {!desktop && (
         <div className="vision-assistant__notice">
-          当前是浏览器预览模式。请使用 <code>pnpm run tauri dev</code> 才能启动本地模型和文件选择器。
+          浏览器可预览配置与编辑问题；启动模型和选择图片需要打开桌面应用。
         </div>
       )}
 
@@ -217,9 +103,17 @@ export default function VisionAssistant() {
               <Settings2 size={15} />
               供应商配置
             </strong>
-            <span>来自 .env 的值可在这里临时覆盖，修改后需停止并重新启动模型。</span>
+            <span>
+              读取桌面默认配置，可在此临时修改；切换配置前需停止当前会话。
+            </span>
           </div>
-          <small>{configEditable ? "可编辑" : "请先停止当前会话"}</small>
+          <small>
+            {configLoading
+              ? "正在读取配置…"
+              : configEditable
+                ? "可编辑"
+                : "请先停止当前会话"}
+          </small>
         </div>
         <div className="vision-assistant__config-grid">
           <label>
@@ -245,7 +139,12 @@ export default function VisionAssistant() {
             <input
               value={config.model}
               disabled={!configEditable}
-              onChange={(event) => setConfig((current) => ({ ...current, model: event.target.value }))}
+              onChange={(event) =>
+                setConfig((current) => ({
+                  ...current,
+                  model: event.target.value,
+                }))
+              }
               placeholder="例如 qwen2.5-vl"
             />
           </label>
@@ -257,7 +156,10 @@ export default function VisionAssistant() {
                   value={config.baseUrl}
                   disabled={!configEditable}
                   onChange={(event) =>
-                    setConfig((current) => ({ ...current, baseUrl: event.target.value }))
+                    setConfig((current) => ({
+                      ...current,
+                      baseUrl: event.target.value,
+                    }))
                   }
                   placeholder="http://127.0.0.1:1234/v1"
                 />
@@ -269,9 +171,12 @@ export default function VisionAssistant() {
                   value={config.apiKey}
                   disabled={!configEditable}
                   onChange={(event) =>
-                    setConfig((current) => ({ ...current, apiKey: event.target.value }))
+                    setConfig((current) => ({
+                      ...current,
+                      apiKey: event.target.value,
+                    }))
                   }
-                  placeholder="留空则使用 .env"
+                  placeholder="留空使用默认密钥"
                 />
               </label>
               <label className="vision-assistant__check">
@@ -297,7 +202,10 @@ export default function VisionAssistant() {
                   value={config.modelPath}
                   disabled={!configEditable}
                   onChange={(event) =>
-                    setConfig((current) => ({ ...current, modelPath: event.target.value }))
+                    setConfig((current) => ({
+                      ...current,
+                      modelPath: event.target.value,
+                    }))
                   }
                 />
               </label>
@@ -307,7 +215,10 @@ export default function VisionAssistant() {
                   value={config.pythonPath}
                   disabled={!configEditable}
                   onChange={(event) =>
-                    setConfig((current) => ({ ...current, pythonPath: event.target.value }))
+                    setConfig((current) => ({
+                      ...current,
+                      pythonPath: event.target.value,
+                    }))
                   }
                 />
               </label>
@@ -319,39 +230,39 @@ export default function VisionAssistant() {
       <section className="vision-assistant__toolbar">
         <div>
           <strong>模型会话</strong>
-          <span>首次启动会加载模型，之后连续对话不会重复加载。</span>
+          <span>切换页面可继续保留会话；更换供应商前请先停止模型。</span>
         </div>
         <div className="vision-assistant__actions">
           <button
             type="button"
             className="vision-assistant__button is-primary"
             onClick={handleStart}
-            disabled={!desktop || status === "loading" || status === "ready" || status === "busy"}
+            disabled={
+              !desktop || sessionActive || Boolean(operation) || configLoading
+            }
           >
             <Power size={16} />
-            启动模型
+            {operation === "start" ? "正在启动…" : "启动模型"}
           </button>
           <button
             type="button"
             className="vision-assistant__button"
             onClick={handleStop}
-            disabled={status === "idle" || status === "loading" || status === "busy"}
+            disabled={!sessionActive || Boolean(operation)}
           >
             <XCircle size={16} />
-            停止模型
+            {operation === "stop" ? "正在停止…" : "停止模型"}
           </button>
           <button
             type="button"
             className="vision-assistant__button"
             onClick={handleClear}
             disabled={
-              status === "loading" ||
-              status === "busy" ||
-              (messages.length === 0 && !imagePath)
+              Boolean(operation) || (messages.length === 0 && !imagePath)
             }
           >
             <Trash2 size={16} />
-            清空对话
+            {operation === "clear" ? "正在清空…" : "清空对话"}
           </button>
         </div>
       </section>
@@ -362,7 +273,9 @@ export default function VisionAssistant() {
             <div className="vision-assistant__empty">
               <BrainCircuit size={28} />
               <strong>等待一次本地推理</strong>
-              <span>启动模型后，可以先输入文本，也可以选择一张图片再提问。</span>
+              <span>
+                启动模型后，可以先输入文本，也可以选择一张图片再提问。
+              </span>
             </div>
           ) : (
             messages.map((message) => (
@@ -385,7 +298,11 @@ export default function VisionAssistant() {
           )}
         </div>
 
-        {error && <div className="vision-assistant__error">{error}</div>}
+        {error && (
+          <div className="vision-assistant__error" role="alert">
+            {error}
+          </div>
+        )}
 
         <form className="vision-assistant__composer" onSubmit={handleSubmit}>
           {imagePath && (
@@ -415,8 +332,13 @@ export default function VisionAssistant() {
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              placeholder={canChat ? "输入问题，例如：请描述这张图片" : "请先启动模型"}
-              disabled={!canChat}
+              aria-label="问题内容"
+              placeholder={
+                canChat
+                  ? "输入问题，例如：请描述这张图片"
+                  : "可先编辑问题，启动模型后发送"
+              }
+              disabled={Boolean(operation)}
               rows={2}
             />
             <button
