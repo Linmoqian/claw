@@ -34,6 +34,7 @@ import { cancelRuntimePreview, getRuntime, useRuntimeStore, awaitRuntimeReady } 
 import { useActivityStore } from "../workbench/activity";
 import { stopProgram } from "../workbench/programRunner";
 import EyeHandPanel from "../components/EyeHandPanel";
+import LoadingState from "../components/workbench/LoadingState";
 import "./Studio.css";
 
 /** 仿真速度档位 */
@@ -553,15 +554,11 @@ export default function Studio() {
                 </button>
               </>
             ) : (
-              <strong>
-                正在装配{" "}
-                {
-                  ROBOT_CATALOG.find(
-                    (r) => r.id === (currentId ?? DEFAULT_ROBOT_ID),
-                  )?.label
-                }{" "}
-                数字孪生体…
-              </strong>
+              <LoadingState
+                variant="scene"
+                label={`正在装配 ${ROBOT_CATALOG.find((r) => r.id === (currentId ?? DEFAULT_ROBOT_ID))?.label ?? "机械臂"}`}
+                detail="准备数字孪生场景…"
+              />
             )}
           </div>
         )}

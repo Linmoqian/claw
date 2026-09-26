@@ -366,6 +366,7 @@ export default function ExperimentBar() {
               type="submit"
               disabled={!name.trim() || starting}
             >
+              {starting && <LoaderCircle size={14} className="wb-spin" aria-hidden="true" />}
               {starting ? "正在准备…" : "开始采集"}
             </button>
           </div>

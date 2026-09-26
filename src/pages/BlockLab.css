@@ -458,6 +458,11 @@
   height: 100%;
 }
 
+.block-console__arm-canvas > .wb-loading,
+.block-console__arm-canvas > .block-console__arm-loading {
+  display: flex;
+}
+
 .block-console__camera-feed {
   position: absolute;
   top: 10px;
@@ -541,14 +546,6 @@
 .block-console__arm-loading small {
   color: #8b94a1;
   font-size: 10px;
-}
-
-.block-console__arm-loading-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--console-orange);
-  box-shadow: 0 0 0 5px rgba(228, 123, 54, 0.12);
 }
 
 .block-console__arena-topline {

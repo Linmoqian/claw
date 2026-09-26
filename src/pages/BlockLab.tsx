@@ -38,6 +38,7 @@ import { getRuntime } from "../workbench/runtime";
 import { parseProgramSnapshot } from "../workbench/programSnapshot";
 import { appendProgramLog, resetProgramStatus, runProgram, setProgramHardwareMode, stopProgram, useProgramStore, type ProgramStatus } from "../workbench/programRunner";
 import { useBridgeStore } from "../stores/bridgeStore";
+import LoadingState from "../components/workbench/LoadingState";
 import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
@@ -498,20 +499,20 @@ function BlockLab() {
               className="block-console__arm-canvas"
               aria-label={currentArmLabel + " 机械臂仿真视图"}
             >
-              {!model && (
+              {!model && robotStatus === "error" && (
                 <div className="block-console__arm-loading">
-                  <span className="block-console__arm-loading-dot" />
-                  <strong>
-                    {robotStatus === "error"
-                      ? "机械臂模型加载失败"
-                      : "正在加载 " + currentArmLabel}
-                  </strong>
+                  <strong>机械臂模型加载失败</strong>
                   <small>
-                    {robotStatus === "error"
-                      ? "请检查 " + (currentRobot?.urdfPath ?? "模型资源")
-                      : "准备仿真视图…"}
+                    请检查 {currentRobot?.urdfPath ?? "模型资源"}
                   </small>
                 </div>
+              )}
+              {!model && robotStatus !== "error" && (
+                <LoadingState
+                  variant="scene"
+                  label={`正在加载 ${currentArmLabel}`}
+                  detail="准备仿真视图…"
+                />
               )}
             </div>
             <div className="block-console__arena-readout">

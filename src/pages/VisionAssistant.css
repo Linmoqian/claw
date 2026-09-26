@@ -100,6 +100,12 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .vision-assistant__spin {
+    animation: none;
+  }
+}
+
 .vision-assistant__notice,
 .vision-assistant__error {
   padding: 11px 14px;

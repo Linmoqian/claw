@@ -24,6 +24,7 @@ import ExperimentDetail from "./pages/ExperimentDetail";
 import ExperimentBar from "./components/workbench/ExperimentBar";
 import PageBoundary from "./components/workbench/PageBoundary";
 import RuntimeBoundary from "./components/workbench/RuntimeBoundary";
+import LoadingState from "./components/workbench/LoadingState";
 import RuntimeHost from "./workbench/RuntimeHost";
 import "./App.css";
 import "./workbench-theme.css";
@@ -102,9 +103,10 @@ function App() {
                 <PageBoundary key={location.pathname}>
                   <Suspense
                     fallback={
-                      <div className="wb-loading" role="status">
-                        正在准备工作区…
-                      </div>
+                      <LoadingState
+                        label="正在准备工作区"
+                        detail="载入实验工具与页面…"
+                      />
                     }
                   >
                     <Routes>

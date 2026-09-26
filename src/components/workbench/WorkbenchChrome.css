@@ -302,11 +302,6 @@
 .wb-page-error p {
   color: var(--text-secondary);
 }
-.wb-loading {
-  padding: 40px;
-  color: var(--text-secondary);
-  font-size: 13px;
-}
 .wb-runtime-error {
   position: fixed;
   z-index: 30;
@@ -348,6 +343,11 @@
 @keyframes wb-spin {
   to {
     transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wb-spin {
+    animation: none;
   }
 }
 @media (max-width: 1100px) {

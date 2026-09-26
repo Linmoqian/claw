@@ -4,7 +4,8 @@
  */
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router";
-import { ArrowLeft, Download, Play, Save, Square } from "lucide-react";
+import { ArrowLeft, Download, LoaderCircle, Play, Save, Square } from "lucide-react";
+import LoadingState from "../components/workbench/LoadingState";
 import { useExperimentStore } from "../experiments/experimentStore";
 import { experimentRepository } from "../experiments/repository";
 import type { ExperimentBundle } from "../experiments/types";
@@ -196,8 +197,11 @@ export default function ExperimentDetail() {
   const record = records.find((item) => item.id === id) ?? bundle?.record;
   if (loading)
     return (
-      <div className="stage experiments" role="status">
-        正在加载实验…
+      <div className="stage experiments">
+        <LoadingState
+          label="正在加载实验"
+          detail="读取运动采样与程序日志…"
+        />
       </div>
     );
   if (loadError || !bundle || !record)
@@ -273,7 +277,11 @@ export default function ExperimentDetail() {
           disabled={!bundle.samples.length || Boolean(active) || replaying}
           onClick={() => void replay()}
         >
-          <Play size={14} />
+          {replaying ? (
+            <LoaderCircle size={14} className="wb-spin" aria-hidden="true" />
+          ) : (
+            <Play size={14} />
+          )}
           {replaying ? "正在准备回放…" : "三维回放"}
         </button>
         <button

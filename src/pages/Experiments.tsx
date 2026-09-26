@@ -4,7 +4,8 @@
  */
 import { useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowRight, FlaskConical, Plus, Save } from "lucide-react";
+import { ArrowRight, FlaskConical, LoaderCircle, Plus, Save } from "lucide-react";
+import LoadingState from "../components/workbench/LoadingState";
 import { useExperimentStore } from "../experiments/experimentStore";
 import { useRobotStore } from "../stores/robotStore";
 import "./Experiments.css";
@@ -85,8 +86,12 @@ export default function Experiments() {
               disabled={saving}
               onClick={() => void useExperimentStore.getState().finish()}
             >
-              <Save size={15} />
-              结束并保存
+              {saving ? (
+                <LoaderCircle size={15} className="wb-spin" aria-hidden="true" />
+              ) : (
+                <Save size={15} />
+              )}
+              {saving ? "正在保存…" : "结束并保存"}
             </button>
           </div>
         ) : (
@@ -144,7 +149,11 @@ export default function Experiments() {
         <span>{records.length} 条记录 · 保存在当前设备</span>
       </div>
       {!initialized && !error ? (
-        <p role="status">正在读取实验记录…</p>
+        <LoadingState
+          variant="panel"
+          label="正在读取实验记录"
+          detail="从本机工作空间读取记录…"
+        />
       ) : records.length === 0 ? (
         <section className="experiments__empty">
           <FlaskConical size={32} />
