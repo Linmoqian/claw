@@ -11,6 +11,7 @@ import {
   Cpu,
   Clapperboard,
   FlaskConical,
+  FolderOpen,
   Gauge,
   House,
   Info,
@@ -51,6 +52,7 @@ const GROUPS: NavigationGroup[] = [
     id: "intelligence",
     label: "数据与智能",
     items: [
+      { to: "/assets", label: "项目资产", icon: FolderOpen },
       { to: "/data", label: "视频与数据", icon: Clapperboard },
       { to: "/documents", label: "文档收集", icon: BookOpen },
       { to: "/model-training", label: "智能训练", icon: BrainCircuit },

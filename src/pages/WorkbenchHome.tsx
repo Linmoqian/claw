@@ -12,6 +12,7 @@ import {
   Clock3,
   Clapperboard,
   FlaskConical,
+  FolderOpen,
   Plug,
   ScanEye,
 } from "lucide-react";
@@ -301,6 +302,14 @@ export default function WorkbenchHome() {
         </section>
       </div>
       <section className="home-tools" aria-label="分析与辅助工具">
+        <Link to="/assets">
+          <FolderOpen size={19} />
+          <div>
+            <strong>项目资产</strong>
+            <span>整理数据、权重、模型与算法文件</span>
+          </div>
+          <ArrowUpRight size={14} />
+        </Link>
         <Link to="/model-training">
           <BrainCircuit size={19} />
           <div>

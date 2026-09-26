@@ -35,6 +35,7 @@ const AdversarialTraining = lazy(() => import("./pages/AdversarialTraining"));
 const ModelTraining = lazy(() => import("./pages/ModelTraining"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 const Documents = lazy(() => import("./pages/Documents"));
+const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
 
 const contextItems: ContextMenuItem[] = [
   {
@@ -126,6 +127,7 @@ function App() {
                       <Route path="/connect" element={<Connect />} />
                       <Route path="/data" element={<DataCollection />} />
                       <Route path="/documents" element={<Documents />} />
+                      <Route path="/assets" element={<AssetLibrary />} />
                       <Route
                         path="/training"
                         element={<AdversarialTraining />}
