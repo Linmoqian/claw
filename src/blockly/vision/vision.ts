@@ -1,12 +1,15 @@
 /**
  * OpenCV.js 颜色目标识别；所有 Mat 均在使用后释放，摄像头失败时退回合成帧。
  *
- * Created on 2026-09-21
+ * Created on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
 import type { Detection } from "../types";
 
 type CvModule = {
+  COLOR_RGBA2RGB: number;
+  COLOR_RGB2HSV: number;
+  CV_8UC3: number;
   matFromImageData: (data: ImageData) => unknown;
   Mat: new (...args: unknown[]) => unknown;
   MatVector: new () => {
@@ -41,21 +44,42 @@ type CvModule = {
 };
 
 type CvLike = CvModule & Record<string, unknown>;
+type CvReady = { cv: CvLike };
 
-let cvPromise: Promise<CvLike> | null = null;
+let cvPromise: Promise<CvReady> | null = null;
 
 export const CANVAS_WIDTH = 640;
 export const CANVAS_HEIGHT = 480;
 
-export async function loadOpenCv(): Promise<CvLike> {
-  cvPromise ??= import("opencv-ts").then((module) => {
-    const source = module as unknown as { default?: CvLike } & CvLike;
-    const candidate = source.default;
-    const cv = candidate ?? source;
-    if (!cv || typeof cv.matFromImageData !== "function") {
-      throw new Error("OpenCV 初始化失败");
-    }
-    return cv;
+export async function loadOpenCv(): Promise<CvReady> {
+  // 直接动态导入 CommonJS 库会让 Vite 把 cv.then 展开到 Promise 返回值上。
+  cvPromise ??= import("./opencvRuntime").then((module) => {
+    const cv = module.getOpenCvRuntime() as CvLike;
+    return new Promise<CvReady>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("OpenCV 初始化超时，请重试")), 15000);
+      const ready = () => {
+        clearTimeout(timeout);
+        if (!cv || typeof cv.matFromImageData !== "function" || typeof cv.Mat !== "function") {
+          reject(new Error("OpenCV 初始化失败"));
+          return;
+        }
+        // Emscripten 的 cv.then 会再次返回 cv；必须装箱，避免 Promise 无限同化同一个 thenable。
+        resolve({ cv });
+      };
+      try {
+        if (typeof cv?.then === "function") {
+          (cv.then as (callback: () => void) => void)(ready);
+        } else {
+          ready();
+        }
+      } catch (error: unknown) {
+        clearTimeout(timeout);
+        reject(error);
+      }
+    });
+  }).catch((error: unknown) => {
+    cvPromise = null;
+    throw error;
   });
   return cvPromise;
 }
@@ -131,7 +155,7 @@ export async function detectColorFromCanvas(
   if (!ranges) throw new Error(`不支持的目标颜色：${label}`);
   const context = canvas.getContext("2d", { willReadFrequently: true });
   if (!context) throw new Error("摄像头帧不可读");
-  const cv = await loadOpenCv();
+  const { cv } = await loadOpenCv();
   const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
   const source = cv.matFromImageData(imageData);
   const rgb = new cv.Mat();
@@ -141,18 +165,21 @@ export async function detectColorFromCanvas(
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
   try {
-    cv.cvtColor(source, rgb, 3);
-    cv.cvtColor(rgb, hsv, 41);
+    cv.cvtColor(source, rgb, cv.COLOR_RGBA2RGB);
+    cv.cvtColor(rgb, hsv, cv.COLOR_RGB2HSV);
     cv.GaussianBlur(hsv, blurred, new cv.Size(5, 5), 0);
 
     let best: Detection | null = null;
     for (const range of ranges) {
-      cv.inRange(
-        blurred,
-        new cv.Scalar(...range.lower),
-        new cv.Scalar(...range.upper),
-        mask,
-      );
+      const lower = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC3, new cv.Scalar(...range.lower));
+      const upper = new cv.Mat(canvas.height, canvas.width, cv.CV_8UC3, new cv.Scalar(...range.upper));
+      try {
+        // OpenCV.js 的 inRange 绑定需要矩阵上下界，不接受 Scalar 直接作输入。
+        cv.inRange(blurred, lower, upper, mask);
+      } finally {
+        (lower as { delete: () => void }).delete();
+        (upper as { delete: () => void }).delete();
+      }
       cv.findContours(mask, contours, hierarchy, 0, 2);
       for (let index = 0; index < contours.size(); index += 1) {
         const contour = contours.get(index);
