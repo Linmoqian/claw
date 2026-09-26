@@ -1,0 +1,11 @@
+<!-- Created on 2026-09-27 @author: https://github.com/Linmoqian -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">虾烤工作台</title>
+  <rect x="2" y="2" width="60" height="60" rx="14" fill="#0b2b67"/>
+  <path d="M12 38h40v12a4 4 0 0 1-4 4H16a4 4 0 0 1-4-4V38Z" fill="#fff"/>
+  <path d="M12 43h40M32 43v11" fill="none" stroke="#0b2b67" stroke-width="3"/>
+  <path d="m16 36-3-9 6-10 8 4-4 7 4 5m21 3 3-9-6-10-8 4 4 7-4 5" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="m27 33 3 4m7-4-3 4" fill="none" stroke="#ee8051" stroke-width="4" stroke-linecap="round"/>
+  <circle cx="20" cy="18" r="3" fill="#ee8051"/>
+  <circle cx="44" cy="18" r="3" fill="#ee8051"/>
+</svg>

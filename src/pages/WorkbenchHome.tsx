@@ -3,11 +3,13 @@ import { Link } from "react-router";
 import {
   ArrowRight,
   ArrowUpRight,
+  Blocks,
   Box,
   BrainCircuit,
   Check,
   Circle,
   Clock3,
+  Database,
   FlaskConical,
   Plug,
   ScanEye,
@@ -127,7 +129,7 @@ export default function WorkbenchHome() {
           className="home-launch__card home-launch__card--blocks"
         >
           <span className="home-launch__icon">
-            <BrainCircuit size={26} strokeWidth={1.5} />
+            <Blocks size={26} strokeWidth={1.5} />
           </span>
           <div>
             <h3>积木编程</h3>
@@ -184,7 +186,7 @@ export default function WorkbenchHome() {
                 >
                   <span className="home-record__icon">
                     {record.source === "blocks" ? (
-                      <BrainCircuit size={19} />
+                      <Blocks size={19} />
                     ) : (
                       <Box size={19} />
                     )}
@@ -315,7 +317,7 @@ export default function WorkbenchHome() {
           <ArrowUpRight size={14} />
         </Link>
         <Link to="/data">
-          <FlaskConical size={19} />
+          <Database size={19} />
           <div>
             <strong>数据资源</strong>
             <span>查看实验数据与历史导入</span>

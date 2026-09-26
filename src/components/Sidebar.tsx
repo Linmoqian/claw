@@ -3,6 +3,7 @@ import { useState } from "react";
 import { NavLink, useLocation } from "react-router";
 import {
   Activity,
+  Blocks,
   Box,
   BrainCircuit,
   ChevronDown,
@@ -41,7 +42,7 @@ const GROUPS: NavigationGroup[] = [
     label: "实验操作",
     items: [
       { to: "/studio", label: "仿真与调参", icon: Box },
-      { to: "/blocks", label: "积木编程", icon: BrainCircuit },
+      { to: "/blocks", label: "积木编程", icon: Blocks },
       { to: "/experiments", label: "实验记录", icon: FlaskConical },
     ],
   },
@@ -115,7 +116,7 @@ export default function Sidebar() {
         className="sidebar__brand"
         aria-label="虾烤工作台首页"
       >
-        <img className="sidebar__logo" src="/brand/xiakao-logo.png" alt="" />
+        <img className="sidebar__logo" src="/brand/xiakao-mark.svg" alt="" />
         <span className="sidebar__brand-copy">
           <strong>虾烤工作台</strong>
           <small>实验室 · 本地工作空间</small>
