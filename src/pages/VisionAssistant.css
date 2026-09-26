@@ -1,4 +1,4 @@
-/* Created on 2026-09-16; updated on 2026-09-26
+/* Created on 2026-09-16; updated on 2026-09-27
  * @author: https://github.com/Linmoqian */
 
 .vision-assistant {
@@ -196,6 +196,14 @@
 
 .vision-assistant__check input {
   accent-color: var(--accent);
+}
+
+.vision-assistant__provider-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 11px;
+  line-height: 1.6;
 }
 
 .vision-assistant__error {

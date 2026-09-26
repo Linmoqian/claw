@@ -1,14 +1,16 @@
-"""ZDTaichu Python 桥的纯逻辑测试。"""
+"""视觉助手 Python 桥的协议测试。"""
 
-# Created on 2026-09-16; updated on 2026-09-16
+# Created on 2026-09-16; updated on 2026-09-27
 # @author:  https://github.com/Linmoqian
 
 import json
+import os
 import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
 
 from PIL import Image
 
@@ -16,6 +18,7 @@ from zdtaichu_bridge import (
     build_openai_request,
     build_openai_user_content,
     build_user_message,
+    create_provider,
     normalize_provider_config,
     OpenAICompatibleSession,
     prepare_image,
@@ -52,7 +55,7 @@ class ZDTaichuBridgeTest(unittest.TestCase):
     def test_provider_registry_and_openai_config_are_normalized(self):
         self.assertEqual(
             set(provider_names()),
-            {"zdtaichu", "openai-compatible"},
+            {"zdtaichu", "openai-compatible", "llama-cpp"},
         )
         config = normalize_provider_config(
             {
@@ -126,6 +129,92 @@ class ZDTaichuBridgeTest(unittest.TestCase):
 
         self.assertEqual(received[0]["model"], "mock-model")
         self.assertEqual(received[0]["messages"][0]["content"], "hello")
+
+    def test_llama_cpp_discovers_model_and_chats_with_local_server(self):
+        requests: list[dict] = []
+
+        with patch.dict(
+            os.environ,
+            {"AI_API_KEY": "upstream-secret", "LLAMA_CPP_API_KEY": ""},
+        ):
+            isolated = normalize_provider_config(
+                {"provider": "llama-cpp", "model": ""}
+            )
+        self.assertEqual(isolated["api_key"], "")
+        self.assertEqual(isolated["base_url"], "http://127.0.0.1:8080/v1")
+
+        class Handler(BaseHTTPRequestHandler):
+            def do_GET(self):  # noqa: N802 - BaseHTTPRequestHandler API
+                if self.path == "/v1/health":
+                    payload = {"status": "ok"}
+                elif self.path == "/v1/models":
+                    payload = {"data": [{"id": "test-gguf-model"}]}
+                else:
+                    self.send_error(404)
+                    return
+                encoded = json.dumps(payload).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+            def do_POST(self):  # noqa: N802 - BaseHTTPRequestHandler API
+                length = int(self.headers["Content-Length"])
+                requests.append(json.loads(self.rfile.read(length)))
+                payload = {"choices": [{"message": {"content": "llama response"}}]}
+                encoded = json.dumps(payload).encode("utf-8")
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+            def log_message(self, format, *args):  # noqa: A003 - stdlib API
+                return
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            config = normalize_provider_config(
+                {
+                    "provider": "llama-cpp",
+                    "baseUrl": f"http://127.0.0.1:{server.server_port}",
+                    "model": "",
+                    "supportsVision": True,
+                }
+            )
+            self.assertEqual(
+                config["base_url"],
+                f"http://127.0.0.1:{server.server_port}/v1",
+            )
+            session = create_provider(config)
+            try:
+                self.assertEqual(session.chat("hello", None), "llama response")
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    image_path = Path(temp_dir) / "test.png"
+                    Image.new("RGB", (16, 16), (12, 34, 56)).save(image_path)
+                    self.assertEqual(
+                        session.chat("describe", str(image_path)),
+                        "llama response",
+                    )
+            finally:
+                session.close()
+        finally:
+            server.shutdown()
+            thread.join(timeout=2)
+            server.server_close()
+
+        self.assertEqual(requests[0]["model"], "test-gguf-model")
+        self.assertEqual(requests[0]["messages"][0]["content"], "hello")
+        image_content = requests[1]["messages"][-1]["content"]
+        self.assertEqual(image_content[0], {"type": "text", "text": "describe"})
+        self.assertTrue(
+            image_content[1]["image_url"]["url"].startswith(
+                "data:image/png;base64,"
+            )
+        )
 
 
 if __name__ == "__main__":

@@ -53,8 +53,8 @@ git diff --check
 
 ## 本地视觉助手
 
-桌面端的“视觉助手”页面支持本机 ZDTaichu5.0-9B 和 OpenAI-compatible 供应商，
-支持文本聊天和本地图片问答。模型采用现有 4bit + GPU/CPU offload 配置，不会调用机械臂控制命令。
+桌面端的“视觉助手”页面支持本机 ZDTaichu5.0-9B、OpenAI-compatible 和 llama.cpp 服务，
+支持文本聊天和本地图片问答。ZDTaichu 使用现有 4bit + GPU/CPU offload 配置；AI 回答不会调用机械臂控制命令。
 
 默认配置为：
 
@@ -79,6 +79,14 @@ AI_API_KEY=
 AI_SUPPORTS_VISION=true
 AI_MAX_TOKENS=128
 ```
+
+llama.cpp 使用已启动的 [`llama-server`](https://github.com/ggml-org/llama.cpp/blob/master/tools/server/README.md)。先使用本机 GGUF 模型启动服务，例如：
+
+```powershell
+llama-server.exe -m "C:\models\your-model.gguf" --host 127.0.0.1 --port 8080
+```
+
+然后在视觉助手选择“llama.cpp 本地服务”，Base URL 使用 `http://127.0.0.1:8080/v1`；模型名称留空时会读取服务中已加载的模型。文本模型保持“支持图片输入”关闭，只有服务加载视觉模型时才开启。服务设有密钥时使用 `LLAMA_CPP_API_KEY` 或在界面临时填写。桥接进程使用系统 Python；如需指定解释器，设置 `AI_BRIDGE_PYTHON`。应用停止会话不会关闭由用户启动的 `llama-server`。
 
 进入“视觉助手”后点击“启动模型”，再选择图片并发送问题。首次加载本地模型较慢属于正常现象。
 

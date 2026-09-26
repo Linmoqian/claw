@@ -1,4 +1,4 @@
-// Created on 2026-09-16; updated on 2026-09-26
+// Created on 2026-09-16; updated on 2026-09-27
 // @author:  https://github.com/Linmoqian
 
 import { useEffect, type FormEvent } from "react";
@@ -83,7 +83,7 @@ export default function VisionAssistant() {
         <span className="vision-assistant__status-note">
           {config.provider === "zdtaichu"
             ? "4bit · 语言模型 GPU · 视觉分支 CPU"
-            : `${config.model || "未填写模型"} · 图片${config.supportsVision ? "已启用" : "未启用"}`}
+            : `${config.model || (config.provider === "llama-cpp" ? "自动识别服务模型" : "未填写模型")} · 图片${config.supportsVision ? "已启用" : "未启用"}`}
         </span>
         {status === "loading" && (
           <LoaderCircle className="vision-assistant__spin" size={16} />
@@ -125,13 +125,31 @@ export default function VisionAssistant() {
                 setConfig((current) => ({
                   ...current,
                   provider: event.target.value as AiProviderConfig["provider"],
+                  model:
+                    event.target.value === "zdtaichu"
+                      ? "ZDTaichu5.0-9B"
+                      : event.target.value === "llama-cpp" || current.provider === "zdtaichu"
+                        ? ""
+                        : current.model,
+                  apiKey: "",
+                  baseUrl:
+                    event.target.value === "llama-cpp"
+                      ? "http://127.0.0.1:8080/v1"
+                      : current.baseUrl === "http://127.0.0.1:8080/v1"
+                        ? "http://127.0.0.1:1234/v1"
+                        : current.baseUrl,
                   supportsVision:
-                    event.target.value === "zdtaichu" || current.supportsVision,
+                    event.target.value === "zdtaichu"
+                      ? true
+                      : event.target.value === "llama-cpp"
+                        ? false
+                        : current.supportsVision,
                 }))
               }
             >
               <option value="zdtaichu">ZDTaichu 本地</option>
               <option value="openai-compatible">OpenAI-compatible</option>
+              <option value="llama-cpp">llama.cpp 本地服务</option>
             </select>
           </label>
           <label>
@@ -145,10 +163,10 @@ export default function VisionAssistant() {
                   model: event.target.value,
                 }))
               }
-              placeholder="例如 qwen2.5-vl"
+              placeholder={config.provider === "llama-cpp" ? "留空自动识别已加载模型" : "例如 qwen2.5-vl"}
             />
           </label>
-          {config.provider === "openai-compatible" ? (
+          {config.provider !== "zdtaichu" ? (
             <>
               <label>
                 Base URL
@@ -161,7 +179,7 @@ export default function VisionAssistant() {
                       baseUrl: event.target.value,
                     }))
                   }
-                  placeholder="http://127.0.0.1:1234/v1"
+                  placeholder={config.provider === "llama-cpp" ? "http://127.0.0.1:8080/v1" : "http://127.0.0.1:1234/v1"}
                 />
               </label>
               <label>
@@ -176,7 +194,7 @@ export default function VisionAssistant() {
                       apiKey: event.target.value,
                     }))
                   }
-                  placeholder="留空使用默认密钥"
+                  placeholder={config.provider === "llama-cpp" ? "本地服务未设置密钥时留空" : "留空使用默认密钥"}
                 />
               </label>
               <label className="vision-assistant__check">
@@ -193,6 +211,11 @@ export default function VisionAssistant() {
                 />
                 支持图片输入
               </label>
+              {config.provider === "llama-cpp" && (
+                <p className="vision-assistant__provider-hint">
+                  先启动已加载 GGUF 模型的 llama-server。图片输入仅适用于服务加载的视觉模型。
+                </p>
+              )}
             </>
           ) : (
             <>

@@ -1,6 +1,6 @@
-"""ZDTaichu5.0-9B 的常驻 JSONL 推理桥。"""
+"""视觉助手多供应商的常驻 JSONL 推理桥。"""
 
-# Created on 2026-09-16; updated on 2026-09-16
+# Created on 2026-09-16; updated on 2026-09-27
 # @author:  https://github.com/Linmoqian
 
 from __future__ import annotations
@@ -17,14 +17,9 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import torch
-from PIL import Image, ImageOps
-from transformers import AutoModel, AutoProcessor, BitsAndBytesConfig
-
-
 DEFAULT_MODEL_PATH = r"D:\models\ZDTaichu5.0-9B"
 MAX_IMAGE_SIDE = 512
-SUPPORTED_PROVIDERS = ("zdtaichu", "openai-compatible")
+SUPPORTED_PROVIDERS = ("zdtaichu", "openai-compatible", "llama-cpp")
 
 
 def provider_names() -> tuple[str, ...]:
@@ -51,21 +46,27 @@ def normalize_provider_config(raw: dict[str, Any] | None) -> dict[str, Any]:
     if provider not in SUPPORTED_PROVIDERS:
         raise ValueError(f"不支持的模型供应商：{provider}")
 
-    model = str(
-        raw.get("model")
-        or os.environ.get("AI_MODEL")
-        or ("ZDTaichu5.0-9B" if provider == "zdtaichu" else "")
-    ).strip()
+    if provider == "llama-cpp" and "model" in raw:
+        model = str(raw["model"]).strip()
+    else:
+        model = str(
+            raw.get("model")
+            or os.environ.get("AI_MODEL")
+            or ("ZDTaichu5.0-9B" if provider == "zdtaichu" else "")
+        ).strip()
     base_url = str(
         raw.get("baseUrl")
         or raw.get("base_url")
         or os.environ.get("AI_BASE_URL")
-        or ""
+        or ("http://127.0.0.1:8080/v1" if provider == "llama-cpp" else "")
     ).strip().rstrip("/")
+    if provider == "llama-cpp" and not base_url.endswith("/v1"):
+        base_url = f"{base_url}/v1"
+    api_key_env = "LLAMA_CPP_API_KEY" if provider == "llama-cpp" else "AI_API_KEY"
     api_key = str(
         raw.get("apiKey")
         or raw.get("api_key")
-        or os.environ.get("AI_API_KEY")
+        or os.environ.get(api_key_env)
         or ""
     ).strip()
     supports_vision = _as_bool(
@@ -90,6 +91,11 @@ def normalize_provider_config(raw: dict[str, Any] | None) -> dict[str, Any]:
             raise ValueError("OpenAI-compatible 供应商需要填写 Base URL")
         if not model:
             raise ValueError("OpenAI-compatible 供应商需要填写模型名称")
+
+    if provider == "llama-cpp" and not base_url.startswith(
+        ("http://", "https://")
+    ):
+        raise ValueError("llama.cpp 服务地址需要以 http:// 或 https:// 开头")
 
     return {
         "provider": provider,
@@ -204,6 +210,8 @@ def build_user_message(prompt: str, image_path: Path | None) -> dict[str, Any]:
 
 def prepare_image(source: Path, output_dir: Path) -> Path:
     """把图片转成 RGB，并将最长边限制在 512px 以内。"""
+    from PIL import Image, ImageOps
+
     source = Path(source)
     if not source.is_file():
         raise FileNotFoundError(f"图片不存在：{source}")
@@ -227,6 +235,8 @@ def generate_answer(
     max_new_tokens: int,
 ) -> str:
     """执行一次完整生成，不向前端暴露 token 流。"""
+    import torch
+
     inputs = processor.from_messages(messages, return_tensors="pt")
     inputs = inputs.to(model.device)
     with torch.inference_mode():
@@ -247,6 +257,9 @@ class ZDTaichuSession:
     """模型和多轮消息状态，生命周期与 Python 桥进程一致。"""
 
     def __init__(self, model_path: Path, max_new_tokens: int):
+        import torch
+        from transformers import AutoModel, AutoProcessor, BitsAndBytesConfig
+
         if not model_path.is_dir():
             raise FileNotFoundError(f"模型目录不存在：{model_path}")
         if not torch.cuda.is_available():
@@ -274,6 +287,7 @@ class ZDTaichuSession:
             attn_implementation="sdpa",
         ).eval()
         self.max_new_tokens = max_new_tokens
+        self.torch = torch
         self.messages: list[dict[str, Any]] = []
         self.temp_dir = Path(tempfile.gettempdir()) / "xiakao-zdtaichu"
         self.temp_images: list[Path] = []
@@ -321,8 +335,8 @@ class ZDTaichuSession:
         self.clear()
         self.model = None
         self.processor = None
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+        if self.torch.cuda.is_available():
+            self.torch.cuda.empty_cache()
 
     def _remove_temp_image(self, image_path: Path) -> None:
         try:
@@ -433,6 +447,50 @@ class OpenAICompatibleSession:
             pass
 
 
+class LlamaCppSession(OpenAICompatibleSession):
+    def __init__(self, config: dict[str, Any]):
+        super().__init__(config)
+        self._get_json("health")
+        if not self.config["model"]:
+            payload = self._get_json("models")
+            models = payload.get("data")
+            model = (
+                models[0].get("id")
+                if isinstance(models, list) and models and isinstance(models[0], dict)
+                else None
+            )
+            if not isinstance(model, str) or not model:
+                raise RuntimeError("llama-server 未返回已加载模型，请检查 GGUF 模型和服务状态")
+            self.config["model"] = model
+
+    def _get_json(self, endpoint: str) -> dict[str, Any]:
+        headers = (
+            {"Authorization": f"Bearer {self.config['api_key']}"}
+            if self.config["api_key"]
+            else {}
+        )
+        request = urllib.request.Request(
+            f"{self.config['base_url']}/{endpoint}",
+            headers=headers,
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=5) as response:
+                payload = json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as error:
+            if error.code == 503:
+                raise RuntimeError("llama-server 正在加载模型，请稍后重试") from error
+            if error.code == 401:
+                raise RuntimeError("llama-server 认证失败，请检查 API Key") from error
+            raise RuntimeError(f"llama-server HTTP {error.code}") from error
+        except (urllib.error.URLError, TimeoutError) as error:
+            raise RuntimeError(
+                "无法连接 llama-server，请先启动服务并检查 Base URL"
+            ) from error
+        if not isinstance(payload, dict):
+            raise RuntimeError("llama-server 返回格式无效")
+        return payload
+
+
 def create_provider(config: dict[str, Any]):
     """根据统一配置创建具体供应商会话。"""
     if config["provider"] == "zdtaichu":
@@ -442,6 +500,8 @@ def create_provider(config: dict[str, Any]):
         )
     if config["provider"] == "openai-compatible":
         return OpenAICompatibleSession(config)
+    if config["provider"] == "llama-cpp":
+        return LlamaCppSession(config)
     raise ValueError(f"不支持的模型供应商：{config['provider']}")
 
 

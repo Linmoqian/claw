@@ -103,7 +103,7 @@ impl Bridge {
     }
 }
 
-/// 常驻 ZDTaichu Python 桥：模型只加载一次，调用通过 JSON 行协议串行化。
+/// 常驻 AI Python 桥：会话通过 JSON 行协议串行化。
 struct AiBridge {
     child: Child,
     stdin: ChildStdin,
@@ -136,10 +136,20 @@ impl AiBridge {
     }
 
     fn spawn(config: &AiProviderConfig) -> Result<Self, String> {
-        let script = std::env::temp_dir().join("xiakao_zdtaichu_bridge.py");
+        let script = std::env::temp_dir().join("xiakao_ai_bridge.py");
         std::fs::write(&script, AI_BRIDGE_SCRIPT)
-            .map_err(|e| format!("写入 ZDTaichu 桥脚本失败：{e}"))?;
-        let mut child = Command::new(Self::resolve_python(&config.python_path))
+            .map_err(|e| format!("写入 AI 桥脚本失败：{e}"))?;
+        let python = if config.provider == "zdtaichu" {
+            Self::resolve_python(&config.python_path)
+        } else {
+            env_string("AI_BRIDGE_PYTHON", "python")
+        };
+        let python_env = if config.provider == "zdtaichu" {
+            "ZDTAICHU_PYTHON"
+        } else {
+            "AI_BRIDGE_PYTHON"
+        };
+        let mut child = Command::new(python)
             .arg("-X")
             .arg("utf8")
             .arg("-u")
@@ -151,12 +161,10 @@ impl AiBridge {
             .stderr(Stdio::null())
             .spawn()
             .map_err(|e| {
-                format!(
-                    "启动 ZDTaichu Python 桥失败（{e}）；可用环境变量 ZDTAICHU_PYTHON 指定解释器"
-                )
+                format!("启动 AI Python 桥失败（{e}）；可用环境变量 {python_env} 指定解释器")
             })?;
-        let stdin = child.stdin.take().ok_or("无法获取 ZDTaichu 桥 stdin")?;
-        let stdout = child.stdout.take().ok_or("无法获取 ZDTaichu 桥 stdout")?;
+        let stdin = child.stdin.take().ok_or("无法获取 AI 桥 stdin")?;
+        let stdout = child.stdout.take().ok_or("无法获取 AI 桥 stdout")?;
         Ok(Self {
             child,
             stdin,
@@ -168,11 +176,11 @@ impl AiBridge {
         let mut response = String::new();
         self.reader
             .read_line(&mut response)
-            .map_err(|e| format!("ZDTaichu 桥无响应：{e}"))?;
+            .map_err(|e| format!("AI 桥无响应：{e}"))?;
         if response.trim().is_empty() {
-            return Err("ZDTaichu 桥进程已退出".into());
+            return Err("AI 桥进程已退出".into());
         }
-        serde_json::from_str(&response).map_err(|e| format!("ZDTaichu 桥响应解析失败：{e}"))
+        serde_json::from_str(&response).map_err(|e| format!("AI 桥响应解析失败：{e}"))
     }
 
     fn call(&mut self, request: &serde_json::Value) -> Result<serde_json::Value, String> {
@@ -180,10 +188,10 @@ impl AiBridge {
         line.push('\n');
         self.stdin
             .write_all(line.as_bytes())
-            .map_err(|e| format!("ZDTaichu 桥通信失败：{e}"))?;
+            .map_err(|e| format!("AI 桥通信失败：{e}"))?;
         self.stdin
             .flush()
-            .map_err(|e| format!("ZDTaichu 桥通信失败：{e}"))?;
+            .map_err(|e| format!("AI 桥通信失败：{e}"))?;
         self.read_response()
     }
 
@@ -509,7 +517,14 @@ fn default_ai_config() -> AiProviderConfig {
                 ""
             },
         ),
-        base_url: env_string("AI_BASE_URL", "http://127.0.0.1:1234/v1"),
+        base_url: env_string(
+            "AI_BASE_URL",
+            if provider == "llama-cpp" {
+                "http://127.0.0.1:8080/v1"
+            } else {
+                "http://127.0.0.1:1234/v1"
+            },
+        ),
         api_key: String::new(),
         supports_vision: env_bool("AI_SUPPORTS_VISION", provider == "zdtaichu"),
         max_tokens: std::env::var("AI_MAX_TOKENS")
@@ -518,10 +533,14 @@ fn default_ai_config() -> AiProviderConfig {
             .unwrap_or(128)
             .clamp(1, 512),
         model_path: env_string("ZDTAICHU_MODEL_PATH", r"D:\models\ZDTaichu5.0-9B"),
-        python_path: env_string(
-            "ZDTAICHU_PYTHON",
-            r"C:\Users\30470\Anaconda3\envs\zdtaichu\python.exe",
-        ),
+        python_path: if provider == "zdtaichu" {
+            env_string(
+                "ZDTAICHU_PYTHON",
+                r"C:\Users\30470\Anaconda3\envs\zdtaichu\python.exe",
+            )
+        } else {
+            env_string("AI_BRIDGE_PYTHON", "python")
+        },
     }
 }
 

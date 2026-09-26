@@ -12,7 +12,7 @@ import { open } from "@tauri-apps/plugin-dialog";
 
 export const isAiDesktop = isTauri;
 
-export type AiProviderId = "zdtaichu" | "openai-compatible";
+export type AiProviderId = "zdtaichu" | "openai-compatible" | "llama-cpp";
 
 export type AiProviderConfig = {
   provider: AiProviderId;
