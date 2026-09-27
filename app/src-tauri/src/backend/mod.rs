@@ -4,5 +4,6 @@
 pub mod ai;
 pub mod common;
 pub mod debug_serial;
+pub mod experiments;
 pub mod mcu;
 pub mod servo;

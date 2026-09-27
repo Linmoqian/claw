@@ -3,7 +3,7 @@
 
 mod backend;
 
-use backend::{ai, debug_serial, mcu, servo};
+use backend::{ai, debug_serial, experiments, mcu, servo};
 use std::sync::Mutex;
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
@@ -23,6 +23,7 @@ pub fn run() {
         .manage(Mutex::new(None::<ai::AiBridge>))
         .manage(Mutex::new(None::<mcu::McuSession>))
         .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
+        .manage(experiments::ExperimentLock(Mutex::new(())))
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
@@ -48,6 +49,10 @@ pub fn run() {
             ai::ai_chat,
             ai::ai_clear,
             ai::ai_stop,
+            experiments::experiment_list,
+            experiments::experiment_write,
+            experiments::experiment_get,
+            experiments::experiment_update_record,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
