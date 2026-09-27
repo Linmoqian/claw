@@ -30,6 +30,7 @@ const TrainingCenter = lazy(() => import("./pages/TrainingCenter"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
+const MotorDebug = lazy(() => import("./pages/MotorDebug"));
 
 const contextItems: ContextMenuItem[] = [
   {
@@ -111,6 +112,7 @@ function App() {
                       />
                       <Route path="/studio" element={<Studio />} />
                       <Route path="/blocks" element={<BlockLab />} />
+                      <Route path="/motor-debug" element={<MotorDebug />} />
                       <Route path="/data" element={<DataCollection />} />
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/assets" element={<AssetLibrary />} />

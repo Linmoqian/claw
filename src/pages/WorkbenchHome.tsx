@@ -8,6 +8,7 @@ import {
   Box,
   BrainCircuit,
   Check,
+  Cable,
   Circle,
   Clock3,
   Clapperboard,
@@ -22,6 +23,7 @@ import { isDesktop } from "../lib/serial";
 import { useBridgeStore } from "../stores/bridgeStore";
 import { useRuntimeStore } from "../workbench/runtime";
 import { useActivityStore } from "../workbench/activity";
+import { useMotorDebugStore } from "../motorDebug/session";
 import "./WorkbenchHome.css";
 
 function durationLabel(seconds: number): string {
@@ -42,6 +44,7 @@ export default function WorkbenchHome() {
   const replayPreparing = useActivityStore((state) => state.replayPreparing);
   const programRunning = useActivityStore((state) => state.programRunning);
   const { connected, connectingPort, disconnecting } = useDevice();
+  const debugPort = useMotorDebugStore((state) => state.port);
   const modelLabel = modelId
     ? (findRobotEntry(modelId)?.label ?? modelId)
     : "SO-100";
@@ -65,7 +68,7 @@ export default function WorkbenchHome() {
       ? "等待模型"
       : replayPreparing || bridgeKind === "replay"
         ? "回放中"
-        : connected || bridgeKind !== "simulation"
+        : connected || debugPort || bridgeKind !== "simulation"
           ? "请断开真机链路"
           : connectingPort || disconnecting
             ? "切换通道中"
@@ -286,6 +289,14 @@ export default function WorkbenchHome() {
         </section>
       </div>
       <section className="home-tools" aria-label="分析与辅助工具">
+        <Link to="/motor-debug">
+          <Cable size={19} />
+          <div>
+            <strong>单电机调试</strong>
+            <span>TTL、RS485 与 SLCAN 经典 CAN</span>
+          </div>
+          <ArrowUpRight size={14} />
+        </Link>
         <Link to="/assets">
           <FolderOpen size={19} />
           <div>

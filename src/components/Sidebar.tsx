@@ -12,6 +12,7 @@ import {
   FolderOpen,
   House,
   Info,
+  Cable,
   PanelLeftClose,
   PanelLeftOpen,
   ScanEye,
@@ -39,6 +40,7 @@ const GROUPS: NavigationGroup[] = [
       { to: "/studio", label: "仿真与调参", icon: Box },
       { to: "/blocks", label: "积木编程", icon: Blocks },
       { to: "/experiments", label: "实验记录", icon: FlaskConical },
+      { to: "/motor-debug", label: "单电机调试", icon: Cable },
     ],
   },
   {

@@ -9,6 +9,7 @@ import RobotStage from "../three/RobotStage";
 import { useActivityStore } from "./activity";
 import { cancelRuntimePreview, getRuntime, mountRuntime, useRuntimeStore } from "./runtime";
 import { useProgramStore } from "./programRunner";
+import { useMotorDebugStore } from "../motorDebug/session";
 import "./RuntimeHost.css";
 
 export default function RuntimeHost() {
@@ -22,6 +23,8 @@ export default function RuntimeHost() {
   const recording = useActivityStore((state) => state.recordingLocked);
   const running = useProgramStore((state) => state.status === "running");
   const replay = useBridgeStore((state) => state.replay !== null);
+  const debugConnected = useMotorDebugStore((state) => state.port !== null);
+  const debugTransitioning = useMotorDebugStore((state) => state.transitioning);
   const hostRef = useRef<HTMLDivElement>(null);
   const cameraFeedRef = useRef<HTMLDivElement>(null);
 
@@ -33,12 +36,12 @@ export default function RuntimeHost() {
 
   useLayoutEffect(() => {
     useActivityStore.setState({
-      hardwareConnected: connected,
-      serialConnected: connected,
+      hardwareConnected: connected || debugConnected,
+      serialConnected: connected || debugConnected,
       hardwareEstop: estop,
-      serialTransition: connectingPort !== null || disconnecting,
+      serialTransition: connectingPort !== null || disconnecting || debugTransitioning,
     });
-  }, [connected, estop, connectingPort, disconnecting]);
+  }, [connected, estop, connectingPort, disconnecting, debugConnected, debugTransitioning]);
 
   useEffect(() => {
     cancelRuntimePreview();

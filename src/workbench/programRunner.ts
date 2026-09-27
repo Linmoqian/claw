@@ -70,6 +70,10 @@ export async function runProgram(source: Blockly.Workspace): Promise<void> {
     appendProgramLog("串口正在连接或断开，请稍候再运行", "warning");
     return;
   }
+  if (activity.hardwareConnected) {
+    appendProgramLog("真机串口已连接，请先断开单电机调试再运行仿真程序", "warning");
+    return;
+  }
   if (bridge.replay || bridge.bridge.kind !== "simulation" || activity.channelTransition) {
     appendProgramLog("请退出回放或断开遥测链路后运行积木程序", "warning");
     return;

@@ -22,6 +22,7 @@ const AI_BRIDGE_SCRIPT: &str = include_str!("../python/zdtaichu_bridge.py");
 type DeviceState = Mutex<Option<Bridge>>;
 type AiState = Mutex<Option<AiBridge>>;
 type McuState = Mutex<Option<McuSession>>;
+type DebugSerialState = Mutex<Option<Box<dyn serialport::SerialPort>>>;
 
 /// 便利：把 Mutex PoisonError / 任意 Display 错误转成 String（Tauri command 错误类型）。
 fn to_err<E: std::fmt::Display>(e: E) -> String {
@@ -255,7 +256,15 @@ fn list_serial_ports() -> Result<Vec<String>, String> {
 /// 启动 Python 桥并打开串口。baud 走 SDK 白名单校验（桥内）。
 /// 返回端口名，前端可用作设备标识。
 #[tauri::command]
-fn serial_connect(state: State<DeviceState>, port: String, baud: u32) -> Result<String, String> {
+fn serial_connect(
+    state: State<DeviceState>,
+    debug: State<DebugSerialState>,
+    port: String,
+    baud: u32,
+) -> Result<String, String> {
+    if debug.lock().map_err(to_err)?.is_some() {
+        return Err("单电机调试串口已连接，请先断开".into());
+    }
     let mut guard = state.lock().map_err(to_err)?;
     if guard.is_some() {
         return Err("设备已连接，请先断开".into());
@@ -426,9 +435,13 @@ fn read_mcu_line(session: &mut McuSession, timeout_ms: u64) -> Result<String, St
 #[tauri::command]
 fn mcu_serial_open(
     state: State<McuState>,
+    debug: State<DebugSerialState>,
     port: String,
     baud: u32,
 ) -> Result<String, String> {
+    if debug.lock().map_err(to_err)?.is_some() {
+        return Err("单电机调试串口已连接，请先断开".into());
+    }
     let mut guard = state.lock().map_err(to_err)?;
     if guard.is_some() {
         return Err("MCU 串口已连接，请先断开".into());
@@ -475,6 +488,120 @@ fn mcu_serial_read_line(state: State<McuState>, timeout_ms: u64) -> Result<Strin
 #[derive(Deserialize, Serialize)]
 struct AiChatResult {
     answer: String,
+}
+
+// —— 单电机通用串口调试 ——
+// 原始字节收发不解释设备协议；设备指令由前端显式构造。
+
+#[tauri::command]
+fn debug_serial_open(
+    state: State<DebugSerialState>,
+    servo: State<DeviceState>,
+    mcu: State<McuState>,
+    port: String,
+    baud: u32,
+    data_bits: u8,
+    parity: String,
+    stop_bits: u8,
+) -> Result<String, String> {
+    if port.trim().is_empty() || baud == 0 {
+        return Err("请选择串口并填写有效波特率".into());
+    }
+    if servo.lock().map_err(to_err)?.is_some() || mcu.lock().map_err(to_err)?.is_some() {
+        return Err("已有其他串口会话，请先断开".into());
+    }
+    let bits = match data_bits {
+        5 => serialport::DataBits::Five,
+        6 => serialport::DataBits::Six,
+        7 => serialport::DataBits::Seven,
+        8 => serialport::DataBits::Eight,
+        _ => return Err("数据位只支持 5、6、7、8".into()),
+    };
+    let parity = match parity.as_str() {
+        "none" => serialport::Parity::None,
+        "even" => serialport::Parity::Even,
+        "odd" => serialport::Parity::Odd,
+        _ => return Err("校验位只支持无、偶、奇".into()),
+    };
+    let stops = match stop_bits {
+        1 => serialport::StopBits::One,
+        2 => serialport::StopBits::Two,
+        _ => return Err("停止位只支持 1 或 2".into()),
+    };
+    let mut guard = state.lock().map_err(to_err)?;
+    if guard.is_some() {
+        return Err("调试串口已连接，请先断开".into());
+    }
+    let serial = serialport::new(port.as_str(), baud)
+        .data_bits(bits)
+        .parity(parity)
+        .stop_bits(stops)
+        .timeout(Duration::from_millis(30))
+        .open()
+        .map_err(to_err)?;
+    *guard = Some(serial);
+    Ok(port)
+}
+
+#[tauri::command]
+fn debug_serial_close(state: State<DebugSerialState>) -> Result<(), String> {
+    *state.lock().map_err(to_err)? = None;
+    Ok(())
+}
+
+#[tauri::command]
+fn debug_serial_transfer(
+    state: State<DebugSerialState>,
+    tx: Vec<u8>,
+    timeout_ms: u64,
+) -> Result<Vec<u8>, String> {
+    if tx.len() > 512 || !(20..=2000).contains(&timeout_ms) {
+        return Err("报文最多 512 字节，等待时间须在 20–2000 ms".into());
+    }
+    let mut guard = state.lock().map_err(to_err)?;
+    let serial = guard.as_mut().ok_or("调试串口尚未连接")?;
+    if !tx.is_empty() {
+        serial
+            .write_all(&tx)
+            .and_then(|_| serial.flush())
+            .map_err(to_err)?;
+    }
+    let deadline = std::time::Instant::now() + Duration::from_millis(timeout_ms);
+    let mut last_rx = None;
+    let mut rx = Vec::new();
+    let mut buffer = [0_u8; 128];
+    loop {
+        let now = std::time::Instant::now();
+        if now >= deadline
+            || last_rx.is_some_and(|last: std::time::Instant| {
+                now.duration_since(last) >= Duration::from_millis(30)
+            })
+        {
+            break;
+        }
+        serial
+            .set_timeout(
+                deadline
+                    .saturating_duration_since(now)
+                    .min(Duration::from_millis(30))
+                    .max(Duration::from_millis(1)),
+            )
+            .map_err(to_err)?;
+        match serial.read(&mut buffer) {
+            Ok(count) if count > 0 => {
+                rx.extend_from_slice(&buffer[..count]);
+                last_rx = Some(std::time::Instant::now());
+                if rx.len() >= 2048 {
+                    rx.truncate(2048);
+                    break;
+                }
+            }
+            Ok(_) => {}
+            Err(error) if error.kind() == std::io::ErrorKind::TimedOut => {}
+            Err(error) => return Err(error.to_string()),
+        }
+    }
+    Ok(rx)
 }
 
 #[derive(Clone, Deserialize, Serialize)]
@@ -633,6 +760,7 @@ pub fn run() {
         .manage(Mutex::new(None::<Bridge>))
         .manage(Mutex::new(None::<AiBridge>))
         .manage(Mutex::new(None::<McuSession>))
+        .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
         .invoke_handler(tauri::generate_handler![
             greet,
             list_serial_ports,
@@ -650,6 +778,9 @@ pub fn run() {
             mcu_serial_is_open,
             mcu_serial_send,
             mcu_serial_read_line,
+            debug_serial_open,
+            debug_serial_close,
+            debug_serial_transfer,
             ai_get_config,
             ai_start,
             ai_chat,

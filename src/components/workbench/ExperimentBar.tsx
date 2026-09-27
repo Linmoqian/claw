@@ -17,12 +17,14 @@ import { useBridgeStore } from "../../stores/bridgeStore";
 import { useDevice } from "../../store/DeviceContext";
 import { useActivityStore } from "../../workbench/activity";
 import { useRuntimeStore } from "../../workbench/runtime";
+import { useMotorDebugStore } from "../../motorDebug/session";
 import "./WorkbenchChrome.css";
 
 const PAGE_NAMES: Record<string, string> = {
   "/workbench": "工作台总览",
   "/studio": "仿真与调参",
   "/blocks": "积木编程",
+  "/motor-debug": "单电机调试",
   "/experiments": "实验记录",
   "/data": "视频与数据",
   "/documents": "文档收集",
@@ -62,6 +64,10 @@ export default function ExperimentBar() {
   const replayPreparing = useActivityStore((state) => state.replayPreparing);
   const programRunning = useActivityStore((state) => state.programRunning);
   const { connected, connectingPort, disconnecting, connectionError, disconnect } = useDevice();
+  const debugPort = useMotorDebugStore((state) => state.port);
+  const debugTransitioning = useMotorDebugStore((state) => state.transitioning);
+  const debugBusy = useMotorDebugStore((state) => state.busy);
+  const debugClose = useMotorDebugStore((state) => state.close);
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -88,9 +94,9 @@ export default function ExperimentBar() {
         ? "等待回放准备完成并退出回放"
         : bridgeKind !== "simulation"
           ? "请先结束回放或断开数据桥并返回仿真"
-          : connectingPort || disconnecting
+          : connectingPort || disconnecting || debugTransitioning
             ? "等待串口连接操作完成"
-            : connected
+            : connected || debugPort
               ? "请先断开串口，再开始仿真实验"
               : programRunning
                 ? "请先停止程序，再开始实验"
@@ -166,6 +172,12 @@ export default function ExperimentBar() {
               onClick={() => void disconnect()}
             >
               {disconnecting ? "正在断开串口…" : "断开旧串口"}
+            </button>
+          )}
+          {debugPort && (
+            <button type="button" className="wb-button" disabled={debugTransitioning || debugBusy}
+              title="结束单电机调试并释放串口" onClick={() => void debugClose()}>
+              {debugTransitioning ? "正在断开调试串口…" : `断开调试串口 ${debugPort}`}
             </button>
           )}
         </div>
