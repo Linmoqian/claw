@@ -25,6 +25,7 @@
 回放退出后回到仿真待机。保存失败时保留当前会话中的数据，先重试保存或导出，再关闭窗口。
 
 完整流程、存储格式与验证方法见[统一实验工作台说明](docs/development/unified-workbench.md)。
+目录与桌面端职责见[分层架构说明](docs/development/backend-boundary.md)。
 
 ## 技术栈
 

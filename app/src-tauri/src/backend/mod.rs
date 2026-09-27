@@ -13,3 +13,4 @@ pub mod replay;
 pub mod servo;
 pub mod simulation;
 pub mod training;
+pub mod websocket;

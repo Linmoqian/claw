@@ -3,6 +3,8 @@
  * WS 生命周期与协议无关，把原生事件微整形后交给 ConnectionManager。
  */
 import type { Transport, Unsubscribe } from "./types";
+import { isTauri } from "@tauri-apps/api/core";
+import { DesktopWebSocketTransport } from "./desktopWebsocket";
 
 type Listeners<V> = Set<(value: V) => void>;
 
@@ -83,5 +85,7 @@ export class WebSocketTransport implements Transport {
 export function createWebSocketTransportFactory(): (
   url: string,
 ) => Transport {
-  return (url: string) => new WebSocketTransport(url);
+  return (url: string) => isTauri()
+    ? new DesktopWebSocketTransport(url)
+    : new WebSocketTransport(url);
 }

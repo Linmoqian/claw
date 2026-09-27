@@ -5,7 +5,7 @@ mod backend;
 
 use backend::{
     ai, assets, debug_serial, drafts, experiments, mcu, program, replay, servo, simulation,
-    training,
+    training, websocket,
 };
 use std::sync::Mutex;
 
@@ -34,6 +34,7 @@ pub fn run() {
         .manage(simulation::runtime::RuntimeManager::new())
         .manage(replay::ReplayManager::new())
         .manage(program::ProgramManager::new())
+        .manage(websocket::WebSocketManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
@@ -97,6 +98,9 @@ pub fn run() {
             program::program_reply,
             program::program_stop,
             training::adversarial::train_adversarial,
+            websocket::websocket_open,
+            websocket::websocket_send,
+            websocket::websocket_close,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
