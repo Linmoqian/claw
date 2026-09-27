@@ -5,9 +5,30 @@
  * @author:  https://github.com/Linmoqian
  */
 import type { ToolProfile } from "./types";
+import { isTauri } from "@tauri-apps/api/core";
+import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
 
 const TOOL_STORAGE_KEY = "xiakao:block-tool-profiles:v1";
 const ACTIVE_TOOL_KEY = "xiakao:block-active-tool:v1";
+let desktopProfiles: ToolProfile[] | null = null;
+let desktopActiveTool: string | null = null;
+
+export async function hydrateToolProfiles(): Promise<void> {
+  if (!isTauri()) return;
+  const [profiles, activeTool] = await Promise.all([
+    readDraft("tool-profiles", TOOL_STORAGE_KEY),
+    readDraft("active-tool", ACTIVE_TOOL_KEY),
+  ]);
+  if (profiles !== null) {
+    try {
+      const parsed: unknown = JSON.parse(profiles);
+      if (Array.isArray(parsed) && parsed.length > 0) desktopProfiles = parsed as ToolProfile[];
+    } catch {
+      // 保留损坏的 Rust 草稿；显式编辑前不覆盖。
+    }
+  }
+  desktopActiveTool = activeTool;
+}
 
 export const DEFAULT_TOOL_PROFILES: ToolProfile[] = [
   {
@@ -34,6 +55,7 @@ export const DEFAULT_TOOL_PROFILES: ToolProfile[] = [
 ];
 
 export function readToolProfiles(): ToolProfile[] {
+  if (desktopProfiles) return desktopProfiles;
   if (typeof window === "undefined") return DEFAULT_TOOL_PROFILES;
   try {
     const raw = window.localStorage.getItem(TOOL_STORAGE_KEY);
@@ -49,6 +71,11 @@ export function readToolProfiles(): ToolProfile[] {
 
 export function saveToolProfiles(profiles: ToolProfile[]): void {
   if (typeof window === "undefined") return;
+  if (isTauri()) {
+    desktopProfiles = profiles;
+    void writeDraft("tool-profiles", TOOL_STORAGE_KEY, JSON.stringify(profiles));
+    return;
+  }
   try {
     window.localStorage.setItem(TOOL_STORAGE_KEY, JSON.stringify(profiles));
   } catch {
@@ -57,6 +84,7 @@ export function saveToolProfiles(profiles: ToolProfile[]): void {
 }
 
 export function readActiveToolId(): string {
+  if (desktopActiveTool) return desktopActiveTool;
   if (typeof window === "undefined") return DEFAULT_TOOL_PROFILES[0].id;
   return (
     window.localStorage.getItem(ACTIVE_TOOL_KEY) ?? DEFAULT_TOOL_PROFILES[0].id
@@ -65,6 +93,11 @@ export function readActiveToolId(): string {
 
 export function saveActiveToolId(id: string): void {
   if (typeof window === "undefined") return;
+  if (isTauri()) {
+    desktopActiveTool = id;
+    void writeDraft("active-tool", ACTIVE_TOOL_KEY, id);
+    return;
+  }
   try {
     window.localStorage.setItem(ACTIVE_TOOL_KEY, id);
   } catch {

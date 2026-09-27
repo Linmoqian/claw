@@ -2,12 +2,14 @@
  * Created on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
-import { useRef, useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { isTauri } from "@tauri-apps/api/core";
 import { Link, useNavigate } from "react-router";
 import { Clapperboard, Database, FileUp, ArrowRight, Square } from "lucide-react";
 import VideoLibrary from "../../../components/videos/VideoLibrary";
 import { useExperimentStore } from "../domain/experimentStore";
 import { useRobotStore } from "../../../stores/robotStore";
+import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
 import "./DataCollection.css";
 import "./Experiments.css";
 
@@ -53,9 +55,8 @@ function isDataset(value: unknown): value is Dataset {
   );
 }
 
-function readDatasets(): DatasetRead {
+function parseDatasets(raw: string | null): DatasetRead {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return { datasets: [], error: null, writable: true };
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed) || !parsed.every(isDataset))
@@ -72,6 +73,22 @@ function readDatasets(): DatasetRead {
       error: "旧数据读取失败，原存储内容已保留。新实验记录使用独立数据库。",
       writable: false,
     };
+  }
+}
+
+function readDatasets(): DatasetRead {
+  try {
+    return parseDatasets(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return { datasets: [], error: "旧数据读取失败，原存储内容已保留。", writable: false };
+  }
+}
+
+async function readDatasetsAsync(): Promise<DatasetRead> {
+  try {
+    return parseDatasets(await readDraft("datasets", STORAGE_KEY));
+  } catch {
+    return { datasets: [], error: "草稿迁移或读取失败，原数据已保留，可刷新重试。", writable: false };
   }
 }
 
@@ -123,6 +140,13 @@ export default function DataCollection() {
   const robotReady = useRobotStore((state) => state.status === "ready");
   const navigate = useNavigate();
 
+  useEffect(() => {
+    if (!isTauri()) return;
+    let current = true;
+    void readDatasetsAsync().then((result) => { if (current) setLegacy(result); });
+    return () => { current = false; };
+  }, []);
+
   const handleImport = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -144,13 +168,13 @@ export default function DataCollection() {
         createdAt: new Date().toISOString(),
       };
       // 只在明确导入时写入；先验证最新值，避免覆盖损坏内容或其他页面的新增数据。
-      const latest = readDatasets();
+      const latest = await readDatasetsAsync();
       if (!latest.writable) {
         setLegacy(latest);
         throw new Error("旧数据发生变化，已保留原内容，请先修复后再导入");
       }
       const datasets = [dataset, ...latest.datasets];
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(datasets));
+      await writeDraft("datasets", STORAGE_KEY, JSON.stringify(datasets));
       setLegacy({ datasets, writable: true, error: null });
       setNotice(`已保存「${dataset.name}」的字段与行数摘要。`);
     } catch (reason) {

@@ -10,6 +10,7 @@ import { useActivityStore } from "./activity";
 import { cancelRuntimePreview, getRuntime, mountRuntime, useRuntimeStore } from "./runtime";
 import { useProgramStore } from "./programRunner";
 import { useMotorDebugStore } from "../../devices/motor-debug/session";
+import { hydrateToolProfiles } from "../../blocks/blockly/toolProfiles";
 import "./RuntimeHost.css";
 
 export default function RuntimeHost() {
@@ -32,6 +33,12 @@ export default function RuntimeHost() {
   useEffect(() => {
     if (status === "idle") void useRobotStore.getState().loadRobot(DEFAULT_ROBOT_ID);
   }, [status]);
+
+  useEffect(() => {
+    void hydrateToolProfiles().catch((error: unknown) => {
+      useRuntimeStore.setState({ error: `工具草稿迁移失败，可刷新重试：${String(error)}` });
+    });
+  }, []);
 
   useEffect(() => model ? mountRuntime(model) : undefined, [model]);
 

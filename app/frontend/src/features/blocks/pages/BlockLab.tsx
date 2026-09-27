@@ -37,6 +37,7 @@ import { parseProgramSnapshot } from "../../workbench/runtime/programSnapshot";
 import { resetProgramStatus, runProgram, stopProgram, useProgramStore, type ProgramStatus } from "../../workbench/runtime/programRunner";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import LoadingState from "../../../components/workbench/LoadingState";
+import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
 import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;
@@ -92,9 +93,9 @@ function registerConsoleBlocks() {
   registerBlockLabBlocks();
 }
 
-function readSavedWorkspace(): WorkspaceState | null {
+async function readSavedWorkspace(): Promise<WorkspaceState | null> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const raw = await readDraft("block-console", STORAGE_KEY);
     if (raw === null) return null;
     return parseProgramSnapshot(raw);
   } catch {
@@ -103,10 +104,10 @@ function readSavedWorkspace(): WorkspaceState | null {
   }
 }
 
-function saveWorkspace(state: WorkspaceState): boolean {
+async function saveWorkspace(state: WorkspaceState): Promise<boolean> {
   if (workspaceStorageBlocked) return false;
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    await writeDraft("block-console", STORAGE_KEY, JSON.stringify(state));
     return true;
   } catch {
     return false;
@@ -246,9 +247,12 @@ function BlockLab() {
     const workspace = workspaceRef.current;
     if (!workspace) return;
 
-    const saved = saveWorkspace(Blockly.serialization.workspaces.save(workspace));
+    const state = Blockly.serialization.workspaces.save(workspace);
     setBlockCount(workspace.getAllBlocks(false).length);
-    setLastSavedAt(saved ? "刚刚保存" : workspaceStorageBlocked ? "原草稿损坏，已保留；重置后恢复保存" : "保存失败，请检查浏览器存储");
+    void saveWorkspace(state).then((saved) => {
+      setLastSavedAt(saved ? "刚刚保存" : workspaceStorageBlocked
+        ? "原草稿损坏，已保留；重置后恢复保存" : "保存失败，请检查草稿存储");
+    });
   }, []);
 
   useEffect(() => {
@@ -274,15 +278,20 @@ function BlockLab() {
     });
     workspaceRef.current = workspace;
 
-    loadState(workspace, readSavedWorkspace() ?? DEFAULT_WORKSPACE);
+    let disposed = false;
     const handleChange = () => syncWorkspaceState();
-    workspace.addChangeListener(handleChange);
-    syncWorkspaceState();
+    void readSavedWorkspace().then((saved) => {
+      if (disposed) return;
+      loadState(workspace, saved ?? DEFAULT_WORKSPACE);
+      workspace.addChangeListener(handleChange);
+      syncWorkspaceState();
+    });
 
     const observer = new ResizeObserver(() => Blockly.svgResize(workspace));
     observer.observe(container);
 
     return () => {
+      disposed = true;
       observer.disconnect();
       workspace.removeChangeListener(handleChange);
       workspace.dispose();

@@ -3,7 +3,7 @@
 
 mod backend;
 
-use backend::{ai, assets, debug_serial, experiments, mcu, servo, simulation};
+use backend::{ai, assets, debug_serial, drafts, experiments, mcu, servo, simulation};
 use std::sync::Mutex;
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
@@ -24,6 +24,7 @@ pub fn run() {
         .manage(Mutex::new(None::<mcu::McuSession>))
         .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
         .manage(experiments::ExperimentLock(Mutex::new(())))
+        .manage(drafts::DraftStore(Mutex::new(())))
         .manage(assets::AssetManager(Mutex::new(
             std::collections::HashMap::new(),
         )))
@@ -57,6 +58,8 @@ pub fn run() {
             experiments::experiment_write,
             experiments::experiment_get,
             experiments::experiment_update_record,
+            drafts::draft_read,
+            drafts::draft_write,
             assets::asset_list,
             assets::asset_migration_done,
             assets::asset_mark_migrated,
