@@ -2,6 +2,7 @@
 // @author:  https://github.com/Linmoqian
 
 pub mod ai;
+pub mod assets;
 pub mod common;
 pub mod debug_serial;
 pub mod experiments;

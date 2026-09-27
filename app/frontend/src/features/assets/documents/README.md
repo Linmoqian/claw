@@ -1,7 +1,5 @@
 # 文档收集
 
-`repository.ts` 使用独立的 IndexedDB 保存 PDF 和 Markdown 文件副本及元信息。列表只读取元信息，阅读时才加载文件；导入和移除在同一事务内提交元信息与文件。
+`repository.ts` 在桌面端调用 Rust 分块资源仓库，在浏览器预览中使用 `indexedDbRepository.ts`。首次桌面读取会逐份迁入旧 PDF 和 Markdown 副本，完成标记写入 Rust 应用数据目录；失败保留原数据并重试。
 
-阅读界面位于 `app/frontend/src/features/assets/pages/Documents.tsx`。文件保存在当前设备的应用数据中，清除站点或应用数据会移除副本。
-
-项目资产页面可向此库导入文档，并通过文档 ID 打开阅读界面中的对应文件。
+列表仅读取元信息，阅读时才加载文件。页面位于 `app/frontend/src/features/assets/pages/Documents.tsx`，项目资产页通过文档 ID 打开对应阅读内容。

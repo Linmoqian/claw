@@ -3,7 +3,7 @@
 
 mod backend;
 
-use backend::{ai, debug_serial, experiments, mcu, servo};
+use backend::{ai, assets, debug_serial, experiments, mcu, servo};
 use std::sync::Mutex;
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
@@ -24,6 +24,9 @@ pub fn run() {
         .manage(Mutex::new(None::<mcu::McuSession>))
         .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
         .manage(experiments::ExperimentLock(Mutex::new(())))
+        .manage(assets::AssetManager(Mutex::new(
+            std::collections::HashMap::new(),
+        )))
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
@@ -53,6 +56,16 @@ pub fn run() {
             experiments::experiment_write,
             experiments::experiment_get,
             experiments::experiment_update_record,
+            assets::asset_list,
+            assets::asset_migration_done,
+            assets::asset_mark_migrated,
+            assets::asset_save_link,
+            assets::asset_begin_upload,
+            assets::asset_upload_chunk,
+            assets::asset_finish_upload,
+            assets::asset_abort_upload,
+            assets::asset_read_chunk,
+            assets::asset_remove,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
