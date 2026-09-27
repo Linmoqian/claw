@@ -30,7 +30,7 @@ import { useSceneStore } from "../stores/sceneStore";
 import { useWorldStore } from "../stores/worldStore";
 import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useBridgeStore } from "../stores/bridgeStore";
-import { useActivityStore } from "../workbench/activity";
+import { useActivityStore } from "../features/workbench/runtime/activity";
 
 /** 初始视角目标点（机器人基座附近，模型高度中段） */
 const INITIAL_TARGET = new THREE.Vector3(0, 0.22, 0);

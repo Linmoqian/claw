@@ -31,7 +31,7 @@ import {
   servoWritePosition,
 } from "../lib/serial";
 import { angleToPosition, positionToAngle } from "../lib/units";
-import { useActivityStore } from "../workbench/activity";
+import { useActivityStore } from "../features/workbench/runtime/activity";
 import { useBridgeStore } from "../stores/bridgeStore";
 import { serialConnectionBlockedReason } from "../lib/serialConnectionGuard";
 

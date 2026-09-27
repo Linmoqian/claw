@@ -18,9 +18,9 @@ import {
 } from "lucide-react";
 import LoadingState from "../workbench/LoadingState";
 import { isDesktop } from "../../lib/serial";
-import { videoRepository } from "../../videos/repository";
-import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../../videos/file";
-import type { VideoResource } from "../../videos/types";
+import { videoRepository } from "../../features/assets/videos/repository";
+import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../../features/assets/videos/file";
+import type { VideoResource } from "../../features/assets/videos/types";
 import "./VideoLibrary.css";
 
 function formatBytes(bytes: number | null): string {

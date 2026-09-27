@@ -11,13 +11,13 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useExperimentStore } from "../../experiments/experimentStore";
+import { useExperimentStore } from "../../features/experiments/domain/experimentStore";
 import { useRobotStore, findRobotEntry } from "../../stores/robotStore";
 import { useBridgeStore } from "../../stores/bridgeStore";
 import { useDevice } from "../../store/DeviceContext";
-import { useActivityStore } from "../../workbench/activity";
-import { useRuntimeStore } from "../../workbench/runtime";
-import { useMotorDebugStore } from "../../motorDebug/session";
+import { useActivityStore } from "../../features/workbench/runtime/activity";
+import { useRuntimeStore } from "../../features/workbench/runtime/runtime";
+import { useMotorDebugStore } from "../../features/devices/motor-debug/session";
 import "./WorkbenchChrome.css";
 
 const PAGE_NAMES: Record<string, string> = {

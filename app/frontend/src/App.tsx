@@ -9,28 +9,28 @@ import EstopButton from "./components/EstopButton";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
 import { DeviceProvider, useDevice } from "./store/DeviceContext";
 import { emitDebug } from "./lib/debugBus";
-import About from "./pages/About";
-import DataCollection from "./pages/DataCollection";
-import WorkbenchHome from "./pages/WorkbenchHome";
-import Experiments from "./pages/Experiments";
-import ExperimentDetail from "./pages/ExperimentDetail";
+import About from "./features/workbench/pages/About";
+import DataCollection from "./features/experiments/pages/DataCollection";
+import WorkbenchHome from "./features/workbench/pages/WorkbenchHome";
+import Experiments from "./features/experiments/pages/Experiments";
+import ExperimentDetail from "./features/experiments/pages/ExperimentDetail";
 import ExperimentBar from "./components/workbench/ExperimentBar";
 import PageBoundary from "./components/workbench/PageBoundary";
 import RuntimeBoundary from "./components/workbench/RuntimeBoundary";
 import LoadingState from "./components/workbench/LoadingState";
-import RuntimeHost from "./workbench/RuntimeHost";
+import RuntimeHost from "./features/workbench/runtime/RuntimeHost";
 import "./App.css";
 import "./workbench-theme.css";
 
-const Studio = lazy(() => import("./pages/Studio"));
-const BlockLab = lazy(() => import("./pages/BlockLab"));
-const AdversarialTraining = lazy(() => import("./pages/AdversarialTraining"));
-const ModelTraining = lazy(() => import("./pages/ModelTraining"));
-const TrainingCenter = lazy(() => import("./pages/TrainingCenter"));
-const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
-const Documents = lazy(() => import("./pages/Documents"));
-const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
-const MotorDebug = lazy(() => import("./pages/MotorDebug"));
+const Studio = lazy(() => import("./features/simulation/pages/Studio"));
+const BlockLab = lazy(() => import("./features/blocks/pages/BlockLab"));
+const AdversarialTraining = lazy(() => import("./features/training/pages/AdversarialTraining"));
+const ModelTraining = lazy(() => import("./features/training/pages/ModelTraining"));
+const TrainingCenter = lazy(() => import("./features/training/pages/TrainingCenter"));
+const VisionAssistant = lazy(() => import("./features/vision/pages/VisionAssistant"));
+const Documents = lazy(() => import("./features/assets/pages/Documents"));
+const AssetLibrary = lazy(() => import("./features/assets/pages/AssetLibrary"));
+const MotorDebug = lazy(() => import("./features/devices/pages/MotorDebug"));
 
 const contextItems: ContextMenuItem[] = [
   {

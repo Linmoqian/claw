@@ -2,7 +2,7 @@
  * 串口/舵机 Tauri command 封装。
  *
  * 所有调用仅在桌面端（Tauri）有效；浏览器端由调用方给出占位提示，不产生数据。
- * 参考 `src-tauri/src/lib.rs` 中的同名 command。
+ * 参考 `app/src-tauri/src/backend/servo.rs` 中的同名 command。
  */
 import { invoke, isTauri } from "@tauri-apps/api/core";
 

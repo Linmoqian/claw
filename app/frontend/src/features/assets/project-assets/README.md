@@ -1,0 +1,7 @@
+# 项目资产
+
+`repository.ts` 将训练数据、模型权重、3D 模型和算法 ZIP 存入独立 IndexedDB。导入时保存文件副本，桌面端路径引用只保存位置；移除引用不会删除原文件。此库不改变视频、文档、旧数据集或实验记录的存储格式。
+
+项目资产页面统一列出六类文件。视频仍写入 `app/frontend/src/features/assets/videos/repository.ts`，PDF 和 Markdown 仍写入 `app/frontend/src/features/assets/documents/repository.ts`；统一列表只聚合元信息，预览和阅读沿用各自页面。
+
+资产目前用于整理和下载，不会自动将数据送入训练、加载模型、渲染 3D 模型或执行算法代码。大文件可在桌面端选“引用原文件”，避免占用浏览器存储配额。

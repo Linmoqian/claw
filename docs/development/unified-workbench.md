@@ -63,11 +63,11 @@ flowchart TD
 
 | 模块                                                       | 职责                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------- |
-| `app/frontend/src/workbench/`                                           | 常驻场景、运行时、程序快照、执行与活动互斥状态       |
-| `app/frontend/src/experiments/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
-| `app/frontend/src/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
+| `app/frontend/src/features/workbench/runtime/`                                           | 常驻场景、运行时、程序快照、执行与活动互斥状态       |
+| `app/frontend/src/features/experiments/domain/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
+| `app/frontend/src/features/assets/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
 | `app/frontend/src/components/workbench/`                                | 顶部上下文、实验操作、页面与运行时错误边界           |
-| `app/frontend/src/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
+| `app/frontend/src/features/experiments/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
 | `app/frontend/src/stores/aiSessionStore.ts` / `trainingSessionStore.ts` | AI 与训练的应用内存会话                              |
 
 ## 采样与保存

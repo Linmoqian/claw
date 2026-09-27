@@ -1,6 +1,6 @@
 /** 三维场景失败时保留工作台和实验结果。Created on 2026-09-26 @author: https://github.com/Linmoqian */
 import { Component, type ReactNode } from "react";
-import { stopProgram } from "../../workbench/programRunner";
+import { stopProgram } from "../../features/workbench/runtime/programRunner";
 
 interface Props {
   children: ReactNode;

@@ -3,15 +3,15 @@
  * @author:  https://github.com/Linmoqian
  */
 import assert from "node:assert/strict";
-import { ExperimentJournal } from "../../../app/frontend/src/experiments/journal";
+import { ExperimentJournal } from "../../../app/frontend/src/features/experiments/domain/journal";
 import {
   sampleRuntime,
   toLegacyFrames,
-} from "../../../app/frontend/src/experiments/sampling";
+} from "../../../app/frontend/src/features/experiments/domain/sampling";
 import type {
   ExperimentBundle,
   ExperimentSample,
-} from "../../../app/frontend/src/experiments/types";
+} from "../../../app/frontend/src/features/experiments/domain/types";
 import { BaseSim } from "../../../app/frontend/src/robot/baseSim";
 import { buildRobotModel } from "../../../app/frontend/src/robot/model";
 import { SimulationLoop } from "../../../app/frontend/src/robot/simulation";
