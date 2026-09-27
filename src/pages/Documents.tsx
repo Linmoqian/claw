@@ -1,5 +1,6 @@
 /** PDF 与 Markdown 文档收集及阅读。Created on 2026-09-27; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type DragEvent } from "react";
+import { useLocation } from "react-router";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -51,6 +52,8 @@ function formatDate(value: string): string {
 }
 
 export default function Documents() {
+  const { search: locationSearch } = useLocation();
+  const requestedDocumentId = new URLSearchParams(locationSearch).get("document");
   const [records, setRecords] = useState<DocumentRecord[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [preview, setPreview] = useState<Preview | null>(null);
@@ -71,7 +74,10 @@ export default function Documents() {
       (items) => {
         if (cancelled) return;
         setRecords(items);
-        setSelectedId((current) => current ?? items[0]?.id ?? null);
+        setSelectedId((current) =>
+          items.find((item) => item.id === requestedDocumentId)?.id ??
+          (current && items.some((item) => item.id === current) ? current : items[0]?.id ?? null),
+        );
         setLoading(false);
       },
       (reason: unknown) => {
@@ -83,7 +89,7 @@ export default function Documents() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedDocumentId]);
 
   const selected = records.find((item) => item.id === selectedId) ?? null;
   const selectedKind = selected?.kind;

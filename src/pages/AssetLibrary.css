@@ -21,7 +21,7 @@
 .asset-library__kind-select { display: grid; gap: 4px; flex: 0 0 130px; }
 .asset-library__kind-select span { color: var(--text-tertiary); font-size: 10px; }
 .asset-library__kind-select select { width: 100%; min-height: 38px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font: inherit; font-size: 12px; }
-.asset-library__button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font: inherit; font-size: 12px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.asset-library__button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); background: var(--surface); font: inherit; font-size: 12px; font-weight: 600; text-decoration: none; white-space: nowrap; cursor: pointer; }
 .asset-library__button:hover:not(:disabled) { border-color: var(--accent-soft); color: var(--accent-deep); }
 .asset-library__button.is-primary { border-color: var(--accent); color: #fff; background: var(--accent); }
 .asset-library__button.is-primary:hover:not(:disabled) { color: #fff; background: var(--accent-deep); }
@@ -47,6 +47,8 @@
 .asset-library__list { display: grid; gap: 8px; }
 .asset-library__item { display: flex; align-items: center; gap: 13px; min-width: 0; padding: 13px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 .asset-library__file-icon { display: grid; flex: none; width: 42px; height: 42px; place-items: center; border-radius: 8px; color: var(--accent); background: var(--accent-softer); }
+.asset-library__file-icon.is-video { color: #397e95; background: #e9f5f7; }
+.asset-library__file-icon.is-document { color: #6b70a0; background: #f0f0fa; }
 .asset-library__file-icon.is-model-weights { color: #8260b1; background: #f3eefb; }
 .asset-library__file-icon.is-3d-model { color: #397e95; background: #e9f5f7; }
 .asset-library__file-icon.is-algorithm { color: #816d42; background: #f8f2e6; }

@@ -1,5 +1,6 @@
-/** 本地视频资源的导入、引用与预览。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/** 本地视频资源的导入、引用与预览。Created on 2026-09-27; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useLocation } from "react-router";
 import { open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
@@ -18,16 +19,9 @@ import {
 import LoadingState from "../workbench/LoadingState";
 import { isDesktop } from "../../lib/serial";
 import { videoRepository } from "../../videos/repository";
+import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../../videos/file";
 import type { VideoResource } from "../../videos/types";
 import "./VideoLibrary.css";
-
-const VIDEO_EXTENSIONS = ["mp4", "webm", "mov", "m4v", "mkv", "avi", "ogv"];
-const VIDEO_ACCEPT = `video/*,${VIDEO_EXTENSIONS.map((part) => `.${part}`).join(",")}`;
-
-function isVideoName(name: string, mimeType = ""): boolean {
-  const extension = name.split(".").pop()?.toLowerCase();
-  return mimeType.startsWith("video/") || VIDEO_EXTENSIONS.includes(extension ?? "");
-}
 
 function formatBytes(bytes: number | null): string {
   if (bytes === null) return "文件保留在原位置";
@@ -44,35 +38,9 @@ function formatDuration(seconds: number | null): string {
   return hours ? `${hours}:${String(minutes).padStart(2, "0")}:${rest}` : `${minutes}:${rest}`;
 }
 
-async function readDuration(file: File): Promise<number | null> {
-  const url = URL.createObjectURL(file);
-  try {
-    return await new Promise<number | null>((resolve) => {
-      const video = document.createElement("video");
-      let settled = false;
-      const timeout = window.setTimeout(() => finish(null), 4000);
-      const finish = (value: number | null) => {
-        if (settled) return;
-        settled = true;
-        window.clearTimeout(timeout);
-        video.onloadedmetadata = null;
-        video.onerror = null;
-        video.removeAttribute("src");
-        video.load();
-        resolve(value);
-      };
-      video.preload = "metadata";
-      video.onloadedmetadata = () =>
-        finish(Number.isFinite(video.duration) ? video.duration : null);
-      video.onerror = () => finish(null);
-      video.src = url;
-    });
-  } finally {
-    URL.revokeObjectURL(url);
-  }
-}
-
 export default function VideoLibrary() {
+  const { search: locationSearch } = useLocation();
+  const requestedVideoId = new URLSearchParams(locationSearch).get("video");
   const [videos, setVideos] = useState<VideoResource[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -105,6 +73,7 @@ export default function VideoLibrary() {
       (records) => {
         if (!cancelled) {
           setVideos(records);
+          if (requestedVideoId) setSelected(records.find((item) => item.id === requestedVideoId) ?? null);
           setError(null);
           setLoading(false);
         }
@@ -119,7 +88,7 @@ export default function VideoLibrary() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [requestedVideoId]);
 
   useEffect(() => {
     if (!selected) return;
@@ -173,7 +142,7 @@ export default function VideoLibrary() {
         if (!isVideoName(file.name, file.type))
           throw new Error(`${file.name} 不是受支持的视频文件`);
         if (file.size === 0) throw new Error(`${file.name} 是空文件`);
-        await videoRepository.import(file, await readDuration(file));
+        await videoRepository.import(file, await readVideoDuration(file));
         saved += 1;
         await refresh();
       }
