@@ -31,6 +31,7 @@ import { useWorldStore } from "../stores/worldStore";
 import { useWorkspaceStore } from "../cad/workspaceStore";
 import { useBridgeStore } from "../stores/bridgeStore";
 import { useActivityStore } from "../features/workbench/runtime/activity";
+import { desktopRuntimeEnabled } from "../features/workbench/runtime/desktopRuntime";
 
 /** 初始视角目标点（机器人基座附近，模型高度中段） */
 const INITIAL_TARGET = new THREE.Vector3(0, 0.22, 0);
@@ -121,6 +122,7 @@ function StageContent({ model, sim, baseSim, assetBase }: StageContentProps) {
 
   // 仿真驱动：渲染循环即仿真循环（step 内含碰撞评估→档位限速）
   useFrame((_, delta) => {
+    if (desktopRuntimeEnabled()) return;
     if (useBridgeStore.getState().bridge.kind !== "simulation" || (useActivityStore.getState().recordingSuspended || useActivityStore.getState().replayPreparing)) return;
     sim.step(delta);
     baseSim.step(delta);
@@ -258,6 +260,7 @@ export default function RobotStage({
 }: RobotStageProps) {
   const replay = useBridgeStore((state) => state.replay !== null);
   const suspended = useActivityStore((state) => state.recordingSuspended || state.replayPreparing);
+  const desktop = desktopRuntimeEnabled();
   return (
     <Canvas
       shadows
@@ -267,7 +270,7 @@ export default function RobotStage({
     >
       <Suspense fallback={null}>
         <Physics
-          paused={replay || suspended}
+          paused={desktop || replay || suspended}
           gravity={[0, -9.81, 0]}
           timeStep="vary"
           interpolate={false}
@@ -280,7 +283,7 @@ export default function RobotStage({
             baseSim={baseSim}
             assetBase={assetBase}
           />
-          <PhysicsTcpProxy sim={sim} />
+          {!desktop && <PhysicsTcpProxy sim={sim} />}
         </Physics>
       </Suspense>
       <SimulationCamera feedRef={cameraFeedRef} sim={sim} eyeInHand={eyeInHand} />

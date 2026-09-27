@@ -13,6 +13,7 @@ import {
   type RapierRigidBody,
 } from "@react-three/rapier";
 import * as THREE from "three";
+import { invoke } from "@tauri-apps/api/core";
 import {
   SCENE_PROP_LAYOUT,
   type ScenePropId,
@@ -23,6 +24,7 @@ import {
   snapshotScenePropPoses,
 } from "../robot/scenePhysics";
 import { useSceneStore } from "../stores/sceneStore";
+import { desktopRuntimeEnabled, getDesktopFrame } from "../features/workbench/runtime/desktopRuntime";
 
 /** 场景道具材质（模块级共享，避免每次渲染重复创建材质）。 */
 const CUP_BODY_MATERIAL = new THREE.MeshStandardMaterial({
@@ -251,6 +253,18 @@ export default function SceneProps() {
   const resetPropsToken = useSceneStore((s) => s.resetPropsToken);
 
   useFrame(() => {
+    if (desktopRuntimeEnabled()) {
+      const props = getDesktopFrame()?.props ?? [];
+      for (const prop of props) {
+        const body = prop.id === "cup" ? cupRef.current
+          : prop.id === "coffee-machine" ? machineRef.current : null;
+        if (!body) continue;
+        const [x, y, z] = prop.position_m;
+        const [rx, ry, rz, rw] = prop.rotation_xyzw;
+        body.setTranslation({ x, y, z }, false);
+        body.setRotation({ x: rx, y: ry, z: rz, w: rw }, false);
+      }
+    }
     syncPropPose("cup", cupRef.current);
     syncPropPose("coffee-machine", machineRef.current);
   });
@@ -270,6 +284,10 @@ export default function SceneProps() {
 
   useEffect(() => {
     if (resetPropsToken === 0) return;
+    if (desktopRuntimeEnabled()) {
+      void invoke("simulation_reset_props").catch(() => undefined);
+      return;
+    }
     resetRigidBody(cupRef.current, CUP_POSITION);
     resetRigidBody(machineRef.current, MACHINE_POSITION);
     clearScenePropPoses();

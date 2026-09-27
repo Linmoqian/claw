@@ -8,3 +8,4 @@ pub mod debug_serial;
 pub mod experiments;
 pub mod mcu;
 pub mod servo;
+pub mod simulation;

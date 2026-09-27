@@ -37,6 +37,7 @@ export interface BaseSnapshot {
 }
 
 export class BaseSim {
+  onTargetChanged: ((pose: BasePose) => void) | null = null;
   private current: BasePose = { x: 0, y: 0, yaw: 0 };
   private target: BasePose = { x: 0, y: 0, yaw: 0 };
   /** M4 会话预览位姿（null = 无预览；Ghost 标记用） */
@@ -66,6 +67,7 @@ export class BaseSim {
     this.target = { x, y, yaw: yaw ?? this.target.yaw };
     this.playing = false;
     this.queue = [];
+    this.onTargetChanged?.(this.target);
   }
 
   /** 目标位姿（Ghost 回退显示用） */
@@ -127,6 +129,13 @@ export class BaseSim {
     if (this.enabled) this.onPose?.({ ...this.current });
   }
 
+  /** 只同步 Rust 权威位姿；保留路径队列与预览意图。 */
+  applyAuthorityPose(pose: BasePose): void {
+    this.current = { ...pose };
+    if (this.playing) this.advanceQueue();
+    if (this.enabled) this.onPose?.({ ...this.current });
+  }
+
   get isPlaying(): boolean {
     return this.playing;
   }
@@ -159,7 +168,12 @@ export class BaseSim {
       return;
     }
     // yaw 目标 = 行进方向切线（atan2 的 world 平面语义）
-    this.target = { x: next.x, y: next.y, yaw: Math.atan2(dy, dx) };
+    const target = { x: next.x, y: next.y, yaw: Math.atan2(dy, dx) };
+    if (Math.hypot(target.x - this.target.x, target.y - this.target.y) > 1e-6
+      || Math.abs(target.yaw - this.target.yaw) > 1e-6) {
+      this.target = target;
+      this.onTargetChanged?.(target);
+    }
   }
 
   /** 现实向目标限速渐近：平移（直线）+ 转向（最短角差） */

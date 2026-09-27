@@ -49,6 +49,8 @@ const HOMING_RATE_DEG_S = 90;
 
 export class SimulationLoop {
   readonly model: RobotModel;
+  /** 桌面运行时只接收编辑意图；实际运动由 Rust 状态帧回写。 */
+  onControlIntent: ((mode: SimMode | "stop", targetsDeg: readonly number[]) => void) | null = null;
   /** 仿真速度倍率（UI 写） */
   speed = 1;
 
@@ -127,6 +129,7 @@ export class SimulationLoop {
     const rejected = this.checkCandidate(candidate);
     if (rejected) return rejected;
     this.targetDeg[index] = candidate[index];
+    this.onControlIntent?.("manual", this.targetDeg);
     return COLLISION_CLEAR;
   }
 
@@ -143,6 +146,7 @@ export class SimulationLoop {
     const rejected = this.checkCandidate(candidate);
     if (rejected) return rejected;
     this.targetDeg = candidate;
+    this.onControlIntent?.("manual", this.targetDeg);
     return COLLISION_CLEAR;
   }
 
@@ -196,6 +200,7 @@ export class SimulationLoop {
     this.targetDeg = [...this.previewDeg];
     this.mode = "manual";
     this.previewDeg = null;
+    this.onControlIntent?.("manual", this.targetDeg);
     return null;
   }
 
@@ -229,6 +234,7 @@ export class SimulationLoop {
     this.targetDeg = this.model.active.map(() => 0);
     this.previewDeg = null;
     this.clearTcpTarget();
+    this.onControlIntent?.("homing", this.targetDeg);
   }
 
   /** 播放演示轨迹（从 0 开始循环） */
@@ -237,6 +243,7 @@ export class SimulationLoop {
     this.mode = "play";
     this.previewDeg = null;
     this.clearTcpTarget();
+    this.onControlIntent?.("play", this.targetDeg);
   }
 
   /** 停止一切主动运动：目标冻结为当前值（纯仿真语义，非硬件急停） */
@@ -245,6 +252,7 @@ export class SimulationLoop {
     this.targetDeg = [...this.currentDeg];
     this.previewDeg = null;
     this.clearTcpTarget();
+    this.onControlIntent?.("stop", this.targetDeg);
   }
 
   /** 遥测直写（TWIN/LIVE/回放观察态）：现实即遥测，目标跟随现实
@@ -257,6 +265,17 @@ export class SimulationLoop {
     }
     this.mode = "manual";
     this.previewDeg = null;
+    this.updateTcp();
+  }
+
+  /** Rust 是桌面仿真的唯一状态源；回写不触发控制意图，预览仍留在界面。 */
+  applyAuthorityFrame(currentRad: number[], targetRad: number[], mode: SimMode, progress: number): void {
+    if (currentRad.length !== this.currentDeg.length || targetRad.length !== this.targetDeg.length) return;
+    this.currentDeg = currentRad.map((rad) => rad * 180 / Math.PI);
+    this.targetDeg = targetRad.map((rad) => rad * 180 / Math.PI);
+    this.mode = mode;
+    this.trajTime = Math.max(0, Math.min(1, progress))
+      * (this.traj[this.traj.length - 1]?.time ?? 10);
     this.updateTcp();
   }
 

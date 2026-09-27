@@ -8,6 +8,7 @@ import type { SimulationLoop } from "../../../robot/simulation";
 import type { RobotModel } from "../../../robot/types";
 import type { RecFrame } from "../../../services/protocol/recording";
 import type { ExperimentSample } from "./types";
+import type { SimulationFrame } from "../../workbench/runtime/desktopRuntime";
 
 export function sampleRuntime(
   runtime: { model: RobotModel; sim: SimulationLoop; baseSim: BaseSim },
@@ -31,6 +32,23 @@ export function sampleRuntime(
       state.tcp.position.y,
       state.tcp.position.z,
     ],
+  };
+}
+
+/** 直接采集 Rust 的有序 SI 状态帧，避免渲染帧或定时器重复采样。 */
+export function sampleAuthorityFrame(
+  frame: SimulationFrame,
+  model: RobotModel,
+  startedAtMs: number,
+): ExperimentSample {
+  return {
+    t: Math.max(0, (frame.timestampMs - startedAtMs) / 1000),
+    timestampMs: frame.timestampMs,
+    joints: Object.fromEntries(model.active.map((joint, index) => [
+      joint.def.name, frame.jointsRad[index],
+    ])),
+    base: { ...frame.base, z: 0 },
+    tcpPositionM: frame.tcpPositionM,
   };
 }
 

@@ -19,6 +19,7 @@ export default function RuntimeHost() {
   const status = useRobotStore((state) => state.status);
   const assetBase = useRobotStore((state) => state.assetBase);
   const runtime = useRuntimeStore((state) => state.ready ? getRuntime() : null);
+  const runtimeError = useRuntimeStore((state) => state.error);
   const eyeInHand = useRuntimeStore((state) => state.eyeInHand);
   const recording = useActivityStore((state) => state.recordingLocked);
   const running = useProgramStore((state) => state.status === "running");
@@ -82,6 +83,7 @@ export default function RuntimeHost() {
         cameraFeedRef={cameraFeedRef}
         eyeInHand={eyeInHand}
       />}
+      {runtimeError && <div role="alert" className="runtime-host__error">{runtimeError}</div>}
       <div className="runtime-host__mini-head">
         <span>{replay ? "实验回放" : "实验持续运行中"}</span>
         <Link to="/studio">返回场景</Link>

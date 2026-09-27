@@ -7,6 +7,7 @@ import { useWorkspaceStore } from "../../../cad/workspaceStore";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { findRobotEntry, useRobotStore } from "../../../stores/robotStore";
 import { useActivityStore } from "../../workbench/runtime/activity";
+import { desktopRuntimeEnabled, subscribeDesktopFrames } from "../../workbench/runtime/desktopRuntime";
 import {
   awaitRuntimeReady,
   getRuntime,
@@ -18,7 +19,7 @@ import {
 } from "../../workbench/runtime/programRunner";
 import { ExperimentJournal } from "./journal";
 import { experimentRepository } from "./repository";
-import { sampleRuntime, toLegacyFrames } from "./sampling";
+import { sampleAuthorityFrame, sampleRuntime, toLegacyFrames } from "./sampling";
 import type {
   ExperimentBundle,
   ExperimentExport,
@@ -51,6 +52,7 @@ let journal: ExperimentJournal | null = null;
 let samplingTimer: number | null = null;
 let writingTimer: number | null = null;
 let unsubscribeProgram: (() => void) | null = null;
+let unsubscribeFrames: (() => void) | null = null;
 let startedAt = 0;
 let replayOpening = false;
 
@@ -63,6 +65,8 @@ function stopCapture(): void {
   if (writingTimer !== null) window.clearInterval(writingTimer);
   samplingTimer = null;
   writingTimer = null;
+  unsubscribeFrames?.();
+  unsubscribeFrames = null;
 }
 
 function interruptCapture(error: unknown): void {
@@ -230,6 +234,7 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
     try {
       await currentJournal.flush();
       startedAt = performance.now();
+      const startedAtEpoch = Date.now();
       const capture = (): boolean => {
         if (
           getRuntime() !== runtime ||
@@ -266,8 +271,21 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
             }[event.type],
         });
       });
-      if (!capture()) return;
-      samplingTimer = window.setInterval(capture, 50);
+      if (desktopRuntimeEnabled()) {
+        unsubscribeFrames = subscribeDesktopFrames((frame) => {
+          if (frame.robotId !== record.robotId || getRuntime() !== runtime
+            || useBridgeStore.getState().bridge.kind !== "simulation") {
+            interruptCapture(new Error("采集机型或通道已改变，已停止本次实验"));
+            return;
+          }
+          const sample = sampleAuthorityFrame(frame, runtime.model, startedAtEpoch);
+          currentJournal.append(sample);
+          set({ sampleCount: currentJournal.bundle.samples.length, elapsedS: sample.t });
+        });
+      } else {
+        if (!capture()) return;
+        samplingTimer = window.setInterval(capture, 50);
+      }
       writingTimer = window.setInterval(() => {
         void currentJournal
           .flush()

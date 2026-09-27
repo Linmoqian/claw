@@ -14,7 +14,9 @@ import { useSimulationStore } from "../../../stores/simulationStore";
 import { useTargetStore } from "../../../stores/targetStore";
 import { useWorldStore } from "../../../stores/worldStore";
 import { useSceneStore } from "../../../stores/sceneStore";
+import { useRobotStore } from "../../../stores/robotStore";
 import { useActivityStore } from "./activity";
+import { connectDesktopRuntime, desktopRuntimeEnabled, setDesktopPaused } from "./desktopRuntime";
 
 export interface RobotRuntime {
   model: RobotModel;
@@ -26,6 +28,7 @@ interface RuntimeState {
   ready: boolean;
   status: "idle" | "ready";
   generation: number;
+  error: string | null;
   eyeInHand: boolean;
   setEyeInHand: (value: boolean) => void;
 }
@@ -34,6 +37,7 @@ export const useRuntimeStore = create<RuntimeState>((set) => ({
   ready: false,
   status: "idle",
   generation: 0,
+  error: null,
   eyeInHand: true,
   setEyeInHand: (eyeInHand) => set({ eyeInHand }),
 }));
@@ -59,14 +63,14 @@ export function stopRuntime(): void {
 }
 
 export function awaitRuntimeReady(model: RobotModel | null): Promise<void> {
-  if (runtime?.model === model && model) return Promise.resolve();
+  if (runtime?.model === model && model && useRuntimeStore.getState().ready) return Promise.resolve();
   return new Promise((resolve, reject) => {
     const timer = window.setTimeout(() => {
       unsubscribe();
       reject(new Error("仿真运行时未能就绪，请重试"));
     }, 10000);
     const unsubscribe = useRuntimeStore.subscribe(() => {
-      if (runtime?.model !== model || !model) return;
+      if (runtime?.model !== model || !model || !useRuntimeStore.getState().ready) return;
       window.clearTimeout(timer);
       unsubscribe();
       resolve();
@@ -79,6 +83,7 @@ export function mountRuntime(model: RobotModel): () => void {
   const collision = CollisionSystem.create(model);
   const sim = new SimulationLoop(model, collision);
   const baseSim = new BaseSim();
+  const desktop = desktopRuntimeEnabled();
   runtime = { model, sim, baseSim };
   baseSim.onPose = (pose) => useWorldStore.getState().updateRobotPose({
     position: { x: pose.x, y: pose.y, z: 0 },
@@ -140,6 +145,7 @@ export function mountRuntime(model: RobotModel): () => void {
   const unsubscribeBridge = useBridgeStore.subscribe((state, previous) => {
     if (state.bridge === previous.bridge) return;
     stopRuntime();
+    if (desktop) setDesktopPaused(state.bridge.kind !== "simulation" || useActivityStore.getState().replayPreparing);
     if (state.bridge.kind === "replay") useSceneStore.getState().requestResetProps();
     baseSim.enabled = state.bridge.kind === "simulation";
     const pose = useWorldStore.getState().world.robot?.pose;
@@ -148,6 +154,8 @@ export function mountRuntime(model: RobotModel): () => void {
   });
   const unsubscribeActivity = useActivityStore.subscribe((state, previous) => {
     if ((state.recordingSuspended && !previous.recordingSuspended) || (state.replayPreparing && !previous.replayPreparing)) stopRuntime();
+    if (desktop && state.replayPreparing !== previous.replayPreparing)
+      setDesktopPaused(state.replayPreparing || useBridgeStore.getState().bridge.kind !== "simulation");
   });
   setTargetCommittedHook((qDeg) => {
     const bridge = useBridgeStore.getState();
@@ -168,11 +176,23 @@ export function mountRuntime(model: RobotModel): () => void {
     __sim: sim, __baseSim: baseSim, __collision: collision,
     __sessionStore: useSessionStore, __worldStore: useWorldStore, __bridgeStore: useBridgeStore,
   });
-  useRuntimeStore.setState((state) => ({ ready: true, status: "ready", generation: state.generation + 1 }));
+  const disconnectDesktop = desktop ? connectDesktopRuntime(
+    useRobotStore.getState().currentId ?? "",
+    sim,
+    baseSim,
+    () => useRuntimeStore.setState((state) => ({
+      ready: true, status: "ready", error: null, generation: state.generation + 1,
+    })),
+    (message) => useRuntimeStore.setState({ error: message }),
+  ) : null;
+  if (!desktop) useRuntimeStore.setState((state) => ({
+    ready: true, status: "ready", error: null, generation: state.generation + 1,
+  }));
   return () => {
     window.clearInterval(syncTimer);
     window.clearInterval(bridgeTimer);
     stopRuntime();
+    disconnectDesktop?.();
     unregister();
     unsubscribeTelemetry();
     unsubscribeBridge();
@@ -183,6 +203,6 @@ export function mountRuntime(model: RobotModel): () => void {
     useSimulationStore.getState().bind(null);
     sim.dispose();
     runtime = null;
-    useRuntimeStore.setState({ ready: false, status: "idle" });
+    useRuntimeStore.setState({ ready: false, status: "idle", error: null });
   };
 }
