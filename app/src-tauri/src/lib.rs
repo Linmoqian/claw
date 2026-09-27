@@ -4,7 +4,8 @@
 mod backend;
 
 use backend::{
-    ai, assets, debug_serial, drafts, experiments, mcu, replay, servo, simulation, training,
+    ai, assets, debug_serial, drafts, experiments, mcu, program, replay, servo, simulation,
+    training,
 };
 use std::sync::Mutex;
 
@@ -32,6 +33,7 @@ pub fn run() {
         )))
         .manage(simulation::runtime::RuntimeManager::new())
         .manage(replay::ReplayManager::new())
+        .manage(program::ProgramManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
@@ -90,6 +92,9 @@ pub fn run() {
             replay::replay_clear,
             training::train_perception,
             training::train_decision,
+            program::program_start,
+            program::program_reply,
+            program::program_stop,
             training::adversarial::train_adversarial,
         ])
         .run(tauri::generate_context!())

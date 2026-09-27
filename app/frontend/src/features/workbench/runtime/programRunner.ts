@@ -12,6 +12,8 @@ import { useRobotStore } from "../../../stores/robotStore";
 import { useActivityStore } from "./activity";
 import { awaitRuntimeReady, getRuntime, stopRuntime } from "./runtime";
 import { createProgramSnapshot } from "./programSnapshot";
+import { isTauri } from "@tauri-apps/api/core";
+import { executeDesktopProgram } from "../../blocks/blockly/desktopProgram";
 
 export type ProgramStatus = "idle" | "running" | "complete" | "error" | "stopped";
 export interface ProgramLog { time: string; text: string; kind: LogKind }
@@ -118,7 +120,10 @@ export async function runProgram(source: Blockly.Workspace): Promise<void> {
     stopRuntime();
     emit({ type: "start", snapshot });
     appendProgramLog("仿真程序开始运行；视觉使用合成图像");
-    await executeWorkspace({ workspace, gateway: activeGateway, signal: runController.signal, log: appendProgramLog });
+    if (isTauri())
+      await executeDesktopProgram(workspace, activeGateway, runController.signal, appendProgramLog);
+    else
+      await executeWorkspace({ workspace, gateway: activeGateway, signal: runController.signal, log: appendProgramLog });
     if (runController.signal.aborted) throw new ExecutionAborted();
     useProgramStore.setState({ status: "complete" });
     appendProgramLog(useActivityStore.getState().recordingLocked

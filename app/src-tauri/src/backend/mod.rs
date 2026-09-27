@@ -8,6 +8,7 @@ pub mod debug_serial;
 pub mod drafts;
 pub mod experiments;
 pub mod mcu;
+pub mod program;
 pub mod replay;
 pub mod servo;
 pub mod simulation;

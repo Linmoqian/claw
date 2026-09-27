@@ -11,6 +11,7 @@ import "../../app/node_modules/blockly/blocks.mjs";
 import { registerBlockLabBlocks } from "../../app/frontend/src/features/blocks/blockly/blocks";
 import { DEFAULT_WORKSPACE } from "../../app/frontend/src/features/blocks/blockly/defaultWorkspace";
 import { createProgramSnapshot, parseProgramSnapshot } from "../../app/frontend/src/features/workbench/runtime/programSnapshot";
+import { createProgramAst } from "../../app/frontend/src/features/blocks/blockly/programAst";
 import { executeWorkspace } from "../../app/frontend/src/features/blocks/blockly/interpreter";
 import { solveCoplanarPnp } from "../../app/frontend/src/features/blocks/blockly/vision/pnp";
 import { DEFAULT_TOOL_PROFILES } from "../../app/frontend/src/features/blocks/blockly/toolProfiles";
@@ -287,6 +288,9 @@ async function verifyProgramSnapshotIsolation() {
   const executionBlock = frozen.workspace.getAllBlocks(false)
     .find((block) => block.type === "arm_joint_angle");
   assert.equal(executionBlock?.getFieldValue("ANGLE"), 30, "编辑和销毁页面不能改变运行快照");
+  const desktopAst = createProgramAst(frozen.workspace);
+  assert.equal(desktopAst.top.find((block) => block.type === "event_start")?.next?.fields.ANGLE,
+    "30", "Rust 执行树应保留冻结时的角度");
   await executeWorkspace({
     workspace: frozen.workspace,
     gateway,
