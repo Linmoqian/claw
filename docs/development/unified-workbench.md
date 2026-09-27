@@ -63,12 +63,12 @@ flowchart TD
 
 | 模块                                                       | 职责                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------- |
-| `src/workbench/`                                           | 常驻场景、运行时、程序快照、执行与活动互斥状态       |
-| `src/experiments/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
-| `src/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
-| `src/components/workbench/`                                | 顶部上下文、实验操作、页面与运行时错误边界           |
-| `src/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
-| `src/stores/aiSessionStore.ts` / `trainingSessionStore.ts` | AI 与训练的应用内存会话                              |
+| `app/frontend/src/workbench/`                                           | 常驻场景、运行时、程序快照、执行与活动互斥状态       |
+| `app/frontend/src/experiments/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
+| `app/frontend/src/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
+| `app/frontend/src/components/workbench/`                                | 顶部上下文、实验操作、页面与运行时错误边界           |
+| `app/frontend/src/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
+| `app/frontend/src/stores/aiSessionStore.ts` / `trainingSessionStore.ts` | AI 与训练的应用内存会话                              |
 
 ## 采样与保存
 
@@ -131,21 +131,21 @@ AI 配置更换仍需先成功停止活动会话；清空或停止失败会保�
 以下为可复用的验收命令与检查步骤，实际运行结果见下方“本轮验证记录”。本轮不运行生产构建。
 
 ```powershell
-pnpm exec tsc --noEmit
-pnpm run lint
+pnpm --dir app exec tsc --noEmit
+pnpm --dir app run lint
 git diff --check
-pnpm dlx tsx scripts/verify-block-program.ts
-pnpm dlx tsx scripts/verify-block-vision.ts
-pnpm dlx tsx scripts/verification/experiments/verify.ts
-pnpm dlx tsx scripts/sessions/integration/verify-sessions.ts
-pnpm dlx tsx scripts/verify-protocol.ts
-pnpm dlx tsx scripts/verify-collision.ts
+pnpm dlx tsx tools/verification/verify-block-program.ts
+pnpm dlx tsx tools/verification/verify-block-vision.ts
+pnpm dlx tsx tools/verification/experiments/verify.ts
+pnpm dlx tsx tools/verification/sessions/integration/verify-sessions.ts
+pnpm dlx tsx tools/verification/verify-protocol.ts
+pnpm dlx tsx tools/verification/verify-collision.ts
 ```
 
 `tsx` 不在当前项目依赖中，`pnpm dlx` 临时执行；本地已安装时也可用 `pnpm exec tsx`。
 积木脚本覆盖冻结后修改／销毁编辑器仍按快照执行；视觉脚本覆盖 OpenCV 并发初始化、异步对象处理及合成图像颜色检测；实验脚本覆盖实际状态采样、SI 单位、旧录像 90° 的首帧／插值／末帧、损坏帧拒绝、写入失败重试与提交顺序；会话脚本使用替身 AI client 验证跨订阅状态、失败恢复和连接门禁，不调用真实模型或硬件。
 
-启动 `pnpm run dev --host 127.0.0.1` 后，在 Codex 内置浏览器验收：
+启动 `pnpm --dir app run dev -- --host 127.0.0.1` 后，在 Codex 内置浏览器验收：
 
 1. 开始实验，运行运动，切到数据页确认时长和采样数继续增加，返回场景并结束保存。
 2. 刷新页面，确认记录仍存在；查看曲线和日志，回放、拖动时间轴并退出，确认不会自动恢复执行。

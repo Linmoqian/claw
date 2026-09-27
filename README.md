@@ -33,10 +33,10 @@ Tauri 2 · React 19 · TypeScript · Vite · motion · lucide-react
 ## 开发
 
 ```bash
-pnpm install
-pnpm run dev        # 浏览器预览（固定端口 1421）
-pnpm run tauri dev  # Tauri 桌面应用
-pnpm dlx tsx scripts/verify-model-training.ts  # 验证感知/决策训练基线
+pnpm --dir app install
+pnpm --dir app run dev        # 浏览器预览（固定端口 1421）
+pnpm --dir app run tauri dev  # Tauri 桌面应用
+pnpm dlx tsx tools/verification/verify-model-training.ts  # 验证感知/决策训练基线
 ```
 
 > 浏览器预览时 Tauri 窗口 API 自动降级（`isTauri` 守卫），不影响布局验证。
@@ -44,8 +44,8 @@ pnpm dlx tsx scripts/verify-model-training.ts  # 验证感知/决策训练基线
 本轮开发验证采用静态检查，不生成生产构建：
 
 ```powershell
-pnpm exec tsc --noEmit
-pnpm run lint
+pnpm --dir app exec tsc --noEmit
+pnpm --dir app run lint
 git diff --check
 ```
 
@@ -66,7 +66,7 @@ git diff --check
 ```powershell
 $env:ZDTAICHU_PYTHON = "C:\Users\30470\Anaconda3\envs\zdtaichu\python.exe"
 $env:ZDTAICHU_MODEL_PATH = "D:\models\ZDTaichu5.0-9B"
-pnpm run tauri dev
+pnpm --dir app run tauri dev
 ```
 
 OpenAI-compatible 示例：

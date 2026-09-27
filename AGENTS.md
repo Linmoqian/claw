@@ -5,17 +5,17 @@
 
 ## Project Structure & Module Organization
 
-The desktop workbench pairs a React frontend with a Tauri backend. Frontend code lives in `src/`: pages in `src/pages/`, reusable UI in `src/components/`, Three.js scene code in `src/three/`, Zustand stores in `src/stores/`, and domain logic in `src/core/`, `src/robot/`, `src/services/`, and `src/command/`. Static robot models and application assets are in `public/`. Rust/Tauri code, capabilities, and the Python servo bridge are under `src-tauri/`. Protocol requirements are documented in `docs/development/protocol-v2.md`; local mock and verification utilities live in `mock/` and `scripts/`.
+The desktop workbench pairs a React frontend in `app/frontend/` with a Tauri backend in `app/src-tauri/`. Frontend source and static assets are under `app/frontend/src/` and `app/frontend/public/`. Protocol requirements live in `docs/development/protocol-v2.md`; local mock and verification utilities live in `tools/mock/` and `tools/verification/`.
 
 ## Build, Test, and Development Commands
 
-- `pnpm install` installs frontend and Tauri CLI dependencies.
-- `pnpm run dev` starts the Vite browser preview (port 1421); Tauri APIs are guarded for browser use.
-- `pnpm run tauri dev` runs the desktop application with its Rust backend.
-- `pnpm run build` type-checks with `tsc` and creates a production frontend build.
-- `pnpm run lint` runs ESLint across the repository.
-- `pnpm run format` applies Prettier; do not run it over unrelated dirty files.
-- `pnpm exec tsx scripts/verify-protocol.ts` and `pnpm exec tsx scripts/verify-collision.ts` validate the corresponding domain rules when those areas change.
+- `pnpm --dir app install` installs frontend and Tauri CLI dependencies.
+- `pnpm --dir app run dev` starts the Vite browser preview (port 1421); Tauri APIs are guarded for browser use.
+- `pnpm --dir app run tauri dev` runs the desktop application with its Rust backend.
+- `pnpm --dir app exec tsc --noEmit` type-checks the frontend without producing a build.
+- `pnpm --dir app run lint` runs ESLint across the application and tools.
+- `pnpm --dir app run format` applies Prettier; do not run it over unrelated dirty files.
+- `pnpm dlx tsx tools/verification/verify-protocol.ts` and the corresponding collision script validate domain rules when those areas change.
 
 ## Coding Style & Naming Conventions
 
@@ -25,7 +25,7 @@ Wire payloads use SI units only: metres, radians, seconds, and their documented 
 
 ## Testing Guidelines
 
-There is no automated test runner yet. Run `pnpm run lint` and `pnpm run build` for every code change, plus the relevant script validation above. Add focused tests or verification scripts for protocol, kinematics, collision, or command-arbitration changes; name them after the behavior they verify.
+There is no automated frontend test runner yet. Run TypeScript `--noEmit` and ESLint for code changes, plus focused verification scripts for changed domain rules. Run `cargo check` for Rust changes when authorized; do not make a production build for static validation.
 
 ## Commit & Pull Request Guidelines
 
