@@ -326,7 +326,7 @@ export class SimulationDeviceGateway implements BlockDeviceGateway {
   }
 
   async serialOpen(): Promise<void> {
-    throw new Error("仿真模式不支持串口；请在桌面端显式开启硬件执行");
+    throw new Error("当前工作台已停用串口积木；请移除旧程序中的串口指令");
   }
 
   async serialClose(): Promise<void> {}
@@ -337,7 +337,7 @@ export class SimulationDeviceGateway implements BlockDeviceGateway {
     throw new Error("仿真模式不支持串口读取");
   }
   async pinMode(): Promise<void> {
-    throw new Error("仿真模式不支持引脚；请使用桌面 MCU 串口桥");
+    throw new Error("当前工作台已停用引脚积木；请移除旧程序中的引脚指令");
   }
   async digitalWrite(): Promise<void> {
     throw new Error("仿真模式不支持数字输出");

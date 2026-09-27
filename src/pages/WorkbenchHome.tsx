@@ -11,10 +11,8 @@ import {
   Circle,
   Clock3,
   Clapperboard,
-  CarFront,
   FlaskConical,
   FolderOpen,
-  Plug,
   ScanEye,
 } from "lucide-react";
 import { useExperimentStore } from "../experiments/experimentStore";
@@ -24,7 +22,6 @@ import { isDesktop } from "../lib/serial";
 import { useBridgeStore } from "../stores/bridgeStore";
 import { useRuntimeStore } from "../workbench/runtime";
 import { useActivityStore } from "../workbench/activity";
-import { useProgramStore } from "../workbench/programRunner";
 import "./WorkbenchHome.css";
 
 function durationLabel(seconds: number): string {
@@ -44,7 +41,6 @@ export default function WorkbenchHome() {
   const bridgeKind = useBridgeStore((state) => state.bridge.kind);
   const replayPreparing = useActivityStore((state) => state.replayPreparing);
   const programRunning = useActivityStore((state) => state.programRunning);
-  const hardwareMode = useProgramStore((state) => state.hardwareMode);
   const { connected, connectingPort, disconnecting } = useDevice();
   const modelLabel = modelId
     ? (findRobotEntry(modelId)?.label ?? modelId)
@@ -75,9 +71,7 @@ export default function WorkbenchHome() {
             ? "切换通道中"
             : programRunning
               ? "程序运行中"
-              : hardwareMode
-                ? "切回仿真通道"
-                : "可开始";
+              : "可开始";
 
   return (
     <div className="workbench-home">
@@ -276,17 +270,6 @@ export default function WorkbenchHome() {
               {experimentReadiness}
             </small>
           </div>
-          <Link to="/connect" className="home-readiness__item">
-            <Plug size={17} />
-            <div>
-              <strong>串口设备</strong>
-              <span>{isDesktop() ? "独立硬件通道" : "桌面端可用"}</span>
-            </div>
-            <small className={connected ? "is-ready" : ""}>
-              {connected ? "已连接" : "未连接"}
-            </small>
-            <ArrowUpRight size={12} />
-          </Link>
           {loadError && (
             <p className="home-readiness__error" role="alert">
               {loadError}
@@ -303,14 +286,6 @@ export default function WorkbenchHome() {
         </section>
       </div>
       <section className="home-tools" aria-label="分析与辅助工具">
-        <Link to="/devices">
-          <CarFront size={19} />
-          <div>
-            <strong>设备目录</strong>
-            <span>按车辆、无人机、机械臂查看机型</span>
-          </div>
-          <ArrowUpRight size={14} />
-        </Link>
         <Link to="/assets">
           <FolderOpen size={19} />
           <div>

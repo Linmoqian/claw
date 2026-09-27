@@ -81,14 +81,10 @@ export default function Studio() {
   const bridgeError = useBridgeStore((s) => s.lastError);
   const isLive = useBridgeStore((s) => s.isLive);
   const replay = useBridgeStore((s) => s.replay);
-  const connectMock = useBridgeStore((s) => s.connectMock);
-  const connectRemote = useBridgeStore((s) => s.connectRemote);
   const enterReplay = useBridgeStore((s) => s.enterReplay);
   const replayControl = useBridgeStore((s) => s.replayControl);
   const exitReplay = useBridgeStore((s) => s.exitReplay);
   const backToSim = useBridgeStore((s) => s.backToSim);
-  const [liveUrl, setLiveUrl] = useState("");
-  const [liveChecked, setLiveChecked] = useState(false);
   // M5 工作区与底座
   const workspace = useWorkspaceStore((s) => s.workspace);
   const workspaceSource = useWorkspaceStore((s) => s.source);
@@ -189,7 +185,7 @@ export default function Studio() {
           <button type="button" role="tab" aria-selected={mobilePanel === "tools"} onClick={() => setMobilePanel("tools")}>工具</button>
           <button type="button" role="tab" aria-selected={mobilePanel === "scene"} onClick={() => setMobilePanel("scene")}>场景</button>
         </div>
-        <button type="button" className="studio__quick-stop" onClick={() => { stopProgram(); stop(); }} title="停止当前程序与仿真运动；硬件急停使用右下角按钮">停止仿真</button>
+        <button type="button" className="studio__quick-stop" onClick={() => { stopProgram(); stop(); }} title="停止当前程序与仿真运动">停止仿真</button>
       </div>
       {/* 左：控制台 */}
       <aside className="studio__console">
@@ -289,36 +285,8 @@ export default function Studio() {
               </div>
             </>
           ) : bridgeInfo.kind === "simulation" ? (
-            /* —— SIM 态：连接组 + 录制组 —— */
+            /* —— SIM 态：本地实验与旧录像导入 —— */
             <>
-              <div className="studio__replay-row">
-                <button type="button" className="studio__link-btn" disabled={recordingLocked || programRunning} onClick={() => void connectMock()}>
-                  接入 MOCK
-                </button>
-                <input
-                  className="studio__link-url"
-                  type="text"
-                  placeholder="ws://真机地址:端口"
-                  value={liveUrl}
-                  onChange={(e) => setLiveUrl(e.target.value)}
-                />
-                <label className="studio__link-check">
-                  <input
-                    type="checkbox"
-                    checked={liveChecked}
-                    onChange={(e) => setLiveChecked(e.target.checked)}
-                  />
-                  LIVE
-                </label>
-                <button
-                  type="button"
-                  className={`studio__link-btn ${liveChecked ? "is-live" : ""}`}
-                  disabled={!liveUrl.trim().startsWith("ws") || recordingLocked || programRunning}
-                  onClick={() => void connectRemote(liveUrl.trim(), liveChecked)}
-                >
-                  连接
-                </button>
-              </div>
               <p className="studio__experiment-note">使用顶部“开始实验”采集运动，结束后在实验记录中查看、导出和回放。</p>
               <div className="studio__replay-row">
                 <select aria-label="旧录像对应机型" value={legacyRobotId} onChange={(event) => setLegacyRobotId(event.target.value)} disabled={recordingLocked || programRunning}>

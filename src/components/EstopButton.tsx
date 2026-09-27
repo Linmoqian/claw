@@ -6,7 +6,8 @@ import "./EstopButton.css";
 
 /** 串口停止：尝试读当前位置并写回目标以保持扭矩；不覆盖 Studio LIVE。 */
 export default function EstopButton() {
-  const { estop, triggerEstop, clearEstop } = useDevice();
+  const { connected, estop, triggerEstop, clearEstop } = useDevice();
+  if (!connected && !estop) return null;
   return (
     <button
       type="button"

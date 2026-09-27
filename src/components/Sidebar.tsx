@@ -2,27 +2,19 @@
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router";
 import {
-  Activity,
   Blocks,
   BookOpen,
   Box,
   BrainCircuit,
-  CarFront,
   ChevronDown,
-  Cpu,
   Clapperboard,
   FlaskConical,
   FolderOpen,
-  Gauge,
   House,
   Info,
   PanelLeftClose,
   PanelLeftOpen,
-  Plug,
   ScanEye,
-  ShieldAlert,
-  SlidersHorizontal,
-  ToggleRight,
   type LucideIcon,
 } from "lucide-react";
 import "./Sidebar.css";
@@ -63,20 +55,6 @@ const GROUPS: NavigationGroup[] = [
         activePaths: ["/model-training", "/training"],
       },
       { to: "/vision", label: "视觉助手", icon: ScanEye },
-    ],
-  },
-  {
-    id: "device",
-    label: "设备与诊断",
-    items: [
-      { to: "/devices", label: "设备目录", icon: CarFront },
-      { to: "/connect", label: "设备连接", icon: Plug },
-      { to: "/monitor", label: "关节状态", icon: Cpu },
-      { to: "/control", label: "基础控制", icon: ToggleRight },
-      { to: "/mode", label: "控制模式", icon: SlidersHorizontal },
-      { to: "/pid", label: "PID 参数", icon: Gauge },
-      { to: "/scope", label: "实时曲线", icon: Activity },
-      { to: "/safety", label: "故障与安全", icon: ShieldAlert },
     ],
   },
 ];

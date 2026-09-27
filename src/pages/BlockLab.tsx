@@ -27,8 +27,6 @@ import {
   useReadyModel,
   useRobotStore,
 } from "../stores/robotStore";
-import { useDevice } from "../store/DeviceContext";
-import { isDesktop } from "../lib/serial";
 import { registerBlockLabBlocks } from "../blockly/blocks";
 import { DEFAULT_WORKSPACE } from "../blockly/defaultWorkspace";
 import { BLOCK_TOOLBOX } from "../blockly/toolbox";
@@ -36,7 +34,7 @@ import { BLOCK_TOOLBOX } from "../blockly/toolbox";
 import { useActivityStore } from "../workbench/activity";
 import { getRuntime } from "../workbench/runtime";
 import { parseProgramSnapshot } from "../workbench/programSnapshot";
-import { appendProgramLog, resetProgramStatus, runProgram, setProgramHardwareMode, stopProgram, useProgramStore, type ProgramStatus } from "../workbench/programRunner";
+import { resetProgramStatus, runProgram, stopProgram, useProgramStore, type ProgramStatus } from "../workbench/programRunner";
 import { useBridgeStore } from "../stores/bridgeStore";
 import LoadingState from "../components/workbench/LoadingState";
 import "./BlockLab.css";
@@ -127,7 +125,6 @@ function loadState(workspace: Blockly.WorkspaceSvg, state: WorkspaceState) {
 }
 
 function BlockLab() {
-  const { estop } = useDevice();
   const model = useReadyModel();
   const robotStatus = useRobotStore((state) => state.status);
   const currentRobotId = useRobotStore((state) => state.currentId);
@@ -137,7 +134,6 @@ function BlockLab() {
   const [blockCount, setBlockCount] = useState(0);
   const [lastSavedAt, setLastSavedAt] = useState("自动保存");
   const runStatus = useProgramStore((state) => state.status);
-  const hardwareMode = useProgramStore((state) => state.hardwareMode);
   const lastDetection = useProgramStore((state) => state.lastDetection);
   const logs = useProgramStore((state) => state.logs);
   const recordingLocked = useActivityStore((state) => state.recordingLocked);
@@ -298,10 +294,6 @@ function BlockLab() {
     if (robotStatus === "idle") void loadRobot(DEFAULT_ROBOT_ID);
   }, [loadRobot, robotStatus]);
 
-  useEffect(() => {
-    if (estop && useProgramStore.getState().hardwareMode) stopProgram();
-  }, [estop]);
-
   const handleRun = () => {
     if (workspaceRef.current) void runProgram(workspaceRef.current);
   };
@@ -315,11 +307,6 @@ function BlockLab() {
     workspaceStorageBlocked = false;
     loadState(workspace, DEFAULT_WORKSPACE);
     syncWorkspaceState();
-  };
-  const toggleHardwareMode = () => {
-    if (runStatus === "running" || recordingLocked || replay) return;
-    setProgramHardwareMode(!hardwareMode);
-    appendProgramLog(hardwareMode ? "已切回仿真通道" : "已切换硬件通道（仍需串口连接）", "warning");
   };
   const statusLabel = STATUS_LABELS[runStatus];
   const armStageMode = runStatus;
@@ -351,11 +338,9 @@ function BlockLab() {
               </div>
               <div className="block-console__program-status">
                 <span className="block-console__status-dot" />
-                <span>{hardwareMode ? "硬件模式" : "仿真模式"}</span>
+                <span>仿真模式</span>
                 <span className="block-console__status-note">
-                  {hardwareMode
-                    ? "桌面硬件通道 · 需串口连接"
-                    : "本地仿真 · 新示例使用关节目标"}
+                  本地仿真 · 新示例使用关节目标
                 </span>
               </div>
             </div>
@@ -380,7 +365,7 @@ function BlockLab() {
                 type="button"
                 className="console-button console-button--primary"
                 onClick={handleRun}
-                disabled={runStatus === "running" || replay || !model || (hardwareMode && estop) || recordingSuspended || serialTransition}
+                disabled={runStatus === "running" || replay || !model || recordingSuspended || serialTransition}
                 title={recordingSuspended ? "请等待实验保存或回放准备完成后运行" : serialTransition ? "串口正在切换，请稍候" : replay ? "请退出回放后运行" : !model ? "请等待模型就绪" : "使用程序快照运行，切页后继续执行"}
               >
                 <Play size={15} fill="currentColor" />
@@ -394,19 +379,6 @@ function BlockLab() {
               >
                 <Square size={13} fill="currentColor" />
                 停止
-              </button>
-              <button
-                type="button"
-                className={`console-button ${hardwareMode ? "console-button--danger" : ""}`}
-                onClick={toggleHardwareMode}
-                disabled={!isDesktop() || runStatus === "running" || recordingLocked || replay}
-                title={
-                  !isDesktop()
-                    ? "浏览器预览不支持硬件执行"
-                    : "切换仿真/硬件执行通道"
-                }
-              >
-                {hardwareMode ? "仿真通道" : "硬件通道"}
               </button>
               <button
                 type="button"
@@ -434,9 +406,7 @@ function BlockLab() {
               从左侧工具箱拖入积木
             </span>
             <span>
-              {hardwareMode
-                ? "硬件模式：动作将访问真实设备"
-                : "新示例：J1 15° 与夹爪 · 先在仿真试运行"}
+              新示例：J1 15° 与夹爪 · 先在仿真试运行
             </span>
           </footer>
         </section>
@@ -487,7 +457,7 @@ function BlockLab() {
           >
             <div className="block-console__arena-topline">
               <span>
-                {currentArmLabel} / {hardwareMode ? "HARDWARE" : "SIMULATION"}
+                {currentArmLabel} / SIMULATION
               </span>
               <span className="block-console__scene-signal">
                 <span />

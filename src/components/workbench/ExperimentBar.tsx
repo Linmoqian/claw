@@ -17,7 +17,6 @@ import { useBridgeStore } from "../../stores/bridgeStore";
 import { useDevice } from "../../store/DeviceContext";
 import { useActivityStore } from "../../workbench/activity";
 import { useRuntimeStore } from "../../workbench/runtime";
-import { useProgramStore } from "../../workbench/programRunner";
 import "./WorkbenchChrome.css";
 
 const PAGE_NAMES: Record<string, string> = {
@@ -28,18 +27,10 @@ const PAGE_NAMES: Record<string, string> = {
   "/data": "视频与数据",
   "/documents": "文档收集",
   "/assets": "项目资产",
-  "/devices": "设备目录",
   "/training-center": "训练中心",
   "/model-training": "智能训练",
   "/training": "对抗训练",
   "/vision": "视觉助手",
-  "/connect": "设备连接",
-  "/monitor": "关节状态",
-  "/control": "基础控制",
-  "/mode": "控制模式",
-  "/pid": "PID 参数",
-  "/scope": "实时曲线",
-  "/safety": "故障与安全",
   "/about": "关于工作台",
 };
 
@@ -66,13 +57,11 @@ export default function ExperimentBar() {
   const currentId = useRobotStore((state) => state.currentId);
   const robotStatus = useRobotStore((state) => state.status);
   const bridgeKind = useBridgeStore((state) => state.bridge.kind);
-  const bridgeConnected = useBridgeStore((state) => state.info.connected);
   const isLive = useBridgeStore((state) => state.isLive);
   const runtimeReady = useRuntimeStore((state) => state.ready);
   const replayPreparing = useActivityStore((state) => state.replayPreparing);
   const programRunning = useActivityStore((state) => state.programRunning);
-  const hardwareMode = useProgramStore((state) => state.hardwareMode);
-  const { connected, connectingPort, disconnecting } = useDevice();
+  const { connected, connectingPort, disconnecting, connectionError, disconnect } = useDevice();
   const [name, setName] = useState("");
   const [starting, setStarting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -105,9 +94,7 @@ export default function ExperimentBar() {
               ? "请先断开串口，再开始仿真实验"
               : programRunning
                 ? "请先停止程序，再开始实验"
-                : hardwareMode
-                  ? "请先在积木页切回仿真通道"
-                  : null;
+                : null;
 
   useEffect(() => {
     void initialize();
@@ -168,24 +155,19 @@ export default function ExperimentBar() {
           <span aria-hidden="true">/</span>
           <strong>{PAGE_NAMES[pathname] ?? "实验详情"}</strong>
         </div>
-        <div className="workbench-context__states" aria-label="工作台连接状态">
+        <div className="workbench-context__states" aria-label="工作台状态">
           <span className="wb-chip">{modelLabel}</span>
           <span className="wb-chip wb-chip--mode">{modeLabel}</span>
-          <Link
-            to="/connect"
-            className={`wb-link-state ${connected ? "is-online" : ""}`}
-          >
-            串口 {connected ? "已连接" : "未连接"}
-          </Link>
-          <Link
-            to="/connect"
-            className={`wb-link-state ${bridgeKind === "websocket" && bridgeConnected ? "is-online" : ""}`}
-          >
-            WS{" "}
-            {bridgeKind === "websocket" && bridgeConnected
-              ? "已连接"
-              : "未连接"}
-          </Link>
+          {connected && (
+            <button
+              type="button"
+              className="wb-button"
+              disabled={disconnecting || Boolean(connectingPort)}
+              onClick={() => void disconnect()}
+            >
+              {disconnecting ? "正在断开串口…" : "断开旧串口"}
+            </button>
+          )}
         </div>
         {!active && inExperiment && (
           <button
@@ -299,9 +281,9 @@ export default function ExperimentBar() {
           </div>
         </section>
       )}
-      {(error || actionError) && (
+      {(error || actionError || (connected && connectionError)) && (
         <div className="wb-global-error" role="alert">
-          {actionError ?? error}
+          {actionError ?? error ?? connectionError}
         </div>
       )}
       <dialog

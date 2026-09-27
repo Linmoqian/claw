@@ -5,10 +5,8 @@ import "blockly/blocks";
 import { create } from "zustand";
 import { executeWorkspace, ExecutionAborted, workspaceHasProgram, type LogKind } from "../blockly/interpreter";
 import { registerBlockLabBlocks } from "../blockly/blocks";
-import { HardwareDeviceGateway } from "../blockly/hardwareGateway";
 import { SimulationDeviceGateway } from "../blockly/simulationGateway";
 import type { BlockDeviceGateway, Detection } from "../blockly/types";
-import { isDesktop } from "../lib/serial";
 import { useBridgeStore } from "../stores/bridgeStore";
 import { useRobotStore } from "../stores/robotStore";
 import { useActivityStore } from "./activity";
@@ -24,12 +22,11 @@ export interface ProgramEvent {
 }
 interface ProgramState {
   status: ProgramStatus;
-  hardwareMode: boolean;
   logs: ProgramLog[];
   lastDetection: Detection | null;
 }
 export const useProgramStore = create<ProgramState>(() => ({
-  status: "idle", hardwareMode: false, logs: [], lastDetection: null,
+  status: "idle", logs: [], lastDetection: null,
 }));
 const listeners = new Set<(event: ProgramEvent) => void>();
 let controller: AbortController | null = null;
@@ -53,17 +50,12 @@ export function stopProgram(): void {
   if (activeGateway) void activeGateway.stop().catch(() => undefined);
   stopRuntime();
 }
-export function setProgramHardwareMode(hardwareMode: boolean): void {
-  if (useActivityStore.getState().recordingLocked || controller) return;
-  useProgramStore.setState({ hardwareMode });
-}
 export function resetProgramStatus(): void {
   if (controller) return;
   useProgramStore.setState({ status: "idle", logs: [], lastDetection: null });
 }
 export async function runProgram(source: Blockly.Workspace): Promise<void> {
   if (controller) return;
-  const state = useProgramStore.getState();
   const bridge = useBridgeStore.getState();
   const activity = useActivityStore.getState();
   if (activity.replayPreparing) {
@@ -86,10 +78,6 @@ export async function runProgram(source: Blockly.Workspace): Promise<void> {
     appendProgramLog("开始积木后没有可执行动作", "warning");
     return;
   }
-  if (state.hardwareMode && (!isDesktop() || !activity.hardwareConnected || activity.hardwareEstop)) {
-    appendProgramLog("硬件执行需要桌面端、已连接串口且已解除急停", "warning");
-    return;
-  }
   registerBlockLabBlocks();
   let frozen: ReturnType<typeof createProgramSnapshot>;
   try {
@@ -108,9 +96,7 @@ export async function runProgram(source: Blockly.Workspace): Promise<void> {
     const onDetection = (lastDetection: Detection) => useProgramStore.setState({ lastDetection });
     const model = useRobotStore.getState().model;
     if (!model) throw new Error("请等待机械臂模型就绪");
-    activeGateway = state.hardwareMode
-      ? new HardwareDeviceGateway(model, { onDetection, signal: runController.signal })
-      : new SimulationDeviceGateway({
+    activeGateway = new SimulationDeviceGateway({
         getRuntime,
         getModel: () => useRobotStore.getState().model,
         selectArm: async (robotId) => {
@@ -127,7 +113,7 @@ export async function runProgram(source: Blockly.Workspace): Promise<void> {
       });
     stopRuntime();
     emit({ type: "start", snapshot });
-    appendProgramLog(state.hardwareMode ? "硬件程序开始运行" : "仿真程序开始运行；视觉使用合成图像");
+    appendProgramLog("仿真程序开始运行；视觉使用合成图像");
     await executeWorkspace({ workspace, gateway: activeGateway, signal: runController.signal, log: appendProgramLog });
     if (runController.signal.aborted) throw new ExecutionAborted();
     useProgramStore.setState({ status: "complete" });

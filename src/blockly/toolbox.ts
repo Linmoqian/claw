@@ -1,7 +1,7 @@
 /**
- * BlockLab 工具箱：程序语言、机器人、视觉、标定与 IO 分组。
+ * BlockLab 工具箱：程序语言、机器人、视觉与标定分组。
  *
- * Created on 2026-09-21
+ * Created on 2026-09-21; updated on 2026-09-27
  * @author:  https://github.com/Linmoqian
  */
 
@@ -70,29 +70,6 @@ export const BLOCK_TOOLBOX = {
         { kind: "block", type: "pose_property" },
         { kind: "block", type: "pose_compose" },
         { kind: "block", type: "pose_inverse" },
-      ],
-    },
-    {
-      kind: "category",
-      name: "串口",
-      colour: "#0F9BA8",
-      contents: [
-        { kind: "block", type: "serial_open" },
-        { kind: "block", type: "serial_send" },
-        { kind: "block", type: "serial_read_line" },
-        { kind: "block", type: "serial_close" },
-      ],
-    },
-    {
-      kind: "category",
-      name: "引脚",
-      colour: "#0F9BA8",
-      contents: [
-        { kind: "block", type: "pin_mode" },
-        { kind: "block", type: "digital_write" },
-        { kind: "block", type: "digital_read" },
-        { kind: "block", type: "analog_write" },
-        { kind: "block", type: "analog_read" },
       ],
     },
     {

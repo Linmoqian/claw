@@ -8,7 +8,7 @@ import { useBridgeStore } from "../stores/bridgeStore";
 import RobotStage from "../three/RobotStage";
 import { useActivityStore } from "./activity";
 import { cancelRuntimePreview, getRuntime, mountRuntime, useRuntimeStore } from "./runtime";
-import { stopProgram, useProgramStore } from "./programRunner";
+import { useProgramStore } from "./programRunner";
 import "./RuntimeHost.css";
 
 export default function RuntimeHost() {
@@ -38,14 +38,10 @@ export default function RuntimeHost() {
       hardwareEstop: estop,
       serialTransition: connectingPort !== null || disconnecting,
     });
-    if (estop || !connected) {
-      if (useProgramStore.getState().hardwareMode) stopProgram();
-    }
   }, [connected, estop, connectingPort, disconnecting]);
 
   useEffect(() => {
     cancelRuntimePreview();
-    if (pathname !== "/blocks" && useProgramStore.getState().hardwareMode) stopProgram();
   }, [pathname]);
 
   useLayoutEffect(() => {

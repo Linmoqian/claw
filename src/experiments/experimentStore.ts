@@ -15,7 +15,6 @@ import {
 import {
   stopProgram,
   subscribeProgramEvents,
-  useProgramStore,
 } from "../workbench/programRunner";
 import { ExperimentJournal } from "./journal";
 import { experimentRepository } from "./repository";
@@ -179,10 +178,6 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
     }
     if (activity.programRunning) {
       set({ error: "请先停止当前程序，再开始实验，以完整保存本次程序快照。" });
-      return;
-    }
-    if (useProgramStore.getState().hardwareMode) {
-      set({ error: "请先在积木页切回仿真通道，再开始实验。" });
       return;
     }
     const workspace = useWorkspaceStore.getState();
@@ -396,7 +391,7 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
           bridge.info.status !== "offline")
       )
         throw new Error(
-          "请在设备连接页显式断开串口和 WebSocket 真机连接，再进入回放。",
+          "请先断开串口和 WebSocket 真机连接，再进入回放。",
         );
       const runtime = getRuntime();
       const motion = runtime?.sim.getSnapshot();

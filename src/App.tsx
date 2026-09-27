@@ -1,7 +1,7 @@
 /** 工作台入口与持久运行宿主。Created on 2026-09-26; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { Suspense, lazy, useEffect, useLayoutEffect } from "react";
 import { MotionConfig } from "motion/react";
-import { Info, Plug, RotateCw } from "lucide-react";
+import { Info, RotateCw } from "lucide-react";
 import { Routes, Route, Navigate, useLocation } from "react-router";
 import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
@@ -9,13 +9,6 @@ import EstopButton from "./components/EstopButton";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
 import { DeviceProvider, useDevice } from "./store/DeviceContext";
 import { emitDebug } from "./lib/debugBus";
-import Connect from "./pages/Connect";
-import Monitor from "./pages/Monitor";
-import Control from "./pages/Control";
-import ModeControl from "./pages/ModeControl";
-import PidTuner from "./pages/PidTuner";
-import Scope from "./pages/Scope";
-import Safety from "./pages/Safety";
 import About from "./pages/About";
 import DataCollection from "./pages/DataCollection";
 import WorkbenchHome from "./pages/WorkbenchHome";
@@ -37,7 +30,6 @@ const TrainingCenter = lazy(() => import("./pages/TrainingCenter"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
-const DeviceCatalog = lazy(() => import("./pages/DeviceCatalog"));
 
 const contextItems: ContextMenuItem[] = [
   {
@@ -51,13 +43,6 @@ const contextItems: ContextMenuItem[] = [
     label: "关于",
     icon: Info,
     onClick: () => window.location.assign("#/about"),
-  },
-  { divider: true },
-  {
-    id: "connect",
-    label: "设备连接",
-    icon: Plug,
-    onClick: () => window.location.assign("#/connect"),
   },
 ];
 
@@ -126,11 +111,9 @@ function App() {
                       />
                       <Route path="/studio" element={<Studio />} />
                       <Route path="/blocks" element={<BlockLab />} />
-                      <Route path="/connect" element={<Connect />} />
                       <Route path="/data" element={<DataCollection />} />
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/assets" element={<AssetLibrary />} />
-                      <Route path="/devices" element={<DeviceCatalog />} />
                       <Route path="/training-center" element={<TrainingCenter />} />
                       <Route
                         path="/training"
@@ -141,12 +124,6 @@ function App() {
                         element={<ModelTraining />}
                       />
                       <Route path="/vision" element={<VisionAssistant />} />
-                      <Route path="/monitor" element={<Monitor />} />
-                      <Route path="/control" element={<Control />} />
-                      <Route path="/mode" element={<ModeControl />} />
-                      <Route path="/pid" element={<PidTuner />} />
-                      <Route path="/scope" element={<Scope />} />
-                      <Route path="/safety" element={<Safety />} />
                       <Route path="/about" element={<About />} />
                       <Route
                         path="*"

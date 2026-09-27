@@ -1259,39 +1259,6 @@
   font-weight: 600;
 }
 
-.studio__link-url {
-  width: 148px;
-  padding: 3px 8px;
-  border: 1px solid rgba(15, 23, 42, 0.12);
-  border-radius: 8px;
-  font-size: 12px;
-  color: #334155;
-  background: rgba(255, 255, 255, 0.7);
-}
-
-.studio__link-url:focus {
-  outline: 1.5px solid #3b82f6;
-  outline-offset: 0;
-}
-
-.studio__link-check {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #475569;
-  cursor: pointer;
-}
-
-.studio__link-check input {
-  accent-color: #dc2626;
-}
-
-.studio__link-btn.is-live {
-  background: rgba(220, 38, 38, 0.1);
-  color: #b91c1c;
-}
-
 .studio__link-btn.is-rec {
   background: rgba(220, 38, 38, 0.14);
   color: #dc2626;

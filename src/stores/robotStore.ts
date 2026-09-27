@@ -7,18 +7,9 @@ import type { RobotDef, RobotModel } from "../robot/types";
 import { useActivityStore } from "../workbench/activity";
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
-export type DeviceCategory = "vehicle" | "drone" | "arm";
-
-export const DEVICE_CATEGORIES: { id: DeviceCategory; label: string; description: string }[] = [
-  { id: "vehicle", label: "车辆", description: "轮式与履带式移动平台" },
-  { id: "drone", label: "无人机", description: "旋翼等空中平台" },
-  { id: "arm", label: "机械臂", description: "关节运动与末端操作平台" },
-];
-
 /** 可选机型条目（id = public/models 下的目录名） */
 export interface RobotCatalogEntry {
   id: string;
-  category: DeviceCategory;
   /** 界面显示名 */
   label: string;
   /** URDF 路径（相对 public/） */
@@ -31,14 +22,12 @@ export interface RobotCatalogEntry {
 export const ROBOT_CATALOG: RobotCatalogEntry[] = [
   {
     id: "so100",
-    category: "arm",
     label: "SO-100",
     urdfPath: "models/so100/so100.urdf",
     assetBase: "models/so100",
   },
   {
     id: "111",
-    category: "arm",
     label: "Panthera HT",
     urdfPath: "models/111/urdf/panthera_ht_ros_description.urdf",
     assetBase: "models/111",
