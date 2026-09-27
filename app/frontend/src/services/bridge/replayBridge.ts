@@ -12,6 +12,18 @@ import type { RecFrame } from "../protocol/recording";
 import { recordingDuration } from "../protocol/recording";
 import type { BridgeStatus, RobotBridge } from "./robotBridge";
 import { degreesToRadians } from "../../robot/model";
+import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
+
+interface DesktopReplaySnapshot {
+  version: number;
+  sequence: number;
+  timestampMs: number;
+  position: number;
+  duration: number;
+  playing: boolean;
+  rate: number;
+  robot: RobotState;
+}
 
 /** 回放驱动周期（ms；30Hz 与 worldStore 低频纪律一致） */
 const REPLAY_TICK_MS = 33;
@@ -25,12 +37,35 @@ export class ReplayBridge implements RobotBridge {
   private tPos = 0;
   private timer: number | null = null;
   private lastTickAt = 0;
+  private desktopReady: Promise<void> = Promise.resolve();
+  private desktopLoad: Promise<void> = Promise.resolve();
+  private desktopSequence = -1;
+  private desktopSubscriptionVersion = 0;
+  private desktopRobot: RobotState | null = null;
+  private desktopDuration = 0;
+  private desktopError: string | null = null;
   private readonly robotListeners = new Set<
     (state: RobotState, timestampMs: number) => void
   >();
 
   /** 载入录像（重置播放头到 0，不自动播放） */
   load(frames: RecFrame[]): void {
+    if (isTauri()) {
+      this.frames = frames;
+      this.playing = false;
+      this.tPos = 0;
+      this.desktopDuration = frames[frames.length - 1]?.t ?? 0;
+      this.desktopSequence = -1;
+      this.desktopError = null;
+      this.desktopSubscriptionVersion += 1;
+      this.desktopReady = this.desktopReady.catch(() => undefined)
+        .then(async () => {
+          this.acceptDesktop(await invoke<DesktopReplaySnapshot>("replay_load", { frames }));
+          if (this.robotListeners.size > 0) await this.subscribeDesktop();
+        });
+      this.desktopLoad = this.desktopReady;
+      return;
+    }
     this.pause();
     this.frames = frames;
     this.tPos = 0;
@@ -38,6 +73,12 @@ export class ReplayBridge implements RobotBridge {
   }
 
   play(): void {
+    if (isTauri()) {
+      if (this.frames.length === 0) return;
+      this.playing = true;
+      this.desktopControl("play");
+      return;
+    }
     if (this.playing || this.frames.length === 0) return;
     this.playing = true;
     this.lastTickAt = performance.now();
@@ -45,6 +86,11 @@ export class ReplayBridge implements RobotBridge {
   }
 
   pause(): void {
+    if (isTauri()) {
+      this.playing = false;
+      this.desktopControl("pause");
+      return;
+    }
     this.playing = false;
     if (this.timer !== null) {
       window.clearInterval(this.timer);
@@ -54,11 +100,19 @@ export class ReplayBridge implements RobotBridge {
 
   /** 播放头定位（秒，超出末尾钳到末尾） */
   seek(t: number): void {
+    if (isTauri()) {
+      this.desktopControl("seek", t);
+      return;
+    }
     this.tPos = Math.min(Math.max(t, 0), this.duration);
     this.emit();
   }
 
   setRate(rate: number): void {
+    if (isTauri()) {
+      this.desktopControl("rate", rate);
+      return;
+    }
     this.rate = rate;
   }
 
@@ -76,22 +130,34 @@ export class ReplayBridge implements RobotBridge {
   }
 
   get duration(): number {
-    return recordingDuration(this.frames);
+    return isTauri() ? this.desktopDuration : recordingDuration(this.frames);
   }
 
   async connect(): Promise<void> {
-    /* 回放无连接语义：载入即就绪 */
+    if (isTauri()) {
+      await this.desktopLoad;
+      await this.desktopReady;
+      if (this.desktopError) throw new Error(this.desktopError);
+    }
   }
 
   async disconnect(): Promise<void> {
+    if (isTauri()) {
+      await this.desktopReady.catch(() => undefined);
+      this.desktopSubscriptionVersion += 1;
+      await invoke("replay_clear").catch(() => undefined);
+      this.playing = false;
+      this.desktopRobot = null;
+      return;
+    }
     this.pause();
   }
 
   getStatus(): BridgeStatus {
     return {
       kind: this.kind,
-      connected: this.frames.length > 0,
-      status: this.frames.length > 0 ? "connected" : "offline",
+      connected: this.frames.length > 0 && !this.desktopError,
+      status: this.desktopError ? "error" : this.frames.length > 0 ? "connected" : "offline",
       latencyMs: 0,
       messageRateHz: this.playing ? 1000 / REPLAY_TICK_MS : null,
       lastMessageAt: Date.now(),
@@ -102,6 +168,16 @@ export class ReplayBridge implements RobotBridge {
     cb: (state: RobotState, timestampMs: number) => void,
   ): () => void {
     this.robotListeners.add(cb);
+    if (isTauri()) {
+      let active = true;
+      if (this.desktopRobot) cb(this.desktopRobot, Date.now());
+      void this.desktopReady.then(() => { if (active) return this.subscribeDesktop(); })
+        .catch((error: unknown) => { this.desktopError = String(error); });
+      return () => {
+        active = false;
+        this.robotListeners.delete(cb);
+      };
+    }
     this.emit();
     return () => this.robotListeners.delete(cb);
   }
@@ -122,6 +198,35 @@ export class ReplayBridge implements RobotBridge {
       this.pause();
     }
     this.emit();
+  }
+
+  private acceptDesktop(snapshot: DesktopReplaySnapshot): void {
+    if (snapshot.version !== 1 || snapshot.sequence <= this.desktopSequence) return;
+    this.desktopSequence = snapshot.sequence;
+    this.tPos = snapshot.position;
+    this.desktopDuration = snapshot.duration;
+    this.playing = snapshot.playing;
+    this.rate = snapshot.rate;
+    this.desktopRobot = snapshot.robot;
+    for (const cb of this.robotListeners) cb(snapshot.robot, snapshot.timestampMs);
+  }
+
+  private async subscribeDesktop(): Promise<void> {
+    const version = ++this.desktopSubscriptionVersion;
+    const channel = new Channel<DesktopReplaySnapshot>();
+    channel.onmessage = (snapshot) => {
+      if (version === this.desktopSubscriptionVersion) this.acceptDesktop(snapshot);
+    };
+    await invoke("replay_subscribe", { channel });
+  }
+
+  private desktopControl(command: "play" | "pause" | "seek" | "rate", value?: number): void {
+    this.desktopReady = this.desktopReady.then(async () => {
+      this.acceptDesktop(await invoke<DesktopReplaySnapshot>("replay_control", { command, value }));
+    }).catch((error: unknown) => {
+      this.desktopError = String(error);
+      this.playing = false;
+    });
   }
 
   /** 播放头位置 → 插值帧 → 订阅回调 */
