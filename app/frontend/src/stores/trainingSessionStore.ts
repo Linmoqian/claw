@@ -16,6 +16,7 @@ import {
   type AdversarialTrainingResult,
 } from "../robot/adversarialTraining";
 import { findRobotEntry, useRobotStore } from "./robotStore";
+import { desktopTrainingEnabled, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../features/training/desktopTraining";
 
 export type PerceptionControls = Required<
   Pick<PerceptionTrainingConfig, "samplesPerClass" | "epochs" | "learningRate">
@@ -78,6 +79,7 @@ interface ModelTrainingState {
   perceptionProvenance: TrainingProvenance | null;
   decisionProvenance: TrainingProvenance | null;
   running: "perception" | "decision" | null;
+  trainingProgress: TrainingProgress | null;
   notice: string | null;
   updatePerception: <K extends keyof PerceptionControls>(
     key: K,
@@ -101,6 +103,7 @@ export const useModelTrainingStore = create<ModelTrainingState>((set, get) => ({
   perceptionProvenance: null,
   decisionProvenance: null,
   running: null,
+  trainingProgress: null,
   notice: null,
   updatePerception: (key, value) => {
     if (get().running) return;
@@ -124,10 +127,12 @@ export const useModelTrainingStore = create<ModelTrainingState>((set, get) => ({
     if (get().running) return;
     const config = { ...get().perceptionControls };
     const source = provenance();
-    set({ running: "perception", notice: null });
+    set({ running: "perception", trainingProgress: null, notice: null });
     await nextTurn();
     try {
-      const result = runPerceptionTraining(config);
+      const result = desktopTrainingEnabled()
+        ? await trainDesktopPerception(config, (trainingProgress) => set({ trainingProgress }))
+        : runPerceptionTraining(config);
       set({
         perceptionResult: result,
         perceptionProvenance: source,
@@ -136,17 +141,19 @@ export const useModelTrainingStore = create<ModelTrainingState>((set, get) => ({
     } catch (reason) {
       set({ notice: `训练失败：${String(reason)}。已保留上次结果，可重试。` });
     } finally {
-      set({ running: null });
+      set({ running: null, trainingProgress: null });
     }
   },
   trainDecision: async () => {
     if (get().running) return;
     const config = { ...get().decisionControls };
     const source = provenance();
-    set({ running: "decision", notice: null });
+    set({ running: "decision", trainingProgress: null, notice: null });
     await nextTurn();
     try {
-      const result = runDecisionNetworkTraining(config);
+      const result = desktopTrainingEnabled()
+        ? await trainDesktopDecision(config, (trainingProgress) => set({ trainingProgress }))
+        : runDecisionNetworkTraining(config);
       set({
         decisionResult: result,
         decisionProvenance: source,
@@ -155,7 +162,7 @@ export const useModelTrainingStore = create<ModelTrainingState>((set, get) => ({
     } catch (reason) {
       set({ notice: `训练失败：${String(reason)}。已保留上次结果，可重试。` });
     } finally {
-      set({ running: null });
+      set({ running: null, trainingProgress: null });
     }
   },
   setNotice: (notice) => set({ notice }),
@@ -168,6 +175,7 @@ export const useModelTrainingStore = create<ModelTrainingState>((set, get) => ({
       decisionResult: null,
       perceptionProvenance: null,
       decisionProvenance: null,
+      trainingProgress: null,
       notice: null,
     });
   },

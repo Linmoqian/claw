@@ -287,6 +287,7 @@ export default function ModelTraining() {
     perceptionProvenance,
     decisionProvenance,
     running,
+    trainingProgress,
     notice,
     updatePerception,
     updateDecision,
@@ -362,6 +363,12 @@ export default function ModelTraining() {
           不读取摄像头 · 不下发实机 · 固定种子可复现
         </span>
       </div>
+      {running && trainingProgress && (
+        <p className="model-training__notice" role="status">
+          {running === "perception" ? "感知模型" : "决策网络"}训练进度：
+          {trainingProgress.epoch}/{trainingProgress.epochs} 轮 · 损失 {trainingProgress.loss.toFixed(4)}
+        </p>
+      )}
 
       <div className="model-training__toolbar">
         <div className="model-training__toolbar-copy">

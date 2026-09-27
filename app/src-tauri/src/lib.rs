@@ -3,7 +3,9 @@
 
 mod backend;
 
-use backend::{ai, assets, debug_serial, drafts, experiments, mcu, replay, servo, simulation};
+use backend::{
+    ai, assets, debug_serial, drafts, experiments, mcu, replay, servo, simulation, training,
+};
 use std::sync::Mutex;
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
@@ -86,6 +88,8 @@ pub fn run() {
             replay::replay_subscribe,
             replay::replay_control,
             replay::replay_clear,
+            training::train_perception,
+            training::train_decision,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
