@@ -11,3 +11,5 @@
 在浏览器预览中运行了默认积木程序，合成视觉识别、条件分支、关节目标和夹爪动作依次完成，日志与状态见 `blocks-browser.png`。Rust 积木解释器的动作顺序和取消通过单元测试验证；桌面 Channel 与设备网关的完整交互仍待验收。
 
 重构后运行 `tauri dev --no-watch`，Rust 桌面进程成功编译并启动。当前 Codex 内置浏览器工具没有列出原生窗口，因此未完成桌面窗口中的实验迁移重试、积木动作和 WebSocket 收发交互；浏览器截图不替代这些验收。Rust 单元测试 19 项通过，包含过期 WebSocket 控制命令拒绝。
+
+最新代码在 1280×720 内置浏览器预览中打开工作台总览，导航、实验入口与准备状态均可见，截图为 `workbench-latest.png`。通信层的离线与异步发送失败另由 `tools/verification/transport/verify.ts` 验证。
