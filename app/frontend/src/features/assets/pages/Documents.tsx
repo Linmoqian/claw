@@ -17,6 +17,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
+import { formatBytes, formatDate } from "../../../components/workbench/format";
 import PdfReader from "../../../components/documents/PdfReader";
 import {
   documentRepository,
@@ -37,19 +38,6 @@ const FILTERS: { id: KindFilter; label: string }[] = [
   { id: "pdf", label: "PDF" },
   { id: "markdown", label: "Markdown" },
 ];
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-}
 
 export default function Documents() {
   const { search: locationSearch } = useLocation();

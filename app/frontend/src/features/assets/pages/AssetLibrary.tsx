@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
+import { formatBytes, formatDate } from "../../../components/workbench/format";
 import { documentRepository, type DocumentRecord } from "../documents/repository";
 import { isDesktop } from "../../../lib/serial";
 import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../videos/file";
@@ -59,17 +60,6 @@ const LIBRARY_KINDS: { id: LibraryKind; label: string; description: string; exte
 ];
 function libraryKind(id: LibraryKind) {
   return LIBRARY_KINDS.find((kind) => kind.id === id)!;
-}
-
-function formatBytes(value: number | null): string {
-  if (value === null) return "原文件路径";
-  if (value < 1024 * 1024) return `${Math.max(1, Math.round(value / 1024))} KB`;
-  if (value < 1024 * 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatDate(value: string): string {
-  return new Date(value).toLocaleDateString("zh-CN", { year: "numeric", month: "2-digit", day: "2-digit" });
 }
 
 export default function AssetLibrary() {

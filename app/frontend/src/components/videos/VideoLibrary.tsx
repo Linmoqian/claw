@@ -17,17 +17,12 @@ import {
   X,
 } from "lucide-react";
 import LoadingState from "../workbench/LoadingState";
+import { formatBytes } from "../workbench/format";
 import { isDesktop } from "../../lib/serial";
 import { videoRepository } from "../../features/assets/videos/repository";
 import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../../features/assets/videos/file";
 import type { VideoResource } from "../../features/assets/videos/types";
 import "./VideoLibrary.css";
-
-function formatBytes(bytes: number | null): string {
-  if (bytes === null) return "文件保留在原位置";
-  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 function formatDuration(seconds: number | null): string {
   if (seconds === null) return "时长待识别";
@@ -322,7 +317,7 @@ export default function VideoLibrary() {
                 <h3 title={video.fileName}>{video.name}</h3>
                 <div className="video-library__meta">
                   <span>{formatDuration(video.durationS)}</span>
-                  <span>{formatBytes(video.sizeBytes)}</span>
+                  <span>{formatBytes(video.sizeBytes, "文件保留在原位置")}</span>
                   <span>{new Date(video.createdAt).toLocaleDateString("zh-CN")}</span>
                 </div>
                 <div className="video-library__card-actions">
@@ -383,7 +378,7 @@ export default function VideoLibrary() {
           )}
           {previewError && <p className="video-library__error" role="alert">{previewError}</p>}
           <div className="video-library__dialog-foot">
-            <span>{selected.fileName} · {formatBytes(selected.sizeBytes)}</span>
+            <span>{selected.fileName} · {formatBytes(selected.sizeBytes, "文件保留在原位置")}</span>
             <button type="button" className="experiments__button" onClick={() => setSelected(null)}>关闭</button>
           </div>
         </dialog>
