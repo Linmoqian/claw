@@ -20,7 +20,7 @@ export class DesktopWebSocketTransport implements Transport {
   private id: number | null = null;
   private closed = false;
   private opened = false;
-  private readonly pending: string[] = [];
+  private readonly opening: Promise<number>;
   private readonly openListeners: Listeners<void> = new Set();
   private readonly messageListeners: Listeners<string> = new Set();
   private readonly closeListeners: Listeners<{ code: number; reason: string }> = new Set();
@@ -46,16 +46,13 @@ export class DesktopWebSocketTransport implements Transport {
           listener({ code: event.code ?? 1006, reason: event.reason ?? "连接关闭" });
       }
     };
-    void invoke<number>("websocket_open", { url, channel })
+    this.opening = invoke<number>("websocket_open", { url, channel })
       .then(async (id) => {
         if (this.closed) await invoke("websocket_close", { id });
-        else {
-          this.id = id;
-          for (const text of this.pending) this.send(text);
-          this.pending.length = 0;
-        }
-      })
-      .catch((error: unknown) => {
+        else this.id = id;
+        return id;
+      });
+    void this.opening.catch((error: unknown) => {
         if (this.closed) return;
         for (const listener of this.errorListeners) listener(error);
         for (const listener of this.closeListeners)
@@ -63,15 +60,11 @@ export class DesktopWebSocketTransport implements Transport {
       });
   }
 
-  send(text: string): void {
-    if (!this.opened || this.closed) return;
-    if (this.id === null) {
-      if (this.pending.length < 64) this.pending.push(text);
-      return;
-    }
-    void invoke("websocket_send", { id: this.id, text }).catch((error: unknown) => {
-      for (const listener of this.errorListeners) listener(error);
-    });
+  async send(text: string): Promise<void> {
+    if (!this.opened || this.closed) throw new Error("WebSocket 尚未连接");
+    const id = await this.opening;
+    if (this.closed) throw new Error("WebSocket 已断开");
+    await invoke("websocket_send", { id, text });
   }
 
   close(): void {

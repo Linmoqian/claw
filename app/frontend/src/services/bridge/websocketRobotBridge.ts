@@ -104,7 +104,7 @@ export class WebSocketRobotBridge implements RobotBridge {
     }
     this.seq += 1;
     const commandId = `ui-${Date.now()}-${this.seq}`;
-    this.manager.send(serializeMessage(makeEnvelope(
+    await this.manager.send(serializeMessage(makeEnvelope(
       MSG_TYPES.command,
       { command_id: commandId, lifecycle: "DISPATCHED", command },
       { frameId: "robot_base", sequence: this.seq, source: "xiakao_workbench" },

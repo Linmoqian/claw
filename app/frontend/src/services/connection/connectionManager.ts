@@ -121,8 +121,10 @@ export class ConnectionManager {
     this.openConnection();
   }
 
-  send(text: string): void {
-    this.transport?.send(text);
+  async send(text: string): Promise<void> {
+    if (!this.transport || this.status !== "connected")
+      throw new Error("WebSocket 尚未连接");
+    await this.transport.send(text);
   }
 
   getInfo(): ConnectionInfo {
@@ -254,7 +256,9 @@ export class ConnectionManager {
       if (this.status !== "connected") return;
       const ping = makePing({ frameId: "system", source: "xiakao_workbench" });
       this.pendingPingTs = ping.timestamp;
-      this.transport?.send(serializeMessage(ping));
+      void this.send(serializeMessage(ping)).catch((error: unknown) => {
+        this.lastError = String(error);
+      });
     }, interval);
   }
 
@@ -286,10 +290,12 @@ export class ConnectionManager {
       return true;
     }
     if (obj.type === MSG_TYPES.ping) {
-      this.transport?.send(serializeMessage(makePong(obj.timestamp, {
+      void this.send(serializeMessage(makePong(obj.timestamp, {
         frameId: "system",
         source: "xiakao_workbench",
-      })));
+      }))).catch((error: unknown) => {
+        this.lastError = String(error);
+      });
       return true;
     }
     return false;

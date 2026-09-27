@@ -48,7 +48,9 @@ export class WebSocketTransport implements Transport {
   }
 
   send(text: string): void {
-    if (this.ws && this.ws.readyState === OPEN) this.ws.send(text);
+    if (!this.ws || this.ws.readyState !== OPEN)
+      throw new Error("WebSocket 尚未连接");
+    this.ws.send(text);
   }
 
   close(code = 1000, reason = ""): void {

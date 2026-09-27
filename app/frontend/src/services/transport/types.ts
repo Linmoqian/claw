@@ -8,7 +8,7 @@ export type Unsubscribe = () => void;
 export interface Transport {
   readonly url: string;
   /** 发送原文；未连接时丢弃由调用方负责，内部不缓存 */
-  send(text: string): void;
+  send(text: string): void | Promise<void>;
   close(code?: number, reason?: string): void;
   onOpen(cb: () => void): Unsubscribe;
   onMessage(cb: (text: string) => void): Unsubscribe;
