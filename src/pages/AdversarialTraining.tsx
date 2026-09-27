@@ -1,5 +1,5 @@
 /**
- * Created on 2026-09-15; updated on 2026-09-26
+ * Created on 2026-09-15; updated on 2026-09-27
  * @author: https://github.com/Linmoqian
  *
  * 对抗训练工作区：运行可复现的仿真最小-最大基线并展示最坏回报。
@@ -15,6 +15,7 @@ import {
   Target,
 } from "lucide-react";
 import { useAdversarialTrainingStore } from "../stores/trainingSessionStore";
+import TrainingNavigation from "../components/TrainingNavigation";
 import { DEFAULT_ROBOT_ID, useRobotStore } from "../stores/robotStore";
 import "./AdversarialTraining.css";
 
@@ -59,6 +60,7 @@ export default function AdversarialTraining() {
 
   return (
     <div className="stage adversarial-training">
+      <TrainingNavigation />
       <header className="adversarial-training__header">
         <div>
           <div className="section-label">

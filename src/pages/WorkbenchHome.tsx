@@ -319,11 +319,11 @@ export default function WorkbenchHome() {
           </div>
           <ArrowUpRight size={14} />
         </Link>
-        <Link to="/model-training">
+        <Link to="/training-center">
           <BrainCircuit size={19} />
           <div>
-            <strong>智能训练</strong>
-            <span>用内置合成数据验证基线</span>
+            <strong>训练中心</strong>
+            <span>智能训练与对抗训练</span>
           </div>
           <ArrowUpRight size={14} />
         </Link>

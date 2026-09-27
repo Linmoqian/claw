@@ -22,7 +22,6 @@ import {
   ScanEye,
   ShieldAlert,
   SlidersHorizontal,
-  Swords,
   ToggleRight,
   type LucideIcon,
 } from "lucide-react";
@@ -32,6 +31,7 @@ interface NavigationItem {
   to: string;
   label: string;
   icon: LucideIcon;
+  activePaths?: string[];
 }
 interface NavigationGroup {
   id: string;
@@ -56,8 +56,12 @@ const GROUPS: NavigationGroup[] = [
       { to: "/assets", label: "项目资产", icon: FolderOpen },
       { to: "/data", label: "视频与数据", icon: Clapperboard },
       { to: "/documents", label: "文档收集", icon: BookOpen },
-      { to: "/model-training", label: "智能训练", icon: BrainCircuit },
-      { to: "/training", label: "对抗训练", icon: Swords },
+      {
+        to: "/training-center",
+        label: "训练中心",
+        icon: BrainCircuit,
+        activePaths: ["/model-training", "/training"],
+      },
       { to: "/vision", label: "视觉助手", icon: ScanEye },
     ],
   },
@@ -102,11 +106,13 @@ export default function Sidebar() {
       /* 布局偏好不可写时仍可在本次会话切换。 */
     }
   };
-  const renderItem = ({ to, label, icon: Icon }: NavigationItem) => (
+  const renderItem = ({ to, label, icon: Icon, activePaths }: NavigationItem) => (
     <NavLink
       key={to}
       to={to}
-      className="sidebar__item"
+      className={({ isActive }) =>
+        `sidebar__item${isActive || activePaths?.includes(pathname) ? " active" : ""}`
+      }
       title={collapsed ? label : undefined}
       aria-label={label}
     >
@@ -133,7 +139,9 @@ export default function Sidebar() {
         {GROUPS.map((group) => {
           const active = group.items.some(
             (item) =>
-              pathname === item.to || pathname.startsWith(`${item.to}/`),
+              pathname === item.to ||
+              pathname.startsWith(`${item.to}/`) ||
+              item.activePaths?.includes(pathname),
           );
           const open = collapsed || expanded[group.id] || active;
           return (

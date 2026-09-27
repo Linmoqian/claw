@@ -1,5 +1,5 @@
 /**
- * Created on 2026-09-15; updated on 2026-09-26
+ * Created on 2026-09-15; updated on 2026-09-27
  * @author: https://github.com/Linmoqian
  *
  * 智能模型训练工作区：在仿真数据上训练感知分类器与决策网络。
@@ -30,6 +30,7 @@ import {
   type PerceptionTrainingResult,
 } from "../robot/modelTraining";
 import { useModelTrainingStore } from "../stores/trainingSessionStore";
+import TrainingNavigation from "../components/TrainingNavigation";
 import "./ModelTraining.css";
 
 function formatPercent(value: number): string {
@@ -336,6 +337,7 @@ export default function ModelTraining() {
 
   return (
     <div className="stage model-training">
+      <TrainingNavigation />
       <header className="model-training__header">
         <div>
           <div className="section-label">

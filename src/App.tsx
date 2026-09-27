@@ -33,6 +33,7 @@ const Studio = lazy(() => import("./pages/Studio"));
 const BlockLab = lazy(() => import("./pages/BlockLab"));
 const AdversarialTraining = lazy(() => import("./pages/AdversarialTraining"));
 const ModelTraining = lazy(() => import("./pages/ModelTraining"));
+const TrainingCenter = lazy(() => import("./pages/TrainingCenter"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
@@ -130,6 +131,7 @@ function App() {
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/assets" element={<AssetLibrary />} />
                       <Route path="/devices" element={<DeviceCatalog />} />
+                      <Route path="/training-center" element={<TrainingCenter />} />
                       <Route
                         path="/training"
                         element={<AdversarialTraining />}

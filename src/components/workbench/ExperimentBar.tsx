@@ -29,6 +29,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/documents": "文档收集",
   "/assets": "项目资产",
   "/devices": "设备目录",
+  "/training-center": "训练中心",
   "/model-training": "智能训练",
   "/training": "对抗训练",
   "/vision": "视觉助手",
