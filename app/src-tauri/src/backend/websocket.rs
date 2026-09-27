@@ -18,7 +18,7 @@ enum Outbound {
 }
 
 struct Session {
-    sender: mpsc::UnboundedSender<Outbound>,
+    sender: mpsc::Sender<Outbound>,
     cancelled: Arc<AtomicBool>,
     last_command_sequence: AtomicU64,
 }
@@ -70,7 +70,7 @@ pub fn websocket_open(
         return Err("WebSocket 地址须以 ws:// 或 wss:// 开头且不超过 2048 字符".into());
     }
     let id = state.next_id.fetch_add(1, Ordering::Relaxed) + 1;
-    let (sender, mut receiver) = mpsc::unbounded_channel();
+    let (sender, mut receiver) = mpsc::channel(64);
     let cancelled = Arc::new(AtomicBool::new(false));
     state
         .sessions
@@ -96,6 +96,10 @@ pub fn websocket_open(
                 let _ = channel.send(WebSocketEvent::new("open"));
                 let (mut writer, mut reader) = socket.split();
                 loop {
+                    if cancelled.load(Ordering::Acquire) {
+                        let _ = writer.close().await;
+                        break;
+                    }
                     tokio::select! {
                         outgoing = receiver.recv() => match outgoing {
                             Some(Outbound::Text(text)) => {
@@ -167,14 +171,28 @@ pub fn websocket_send(state: State<WebSocketManager>, id: u64, text: String) -> 
     }
     let guard = state.sessions.lock().map_err(|error| error.to_string())?;
     let session = guard.get(&id).ok_or("WebSocket 已断开")?;
-    check_command_sequence(&text, &session.last_command_sequence)?;
+    if session.cancelled.load(Ordering::Acquire) {
+        return Err("WebSocket 已断开".into());
+    }
+    let command_sequence = check_command_sequence(&text, &session.last_command_sequence)?;
     session
         .sender
-        .send(Outbound::Text(text))
-        .map_err(|_| "WebSocket 已断开".into())
+        .try_send(Outbound::Text(text))
+        .map_err(|error| match error {
+            mpsc::error::TrySendError::Full(_) => {
+                String::from("WebSocket 发送队列已满，请稍后重试")
+            }
+            mpsc::error::TrySendError::Closed(_) => String::from("WebSocket 已断开"),
+        })?;
+    if let Some(sequence) = command_sequence {
+        session
+            .last_command_sequence
+            .store(sequence, Ordering::Release);
+    }
+    Ok(())
 }
 
-fn check_command_sequence(text: &str, last_sequence: &AtomicU64) -> Result<(), String> {
+fn check_command_sequence(text: &str, last_sequence: &AtomicU64) -> Result<Option<u64>, String> {
     if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) {
         if payload.get("type").and_then(|value| value.as_str()) == Some("command") {
             let sequence = payload
@@ -185,10 +203,10 @@ fn check_command_sequence(text: &str, last_sequence: &AtomicU64) -> Result<(), S
             if sequence <= previous {
                 return Err("控制命令序号已过期".into());
             }
-            last_sequence.store(sequence, Ordering::Release);
+            return Ok(Some(sequence));
         }
     }
-    Ok(())
+    Ok(None)
 }
 
 #[tauri::command]
@@ -200,7 +218,7 @@ pub fn websocket_close(state: State<WebSocketManager>, id: u64) -> Result<(), St
         .remove(&id)
     {
         session.cancelled.store(true, Ordering::Release);
-        let _ = session.sender.send(Outbound::Close);
+        let _ = session.sender.try_send(Outbound::Close);
     }
     Ok(())
 }
@@ -212,10 +230,18 @@ mod tests {
     #[test]
     fn rejects_stale_control_after_a_newer_command() {
         let sequence = AtomicU64::new(0);
-        check_command_sequence(r#"{"type":"command","sequence":2}"#, &sequence).unwrap();
+        let first =
+            check_command_sequence(r#"{"type":"command","sequence":2}"#, &sequence).unwrap();
+        sequence.store(first.unwrap(), Ordering::Release);
         assert!(check_command_sequence(r#"{"type":"command","sequence":1}"#, &sequence).is_err());
         assert!(check_command_sequence(r#"{"type":"command","sequence":2}"#, &sequence).is_err());
-        check_command_sequence(r#"{"type":"ping","sequence":99}"#, &sequence).unwrap();
-        check_command_sequence(r#"{"type":"command","sequence":3}"#, &sequence).unwrap();
+        assert_eq!(
+            check_command_sequence(r#"{"type":"ping","sequence":99}"#, &sequence).unwrap(),
+            None
+        );
+        assert_eq!(
+            check_command_sequence(r#"{"type":"command","sequence":3}"#, &sequence).unwrap(),
+            Some(3)
+        );
     }
 }
