@@ -69,11 +69,21 @@ export function connectDesktopRuntime(
   let lastSpeed = sim.speed;
   let started = false;
   let desiredPaused = false;
+  let commandQueue: Promise<unknown> = Promise.resolve();
   const channel = new Channel<SimulationFrame>();
+  const enqueue = <T>(name: string, args: Record<string, unknown>): Promise<T> => {
+    const sequence = ++commandSequence;
+    const next = commandQueue.catch(() => undefined).then(() => {
+      if (disposed) throw new Error("仿真运行时已关闭");
+      return invoke<T>(name, { robotId, sequence, ...args });
+    });
+    commandQueue = next.catch((error: unknown) => {
+      if (!disposed) onError(String(error));
+    });
+    return next;
+  };
   const send = (name: string, args: Record<string, unknown>): void => {
-    if (disposed) return;
-    void invoke(name, { robotId, sequence: ++commandSequence, ...args })
-      .catch((error: unknown) => { if (!disposed) onError(String(error)); });
+    void enqueue(name, args).catch(() => undefined);
   };
   channel.onmessage = (frame) => {
     if (disposed || frame.version !== 1 || frame.robotId !== robotId
@@ -87,7 +97,7 @@ export function connectDesktopRuntime(
     baseSim.applyAuthorityPose(frame.base);
   };
 
-  void enqueueLifecycle(async () => {
+  commandQueue = enqueueLifecycle(async () => {
     if (disposed) return;
     try {
       const initial = await invoke<SimulationFrame>("simulation_start", { robotId });
@@ -118,6 +128,13 @@ export function connectDesktopRuntime(
       });
     }
   };
+  sim.onTcpIntent = async (position, quaternion) => {
+    const solution = await enqueue<{ jointsRad: number[] }>("simulation_set_tcp_target", {
+      positionM: [position.x, position.y, position.z],
+      rotationXyzw: [quaternion.x, quaternion.y, quaternion.z, quaternion.w],
+    });
+    return solution.jointsRad.map((rad) => rad * 180 / Math.PI);
+  };
   baseSim.onTargetChanged = (pose) => {
     send("simulation_set_base_target", { x: pose.x, y: pose.y, yaw: pose.yaw });
   };
@@ -135,6 +152,7 @@ export function connectDesktopRuntime(
     disposed = true;
     window.clearInterval(speedTimer);
     sim.onControlIntent = null;
+    sim.onTcpIntent = null;
     baseSim.onTargetChanged = null;
     pauseControl = null;
     latestFrame = null;

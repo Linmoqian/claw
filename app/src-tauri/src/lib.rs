@@ -80,6 +80,7 @@ pub fn run() {
             simulation::runtime::simulation_frame,
             simulation::runtime::simulation_reset_props,
             simulation::runtime::simulation_set_joint_targets,
+            simulation::runtime::simulation_set_tcp_target,
             simulation::runtime::simulation_set_mode,
             simulation::runtime::simulation_set_speed,
             simulation::runtime::simulation_set_paused,

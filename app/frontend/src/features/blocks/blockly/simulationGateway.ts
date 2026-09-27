@@ -70,7 +70,7 @@ export class SimulationDeviceGateway implements BlockDeviceGateway {
     return findTool(this.activeToolId);
   }
 
-  private waitForJointTargets(timeoutMs = 8000): Promise<void> {
+  private waitForJointTargets(timeoutMs = 8000, expectedDeg?: readonly number[]): Promise<void> {
     const started = performance.now();
     return new Promise((resolve, reject) => {
       const check = () => {
@@ -80,9 +80,12 @@ export class SimulationDeviceGateway implements BlockDeviceGateway {
           return;
         }
         const snapshot = runtime.sim.getSnapshot();
-        const done = snapshot.targetDeg.every(
-          (target, index) =>
-            Math.abs(target - (snapshot.currentDeg[index] ?? 0)) < 1.2,
+        const targets = expectedDeg ?? snapshot.targetDeg;
+        const accepted = !expectedDeg || snapshot.targetDeg.every(
+          (target, index) => Math.abs(target - (expectedDeg[index] ?? target)) < 1.2,
+        );
+        const done = accepted && targets.every(
+          (target, index) => Math.abs(target - (snapshot.currentDeg[index] ?? 0)) < 1.2,
         );
         if (done) {
           resolve();
@@ -182,6 +185,15 @@ export class SimulationDeviceGateway implements BlockDeviceGateway {
 
   async movePose(target: PoseValue, speedDegPerSec?: number): Promise<void> {
     this.applySpeed(speedDegPerSec);
+    const sim = this.requireRuntime().sim;
+    if (sim.onTcpIntent) {
+      const expectedDeg = await sim.onTcpIntent(
+        new Vector3(target.position.x, target.position.y, target.position.z),
+        new Quaternion(target.quaternion.x, target.quaternion.y, target.quaternion.z, target.quaternion.w),
+      );
+      await this.waitForJointTargets(8000, expectedDeg);
+      return;
+    }
     const model = this.requireModel();
     const snapshot = this.requireRuntime().sim.getSnapshot();
     const result = solveIk(model, {

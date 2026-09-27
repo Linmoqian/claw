@@ -2,6 +2,7 @@
 // @author:  https://github.com/Linmoqian
 
 pub mod collision;
+pub mod ik;
 pub mod model;
 pub mod physics;
 pub mod runtime;

@@ -51,6 +51,8 @@ export class SimulationLoop {
   readonly model: RobotModel;
   /** 桌面运行时只接收编辑意图；实际运动由 Rust 状态帧回写。 */
   onControlIntent: ((mode: SimMode | "stop", targetsDeg: readonly number[]) => void) | null = null;
+  /** 桌面 TCP 目标交给 Rust 逆运动学；前端解算仅作即时预览。 */
+  onTcpIntent: ((position: Vector3, quaternion: Quaternion) => Promise<number[]>) | null = null;
   /** 仿真速度倍率（UI 写） */
   speed = 1;
 
@@ -134,7 +136,7 @@ export class SimulationLoop {
   }
 
   /** 多关节目标批量设置（TCP IK 解算结果 / 外部意图）；拒绝时整批不写入 */
-  setJointTargets(degs: number[]): CollisionStatus {
+  setJointTargets(degs: number[], notify = true): CollisionStatus {
     this.mode = "manual";
     const candidate = [...this.targetDeg];
     this.model.active.forEach((joint, i) => {
@@ -146,7 +148,7 @@ export class SimulationLoop {
     const rejected = this.checkCandidate(candidate);
     if (rejected) return rejected;
     this.targetDeg = candidate;
-    this.onControlIntent?.("manual", this.targetDeg);
+    if (notify) this.onControlIntent?.("manual", this.targetDeg);
     return COLLISION_CLEAR;
   }
 
@@ -210,7 +212,7 @@ export class SimulationLoop {
       target: { position: position.clone(), quaternion: quaternion.clone() },
       q0Deg: [...this.currentDeg],
     });
-    const rejected = this.setJointTargets(result.qDeg);
+    const rejected = this.setJointTargets(result.qDeg, !this.onTcpIntent);
     if (rejected) {
       // 拒绝：目标与 TCP 意图都冻结在最后有效状态（Ghost 停在安全边界）
       result.collision = rejected;
@@ -218,6 +220,8 @@ export class SimulationLoop {
     }
     this.lastIk = result;
     this.tcpTarget = { position: position.clone(), quaternion: quaternion.clone() };
+    if (this.onTcpIntent)
+      void this.onTcpIntent(position.clone(), quaternion.clone()).catch(() => undefined);
     this.updateTcp();
     return result;
   }

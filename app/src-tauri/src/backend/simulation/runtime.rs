@@ -2,8 +2,10 @@
 // @author:  https://github.com/Linmoqian
 
 use super::collision::{self, CollisionStatus};
-use super::model::RobotModel;
+use super::ik::{self, IkSolution};
+use super::model::{Pose, RobotModel};
 use super::physics::{PhysicsScene, PropPose};
+use rapier3d::math::{Rotation, Vector};
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -322,6 +324,59 @@ pub fn simulation_set_joint_targets(
     sim.targets = joints_rad;
     sim.mode = "manual";
     Ok(())
+}
+
+#[tauri::command]
+pub fn simulation_set_tcp_target(
+    state: State<RuntimeManager>,
+    robot_id: String,
+    sequence: u64,
+    position_m: [f32; 3],
+    rotation_xyzw: [f32; 4],
+) -> Result<IkSolution, String> {
+    if !position_m
+        .iter()
+        .chain(rotation_xyzw.iter())
+        .all(|value| value.is_finite())
+    {
+        return Err("TCP 目标包含无效 SI 数值".into());
+    }
+    let norm = rotation_xyzw
+        .iter()
+        .map(|value| value * value)
+        .sum::<f32>()
+        .sqrt();
+    if norm < 1e-6 {
+        return Err("TCP 目标四元数无效".into());
+    }
+    let target = Pose {
+        position: Vector::from(position_m),
+        rotation: Rotation::from_xyzw(
+            rotation_xyzw[0] / norm,
+            rotation_xyzw[1] / norm,
+            rotation_xyzw[2] / norm,
+            rotation_xyzw[3] / norm,
+        ),
+    };
+    let shared = runtime(&state)?;
+    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    if sim.paused {
+        return Err("回放期间不能控制仿真，请先退出回放".into());
+    }
+    sim.accept_command(&robot_id, sequence)?;
+    let solution = ik::solve(&sim.model, &sim.joints, &target)?;
+    let collision = collision::evaluate_swept(
+        &sim.model,
+        &sim.joints,
+        &solution.joints_rad,
+        &sim.physics.props(),
+    );
+    if collision.rejected() {
+        return Err("TCP 目标触发自碰撞或环境停止区，已拒绝".into());
+    }
+    sim.targets = solution.joints_rad.clone();
+    sim.mode = "manual";
+    Ok(solution)
 }
 
 #[tauri::command]
