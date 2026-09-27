@@ -1,4 +1,4 @@
-/** 实验室总览与继续工作入口。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+/** 实验室总览与继续工作入口。Created on 2026-09-26; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { Link } from "react-router";
 import {
   ArrowRight,
@@ -11,6 +11,7 @@ import {
   Circle,
   Clock3,
   Clapperboard,
+  CarFront,
   FlaskConical,
   FolderOpen,
   Plug,
@@ -302,6 +303,14 @@ export default function WorkbenchHome() {
         </section>
       </div>
       <section className="home-tools" aria-label="分析与辅助工具">
+        <Link to="/devices">
+          <CarFront size={19} />
+          <div>
+            <strong>设备目录</strong>
+            <span>按车辆、无人机、机械臂查看机型</span>
+          </div>
+          <ArrowUpRight size={14} />
+        </Link>
         <Link to="/assets">
           <FolderOpen size={19} />
           <div>

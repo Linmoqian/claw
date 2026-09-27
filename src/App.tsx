@@ -1,4 +1,4 @@
-/** 工作台入口与持久运行宿主。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+/** 工作台入口与持久运行宿主。Created on 2026-09-26; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { Suspense, lazy, useEffect, useLayoutEffect } from "react";
 import { MotionConfig } from "motion/react";
 import { Info, Plug, RotateCw } from "lucide-react";
@@ -36,6 +36,7 @@ const ModelTraining = lazy(() => import("./pages/ModelTraining"));
 const VisionAssistant = lazy(() => import("./pages/VisionAssistant"));
 const Documents = lazy(() => import("./pages/Documents"));
 const AssetLibrary = lazy(() => import("./pages/AssetLibrary"));
+const DeviceCatalog = lazy(() => import("./pages/DeviceCatalog"));
 
 const contextItems: ContextMenuItem[] = [
   {
@@ -128,6 +129,7 @@ function App() {
                       <Route path="/data" element={<DataCollection />} />
                       <Route path="/documents" element={<Documents />} />
                       <Route path="/assets" element={<AssetLibrary />} />
+                      <Route path="/devices" element={<DeviceCatalog />} />
                       <Route
                         path="/training"
                         element={<AdversarialTraining />}

@@ -1,4 +1,4 @@
-/** 工作台任务导航。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+/** 工作台任务导航。Created on 2026-09-26; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { useState } from "react";
 import { NavLink, useLocation } from "react-router";
 import {
@@ -7,6 +7,7 @@ import {
   BookOpen,
   Box,
   BrainCircuit,
+  CarFront,
   ChevronDown,
   Cpu,
   Clapperboard,
@@ -64,6 +65,7 @@ const GROUPS: NavigationGroup[] = [
     id: "device",
     label: "设备与诊断",
     items: [
+      { to: "/devices", label: "设备目录", icon: CarFront },
       { to: "/connect", label: "设备连接", icon: Plug },
       { to: "/monitor", label: "关节状态", icon: Cpu },
       { to: "/control", label: "基础控制", icon: ToggleRight },

@@ -1,4 +1,4 @@
-/** 全局实验上下文和开始/结束操作。Created on 2026-09-26 @author: https://github.com/Linmoqian */
+/** 全局实验上下文和开始/结束操作。Created on 2026-09-26; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Link, useLocation } from "react-router";
 import {
@@ -28,6 +28,7 @@ const PAGE_NAMES: Record<string, string> = {
   "/data": "视频与数据",
   "/documents": "文档收集",
   "/assets": "项目资产",
+  "/devices": "设备目录",
   "/model-training": "智能训练",
   "/training": "对抗训练",
   "/vision": "视觉助手",
