@@ -185,7 +185,7 @@ impl RobotModel {
             .collect()
     }
 
-    pub fn tcp_pose(&self, joints_rad: &[f32]) -> Pose {
+    pub fn link_poses(&self, joints_rad: &[f32]) -> HashMap<String, Pose> {
         let mut poses = HashMap::from([(
             self.root.clone(),
             Pose {
@@ -220,10 +220,16 @@ impl RobotModel {
                 queue.push_back(joint.child.clone());
             }
         }
-        poses.remove(&self.ee_link).unwrap_or(Pose {
-            position: Vector::ZERO,
-            rotation: Rotation::IDENTITY,
-        })
+        poses
+    }
+
+    pub fn tcp_pose(&self, joints_rad: &[f32]) -> Pose {
+        self.link_poses(joints_rad)
+            .remove(&self.ee_link)
+            .unwrap_or(Pose {
+                position: Vector::ZERO,
+                rotation: Rotation::IDENTITY,
+            })
     }
 }
 

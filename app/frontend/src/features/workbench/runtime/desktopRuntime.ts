@@ -3,6 +3,7 @@
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import type { SimulationLoop, SimMode } from "../../../robot/simulation";
 import type { BasePose, BaseSim } from "../../../robot/baseSim";
+import type { CollisionStatus } from "../../../robot/collision";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { useActivityStore } from "./activity";
 
@@ -25,6 +26,7 @@ export interface SimulationFrame {
   base: BasePose;
   tcpPositionM: [number, number, number];
   props: PropPose[];
+  collision: CollisionStatus;
 }
 
 let latestFrame: SimulationFrame | null = null;
@@ -81,7 +83,7 @@ export function connectDesktopRuntime(
     for (const listener of frameListeners) listener(frame);
     if (useBridgeStore.getState().bridge.kind !== "simulation"
       || useActivityStore.getState().replayPreparing) return;
-    sim.applyAuthorityFrame(frame.jointsRad, frame.targetRad, frame.mode, frame.progress);
+    sim.applyAuthorityFrame(frame.jointsRad, frame.targetRad, frame.mode, frame.progress, frame.collision);
     baseSim.applyAuthorityPose(frame.base);
   };
 
@@ -94,7 +96,7 @@ export function connectDesktopRuntime(
         return;
       }
       latestFrame = initial;
-      sim.applyAuthorityFrame(initial.jointsRad, initial.targetRad, initial.mode, initial.progress);
+      sim.applyAuthorityFrame(initial.jointsRad, initial.targetRad, initial.mode, initial.progress, initial.collision);
       baseSim.applyAuthorityPose(initial.base);
       await invoke("simulation_subscribe", { channel });
       started = true;

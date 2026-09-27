@@ -269,11 +269,15 @@ export class SimulationLoop {
   }
 
   /** Rust 是桌面仿真的唯一状态源；回写不触发控制意图，预览仍留在界面。 */
-  applyAuthorityFrame(currentRad: number[], targetRad: number[], mode: SimMode, progress: number): void {
+  applyAuthorityFrame(
+    currentRad: number[], targetRad: number[], mode: SimMode, progress: number,
+    collision: CollisionStatus,
+  ): void {
     if (currentRad.length !== this.currentDeg.length || targetRad.length !== this.targetDeg.length) return;
     this.currentDeg = currentRad.map((rad) => rad * 180 / Math.PI);
     this.targetDeg = targetRad.map((rad) => rad * 180 / Math.PI);
     this.mode = mode;
+    this.lastCollision = collision;
     this.trajTime = Math.max(0, Math.min(1, progress))
       * (this.traj[this.traj.length - 1]?.time ?? 10);
     this.updateTcp();

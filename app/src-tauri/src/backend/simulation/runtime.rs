@@ -1,6 +1,7 @@
 // 单实例固定步长仿真与有序状态流。Created on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
+use super::collision::{self, CollisionStatus};
 use super::model::RobotModel;
 use super::physics::{PhysicsScene, PropPose};
 use serde::Serialize;
@@ -36,6 +37,7 @@ pub struct SimulationFrame {
     base: BasePose,
     tcp_position_m: [f32; 3],
     props: Vec<PropPose>,
+    collision: CollisionStatus,
 }
 
 struct SimulationState {
@@ -51,12 +53,15 @@ struct SimulationState {
     last_command_sequence: u64,
     frame_sequence: u64,
     physics: PhysicsScene,
+    collision: CollisionStatus,
     subscribers: Vec<Channel<SimulationFrame>>,
 }
 
 impl SimulationState {
     fn new(model: RobotModel) -> Self {
         let count = model.active.len();
+        let physics = PhysicsScene::new();
+        let collision = collision::evaluate(&model, &vec![0.0; count], &physics.props());
         Self {
             model,
             joints: vec![0.0; count],
@@ -69,7 +74,8 @@ impl SimulationState {
             base_target: BasePose::default(),
             last_command_sequence: 0,
             frame_sequence: 0,
-            physics: PhysicsScene::new(),
+            physics,
+            collision,
             subscribers: Vec::new(),
         }
     }
@@ -106,7 +112,7 @@ impl SimulationState {
             }
         } else {
             let rate: f32 = if self.mode == "homing" { 90.0 } else { 300.0 };
-            let joint_step = rate.to_radians() * dt;
+            let joint_step = rate.to_radians() * dt * self.collision.speed_scale();
             for (current, target) in self.joints.iter_mut().zip(&self.targets) {
                 *current += (*target - *current).clamp(-joint_step, joint_step);
             }
@@ -131,6 +137,7 @@ impl SimulationState {
             tcp.z,
         ];
         self.physics.step(base_dt, world_tcp);
+        self.collision = collision::evaluate(&self.model, &self.joints, &self.physics.props());
         self.frame_sequence += 1;
     }
 
@@ -161,6 +168,7 @@ impl SimulationState {
                 tcp.z,
             ],
             props: self.physics.props(),
+            collision: self.collision.clone(),
         }
     }
 
@@ -304,6 +312,11 @@ pub fn simulation_set_joint_targets(
         if !angle.is_finite() || *angle < lower || *angle > upper {
             return Err("关节目标超出限位或不是有效弧度".into());
         }
+    }
+    let collision =
+        collision::evaluate_swept(&sim.model, &sim.joints, &joints_rad, &sim.physics.props());
+    if collision.rejected() {
+        return Err("关节目标触发自碰撞或环境停止区，已拒绝".into());
     }
     sim.accept_command(&robot_id, sequence)?;
     sim.targets = joints_rad;
