@@ -90,6 +90,7 @@ pub fn run() {
             replay::replay_clear,
             training::train_perception,
             training::train_decision,
+            training::adversarial::train_adversarial,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

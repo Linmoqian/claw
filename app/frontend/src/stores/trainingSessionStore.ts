@@ -16,7 +16,7 @@ import {
   type AdversarialTrainingResult,
 } from "../robot/adversarialTraining";
 import { findRobotEntry, useRobotStore } from "./robotStore";
-import { desktopTrainingEnabled, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../features/training/desktopTraining";
+import { desktopTrainingEnabled, trainDesktopAdversarial, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../features/training/desktopTraining";
 
 export type PerceptionControls = Required<
   Pick<PerceptionTrainingConfig, "samplesPerClass" | "epochs" | "learningRate">
@@ -186,6 +186,7 @@ interface AdversarialTrainingState {
   result: AdversarialTrainingResult | null;
   resultProvenance: TrainingProvenance | null;
   running: boolean;
+  trainingProgress: TrainingProgress | null;
   notice: string | null;
   updateControl: <K extends keyof AdversarialControls>(
     key: K,
@@ -201,6 +202,7 @@ export const useAdversarialTrainingStore = create<AdversarialTrainingState>(
     result: null,
     resultProvenance: null,
     running: false,
+    trainingProgress: null,
     notice: null,
     updateControl: (key, value) => {
       if (get().running) return;
@@ -212,14 +214,16 @@ export const useAdversarialTrainingStore = create<AdversarialTrainingState>(
       });
     },
     startTraining: async () => {
-      const { model, status } = useRobotStore.getState();
+      const { model, status, currentId } = useRobotStore.getState();
       if (!model || status !== "ready" || get().running) return;
       const config = { ...get().controls };
       const source = provenance();
-      set({ running: true, notice: null });
+      set({ running: true, trainingProgress: null, notice: null });
       await nextTurn();
       try {
-        const result = runAdversarialTraining(model, config);
+        const result = desktopTrainingEnabled()
+          ? await trainDesktopAdversarial(currentId ?? "", config, (trainingProgress) => set({ trainingProgress }))
+          : runAdversarialTraining(model, config);
         set({
           result,
           resultProvenance: source,
@@ -230,7 +234,7 @@ export const useAdversarialTrainingStore = create<AdversarialTrainingState>(
           notice: `训练失败：${String(reason)}。已保留上次结果，可重试。`,
         });
       } finally {
-        set({ running: false });
+        set({ running: false, trainingProgress: null });
       }
     },
     reset: () => {
@@ -239,6 +243,7 @@ export const useAdversarialTrainingStore = create<AdversarialTrainingState>(
         controls: { ...DEFAULT_ADVERSARIAL },
         result: null,
         resultProvenance: null,
+        trainingProgress: null,
         notice: null,
       });
     },

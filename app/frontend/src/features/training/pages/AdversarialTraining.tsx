@@ -37,6 +37,7 @@ export default function AdversarialTraining() {
     result,
     resultProvenance,
     running,
+    trainingProgress,
     notice,
     updateControl,
     startTraining,
@@ -176,7 +177,9 @@ export default function AdversarialTraining() {
               onClick={startTraining}
             >
               <Play size={15} />
-              {running ? "计算中…" : "开始训练"}
+              {running ? trainingProgress
+                ? `计算中 ${trainingProgress.epoch}/${trainingProgress.epochs}`
+                : "计算中…" : "开始训练"}
             </button>
             <button
               type="button"

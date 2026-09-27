@@ -5,6 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tauri::ipc::Channel;
 
+pub mod adversarial;
+
 const PERCEPTION_LABELS: [&str; 3] = ["水杯", "咖啡机", "工作台"];
 const PERCEPTION_FEATURES: [&str; 5] = ["水平位置", "垂直位置", "目标尺度", "长宽比", "边缘密度"];
 const DECISION_FEATURES: [&str; 5] = ["目标 Δx", "目标 Δy", "目标 Δz", "障碍距离", "抓取阶段"];

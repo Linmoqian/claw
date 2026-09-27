@@ -7,6 +7,7 @@ import type {
   PerceptionTrainingConfig,
   PerceptionTrainingResult,
 } from "../../robot/modelTraining";
+import type { AdversarialTrainingConfig, AdversarialTrainingResult } from "../../robot/adversarialTraining";
 
 export interface TrainingProgress {
   version: number;
@@ -22,7 +23,7 @@ export function desktopTrainingEnabled(): boolean {
 
 async function invokeTraining<T>(
   command: string,
-  config: PerceptionTrainingConfig | DecisionTrainingConfig,
+  config: PerceptionTrainingConfig | DecisionTrainingConfig | AdversarialTrainingConfig,
   onProgress: (progress: TrainingProgress) => void,
 ): Promise<T> {
   const progress = new Channel<TrainingProgress>();
@@ -47,4 +48,19 @@ export function trainDesktopDecision(
   onProgress: (progress: TrainingProgress) => void,
 ): Promise<DecisionTrainingResult> {
   return invokeTraining("train_decision", config, onProgress);
+}
+
+export function trainDesktopAdversarial(
+  robotId: string,
+  config: AdversarialTrainingConfig,
+  onProgress: (progress: TrainingProgress) => void,
+): Promise<AdversarialTrainingResult> {
+  const progress = new Channel<TrainingProgress>();
+  let lastSequence = 0;
+  progress.onmessage = (message) => {
+    if (message.version !== 1 || message.sequence <= lastSequence) return;
+    lastSequence = message.sequence;
+    onProgress(message);
+  };
+  return invoke<AdversarialTrainingResult>("train_adversarial", { robotId, config, progress });
 }
