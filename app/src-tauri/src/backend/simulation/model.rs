@@ -1,13 +1,14 @@
 // URDF 运动链与 SI 正运动学。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 use rapier3d::math::{Rotation, Vector};
 use roxmltree::{Document, Node};
 use std::collections::{HashMap, HashSet, VecDeque};
 
-const SO100_URDF: &str = include_str!("../../../../frontend/public/models/so100/so100.urdf");
+const SO100_URDF: &str = include_str!("../../../../public/models/so100/so100.urdf");
 const PANTHERA_URDF: &str =
-    include_str!("../../../../frontend/public/models/111/urdf/panthera_ht_ros_description.urdf");
+    include_str!("../../../../public/models/111/urdf/panthera_ht_ros_description.urdf");
 
 #[derive(Clone)]
 pub struct Joint {

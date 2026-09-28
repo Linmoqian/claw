@@ -19,6 +19,6 @@ pnpm start
 
 环境变量：`ROBOT_PORT` `STATION_PORT` `ROBOT_HZ` `STATION_HZ`（默认 15551/15552/50/10）。
 
-协议：与 `app/frontend/src/services/protocol/message.ts` 的 v2 SI 契约完全对齐。envelope 必含
+协议：与 `app/src/services/protocol/message.ts` 的 v2 SI 契约完全对齐。envelope 必含
 `protocol_version / units / frame_id / timestamp / sequence / type / data`；
 `timestamp` 为 Unix 秒，关节状态使用 `joint_state.position_rad`，含 `ping`/`pong` 探活。

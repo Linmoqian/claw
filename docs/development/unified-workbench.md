@@ -63,13 +63,13 @@ flowchart TD
 
 | 模块                                                       | 职责                                                 |
 | ---------------------------------------------------------- | ---------------------------------------------------- |
-| `app/frontend/src/features/workbench/runtime/`                                           | 常驻场景、Rust 状态适配和活动互斥状态       |
+| `app/src/features/workbench/runtime/`                                           | 常驻场景、Rust 状态适配和活动互斥状态       |
 | `app/src-tauri/src/backend/` | 仿真、程序、回放、训练、设备通信和持久化 |
-| `app/frontend/src/features/experiments/domain/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
-| `app/frontend/src/features/assets/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
-| `app/frontend/src/components/workbench/`                                | 顶部上下文、实验操作、页面与运行时错误边界           |
-| `app/frontend/src/features/experiments/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
-| `app/frontend/src/stores/aiSessionStore.ts` / `trainingSessionStore.ts` | AI 与训练的应用内存会话                              |
+| `app/src/features/experiments/domain/`                                         | 实验类型、实际状态采样、增量写入、记录仓库、实验会话 |
+| `app/src/features/assets/videos/`                                              | 视频副本与本机路径引用的独立资源库                   |
+| `app/src/components/workbench/`                                | 顶部上下文、实验操作、页面与运行时错误边界           |
+| `app/src/features/experiments/pages/Experiments.tsx` / `ExperimentDetail.tsx`       | 列表、结果、改名、导出与回放入口                     |
+| `app/src/stores/aiSessionStore.ts` / `trainingSessionStore.ts` | AI 与训练的应用内存会话                              |
 
 ## 采样与保存
 

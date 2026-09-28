@@ -1,13 +1,13 @@
 // 一次 M3 碰撞系统的数学层验证（node 直跑，不经浏览器）
 // Created on 2026-09-10 12:30
 // @author:  https://github.com/Linmoqian
-import { buildRobotModel } from "../../app/frontend/src/robot/model";
-import { computeLinkPoses, computeTcpPose } from "../../app/frontend/src/robot/kinematics";
-import { CollisionSystem } from "../../app/frontend/src/robot/collision";
+import { buildRobotModel } from "../../app/src/robot/model";
+import { computeLinkPoses, computeTcpPose } from "../../app/src/robot/kinematics";
+import { CollisionSystem } from "../../app/src/robot/collision";
 import {
   clearScenePropPoses,
   setScenePropPose,
-} from "../../app/frontend/src/robot/scenePhysics";
+} from "../../app/src/robot/scenePhysics";
 
 // node 无 DOMParser：手工构造 SO-100 近似链（尺寸与真实 URDF 接近，验证碰撞逻辑）
 interface ChainSeg {

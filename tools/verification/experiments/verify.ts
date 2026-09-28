@@ -3,23 +3,23 @@
  * @author:  https://github.com/Linmoqian
  */
 import assert from "node:assert/strict";
-import { ExperimentJournal } from "../../../app/frontend/src/features/experiments/domain/journal";
+import { ExperimentJournal } from "../../../app/src/features/experiments/domain/journal";
 import {
   sampleRuntime,
   toLegacyFrames,
-} from "../../../app/frontend/src/features/experiments/domain/sampling";
+} from "../../../app/src/features/experiments/domain/sampling";
 import type {
   ExperimentBundle,
   ExperimentSample,
-} from "../../../app/frontend/src/features/experiments/domain/types";
-import { BaseSim } from "../../../app/frontend/src/robot/baseSim";
-import { buildRobotModel } from "../../../app/frontend/src/robot/model";
-import { SimulationLoop } from "../../../app/frontend/src/robot/simulation";
-import { ReplayBridge } from "../../../app/frontend/src/services/bridge/replayBridge";
+} from "../../../app/src/features/experiments/domain/types";
+import { BaseSim } from "../../../app/src/robot/baseSim";
+import { buildRobotModel } from "../../../app/src/robot/model";
+import { SimulationLoop } from "../../../app/src/robot/simulation";
+import { ReplayBridge } from "../../../app/src/services/bridge/replayBridge";
 import {
   parseRecording,
   type RecordingFile,
-} from "../../../app/frontend/src/services/protocol/recording";
+} from "../../../app/src/services/protocol/recording";
 
 const model = buildRobotModel({
   name: "test",

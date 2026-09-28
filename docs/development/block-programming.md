@@ -5,7 +5,7 @@
 
 ## Feetech 扩展
 
-- 舵机角度块输入为度；下发前按 `app/frontend/src/lib/units.ts` 的 SO-100 校准表转 raw。
+- 舵机角度块输入为度；下发前按 `app/src/lib/units.ts` 的 SO-100 校准表转 raw。
 - 电机速度块输入为 `°/s`，范围 `5..300`；按 STS3215 分辨率转
   `MOVING_SPEED`（寄存器 46，raw 上限 2400）。
 - 扭矩使能是硬件动作前置条件；急停会中止解释器并保持硬件急停策略。

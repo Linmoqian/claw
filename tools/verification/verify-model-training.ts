@@ -12,7 +12,7 @@ import {
   serializeDecisionModel,
   serializePerceptionData,
   serializePerceptionModel,
-} from "../../app/frontend/src/robot/modelTraining";
+} from "../../app/src/robot/modelTraining";
 
 function main() {
   const perceptionConfig = {

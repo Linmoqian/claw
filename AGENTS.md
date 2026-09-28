@@ -5,7 +5,7 @@
 
 ## Project Structure & Module Organization
 
-The desktop workbench pairs a React frontend in `app/frontend/` with a Tauri backend in `app/src-tauri/`. Frontend source and static assets are under `app/frontend/src/` and `app/frontend/public/`. Protocol requirements live in `docs/development/protocol-v2.md`; local mock and verification utilities live in `tools/mock/` and `tools/verification/`.
+The desktop workbench uses the standard Tauri application layout in `app/`: React source is in `app/src/`, static assets are in `app/public/`, and Rust lives in `app/src-tauri/`. Protocol requirements live in `docs/development/protocol-v2.md`; local mock and verification utilities live in `tools/mock/` and `tools/verification/`.
 
 ## Build, Test, and Development Commands
 

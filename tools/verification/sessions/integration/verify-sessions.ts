@@ -4,9 +4,9 @@ import assert from "node:assert/strict";
 import {
   createAiSessionStore,
   type AiSessionClient,
-} from "../../../../app/frontend/src/stores/aiSessionStore";
-import { useModelTrainingStore } from "../../../../app/frontend/src/stores/trainingSessionStore";
-import { serialConnectionBlockedReason } from "../../../../app/frontend/src/lib/serialConnectionGuard";
+} from "../../../../app/src/stores/aiSessionStore";
+import { useModelTrainingStore } from "../../../../app/src/stores/trainingSessionStore";
+import { serialConnectionBlockedReason } from "../../../../app/src/lib/serialConnectionGuard";
 
 function verifySerialConnectionGate(): void {
   const idle = {

@@ -13,3 +13,5 @@
 重构后运行 `tauri dev --no-watch`，Rust 桌面进程成功编译并启动。当前 Codex 内置浏览器工具没有列出原生窗口，因此未完成桌面窗口中的实验迁移重试、积木动作和 WebSocket 收发交互；浏览器截图不替代这些验收。Rust 单元测试 19 项通过，包含过期 WebSocket 控制命令拒绝。
 
 最新代码在 1280×720 内置浏览器预览中打开工作台总览，导航、实验入口与准备状态均可见，截图为 `workbench-latest.png`。通信层的离线与异步发送失败另由 `tools/verification/transport/verify.ts` 验证。
+
+将 `app/` 调整为 Tauri 官方项目层级后，在 1280×720 内置浏览器预览中打开仿真页；机器人、静态场景、工具栏和实验入口均已加载，截图为 `tauri-template-studio.png`。此图只验证浏览器资源路径，桌面窗口未在本次目录调整中重新验收。

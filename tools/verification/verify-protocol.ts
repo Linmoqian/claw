@@ -5,8 +5,8 @@
  * @author:  https://github.com/Linmoqian
  */
 import assert from "node:assert/strict";
-import { canTransitionCommand } from "../../app/frontend/src/core/runtime/state";
-import { degreesToRadians, radiansToDegrees } from "../../app/frontend/src/robot/model";
+import { canTransitionCommand } from "../../app/src/core/runtime/state";
+import { degreesToRadians, radiansToDegrees } from "../../app/src/robot/model";
 import {
   MSG_TYPES,
   PROTOCOL_VERSION,
@@ -16,11 +16,11 @@ import {
   parseMessage,
   serializeMessage,
   unixSecondsToEpochMs,
-} from "../../app/frontend/src/services/protocol/message";
+} from "../../app/src/services/protocol/message";
 import {
   jointsFromMessage,
   robotStateFromMessage,
-} from "../../app/frontend/src/services/protocol/robot";
+} from "../../app/src/services/protocol/robot";
 
 const envelope = makeEnvelope(
   MSG_TYPES.jointState,

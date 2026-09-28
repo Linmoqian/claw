@@ -8,20 +8,20 @@ import assert from "node:assert/strict";
 // 从应用依赖读取同一份 Blockly 注册表，避免工具目录加载另一份实例。
 import * as Blockly from "../../app/node_modules/blockly/index.mjs";
 import "../../app/node_modules/blockly/blocks.mjs";
-import { registerBlockLabBlocks } from "../../app/frontend/src/features/blocks/blockly/blocks";
-import { DEFAULT_WORKSPACE } from "../../app/frontend/src/features/blocks/blockly/defaultWorkspace";
-import { createProgramSnapshot, parseProgramSnapshot } from "../../app/frontend/src/features/workbench/runtime/programSnapshot";
-import { createProgramAst } from "../../app/frontend/src/features/blocks/blockly/programAst";
-import { executeWorkspace } from "../../app/frontend/src/features/blocks/blockly/interpreter";
-import { solveCoplanarPnp } from "../../app/frontend/src/features/blocks/blockly/vision/pnp";
-import { DEFAULT_TOOL_PROFILES } from "../../app/frontend/src/features/blocks/blockly/toolProfiles";
+import { registerBlockLabBlocks } from "../../app/src/features/blocks/blockly/blocks";
+import { DEFAULT_WORKSPACE } from "../../app/src/features/blocks/blockly/defaultWorkspace";
+import { createProgramSnapshot, parseProgramSnapshot } from "../../app/src/features/workbench/runtime/programSnapshot";
+import { createProgramAst } from "../../app/src/features/blocks/blockly/programAst";
+import { executeWorkspace } from "../../app/src/features/blocks/blockly/interpreter";
+import { solveCoplanarPnp } from "../../app/src/features/blocks/blockly/vision/pnp";
+import { DEFAULT_TOOL_PROFILES } from "../../app/src/features/blocks/blockly/toolProfiles";
 import {
   angleToPosition,
   positionToAngle,
   speedDegPerSecToRaw,
-} from "../../app/frontend/src/lib/units";
-import { makePoseRpyDeg, poseProperty } from "../../app/frontend/src/features/blocks/blockly/poseMath";
-import type { BlockDeviceGateway, Detection } from "../../app/frontend/src/features/blocks/blockly/types";
+} from "../../app/src/lib/units";
+import { makePoseRpyDeg, poseProperty } from "../../app/src/features/blocks/blockly/poseMath";
+import type { BlockDeviceGateway, Detection } from "../../app/src/features/blocks/blockly/types";
 
 (globalThis as typeof globalThis & { window: typeof globalThis }).window =
   globalThis;

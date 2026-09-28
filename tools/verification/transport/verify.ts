@@ -3,8 +3,8 @@
  * @author:  https://github.com/Linmoqian
  */
 import assert from "node:assert/strict";
-import { ConnectionManager } from "../../../app/frontend/src/services/connection/connectionManager";
-import type { Transport, Unsubscribe } from "../../../app/frontend/src/services/transport/types";
+import { ConnectionManager } from "../../../app/src/services/connection/connectionManager";
+import type { Transport, Unsubscribe } from "../../../app/src/services/transport/types";
 
 class FailingTransport implements Transport {
   readonly url = "ws://127.0.0.1:1";

@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { detectColorFromCanvas, loadOpenCv } from "../../app/frontend/src/features/blocks/blockly/vision/vision";
+import { detectColorFromCanvas, loadOpenCv } from "../../app/src/features/blocks/blockly/vision/vision";
 
 async function verifyVision(): Promise<void> {
   const [first, second] = await Promise.all([loadOpenCv(), loadOpenCv()]);
