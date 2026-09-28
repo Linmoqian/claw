@@ -1,5 +1,8 @@
 // 文档、视频和项目文件的分块存储。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
+
+mod catalog;
 
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -17,6 +20,7 @@ const MAX_CHUNK: usize = 1024 * 1024;
 pub struct AssetManager(pub Mutex<HashMap<String, PendingUpload>>);
 
 pub struct PendingUpload {
+    bucket: String,
     directory: PathBuf,
     temp: PathBuf,
     file: File,
@@ -185,6 +189,9 @@ fn commit_manifest(directory: &Path, manifest: &Manifest) -> Result<(), String> 
 
 #[tauri::command]
 pub fn asset_list(app: AppHandle, bucket: String) -> Result<Vec<serde_json::Value>, String> {
+    if bucket == "documents" || bucket == "project-assets" {
+        return catalog::list(&app, &bucket);
+    }
     let mut records = Vec::new();
     for entry in fs::read_dir(bucket_path(&app, &bucket)?)
         .map_err(|error| error.to_string())?
@@ -231,10 +238,12 @@ pub fn asset_save_link(
     commit_manifest(
         &directory,
         &Manifest {
-            record,
+            record: record.clone(),
             binary: None,
         },
-    )
+    )?;
+    catalog::upsert(&app, &bucket, &record)
+        .map_err(|error| format!("文件清单已保存，索引写入失败；刷新资产列表可重试：{error}"))
 }
 
 #[tauri::command]
@@ -253,6 +262,7 @@ pub fn asset_begin_upload(
     manager.0.lock().map_err(|error| error.to_string())?.insert(
         upload_id.clone(),
         PendingUpload {
+            bucket,
             directory,
             temp,
             file,
@@ -289,7 +299,11 @@ pub fn asset_upload_chunk(
 }
 
 #[tauri::command]
-pub fn asset_finish_upload(manager: State<AssetManager>, upload_id: String) -> Result<(), String> {
+pub fn asset_finish_upload(
+    app: AppHandle,
+    manager: State<AssetManager>,
+    upload_id: String,
+) -> Result<(), String> {
     let mut sessions = manager.0.lock().map_err(|error| error.to_string())?;
     let upload = sessions
         .remove(&upload_id)
@@ -312,10 +326,12 @@ pub fn asset_finish_upload(manager: State<AssetManager>, upload_id: String) -> R
     commit_manifest(
         &upload.directory,
         &Manifest {
-            record: upload.record,
+            record: upload.record.clone(),
             binary: Some(binary),
         },
-    )
+    )?;
+    catalog::upsert(&app, &upload.bucket, &upload.record)
+        .map_err(|error| format!("文件已保存，索引写入失败；刷新资产列表可重试：{error}"))
 }
 
 #[tauri::command]
@@ -361,7 +377,7 @@ pub fn asset_remove(app: AppHandle, bucket: String, id: String) -> Result<(), St
     if directory.exists() {
         fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
     }
-    Ok(())
+    catalog::remove(&app, &bucket, &id)
 }
 
 #[cfg(test)]
