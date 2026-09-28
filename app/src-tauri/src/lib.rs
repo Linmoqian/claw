@@ -5,8 +5,8 @@
 mod backend;
 
 use backend::{
-    ai, assets, bluetooth, debug_serial, drafts, experiments, mcu, program, replay, servo,
-    simulation, slcan, training, websocket,
+    ai, assets, bluetooth, debug_serial, drafts, experiments, mcu, program, protocol, replay,
+    servo, simulation, slcan, training, websocket,
 };
 use std::sync::Mutex;
 
@@ -36,6 +36,7 @@ pub fn run() {
         .manage(replay::ReplayManager::new())
         .manage(program::ProgramManager::new())
         .manage(websocket::WebSocketManager::new())
+        .manage(protocol::ProtocolManager::new())
         .manage(bluetooth::BluetoothManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
@@ -69,6 +70,17 @@ pub fn run() {
             bluetooth::bluetooth_write,
             bluetooth::bluetooth_subscribe,
             bluetooth::bluetooth_unsubscribe,
+            protocol::protocol_active,
+            protocol::protocol_open_serial,
+            protocol::protocol_open_ble,
+            protocol::protocol_close,
+            protocol::protocol_raw_transfer,
+            protocol::protocol_can_send,
+            protocol::protocol_can_receive,
+            protocol::protocol_ble_read,
+            protocol::protocol_ble_write,
+            protocol::protocol_ble_subscribe,
+            protocol::protocol_ble_unsubscribe,
             ai::ai_get_config,
             ai::ai_start,
             ai::ai_chat,

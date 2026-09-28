@@ -4,31 +4,15 @@
 
 use super::common::to_err;
 use super::debug_serial::{transfer, DebugSerialState};
+use super::protocol::slcan::{acknowledged, encode_frame, valid_version};
 use serde::Deserialize;
 use tauri::State;
 
 #[derive(Deserialize)]
 pub struct CanFrame {
-    id: u32,
-    extended: bool,
-    data: Vec<u8>,
-}
-
-fn encode_frame(frame: &CanFrame) -> Result<String, String> {
-    let max_id = if frame.extended { 0x1FFF_FFFF } else { 0x7FF };
-    if frame.id > max_id {
-        return Err("CAN 帧 ID 超出标准帧或扩展帧范围".into());
-    }
-    if frame.data.len() > 8 {
-        return Err("经典 CAN 数据区最多 8 字节".into());
-    }
-    let kind = if frame.extended { 'T' } else { 't' };
-    let width = if frame.extended { 8 } else { 3 };
-    let mut command = format!("{kind}{:0width$X}{}", frame.id, frame.data.len());
-    for byte in &frame.data {
-        command.push_str(&format!("{byte:02X}"));
-    }
-    Ok(command)
+    pub(crate) id: u32,
+    pub(crate) extended: bool,
+    pub(crate) data: Vec<u8>,
 }
 
 fn command(
@@ -37,29 +21,6 @@ fn command(
     timeout_ms: u64,
 ) -> Result<Vec<u8>, String> {
     transfer(port, format!("{instruction}\r").as_bytes(), timeout_ms)
-}
-
-fn acknowledged(bytes: &[u8], operation: &str) -> Result<(), String> {
-    if bytes.contains(&0x07) {
-        return Err(format!("CAN 适配器拒绝{operation}命令"));
-    }
-    let mut start = 0;
-    for (index, byte) in bytes.iter().enumerate() {
-        if *byte == b'\r' {
-            let record = &bytes[start..index];
-            if record.is_empty() || record == b"z" || record == b"Z" {
-                return Ok(());
-            }
-            start = index + 1;
-        }
-    }
-    Err(format!("CAN 适配器未确认{operation}命令"))
-}
-
-fn valid_version(bytes: &[u8]) -> bool {
-    bytes
-        .windows(5)
-        .any(|window| window[0] == b'V' && window[1..].iter().all(u8::is_ascii_hexdigit))
 }
 
 #[tauri::command]

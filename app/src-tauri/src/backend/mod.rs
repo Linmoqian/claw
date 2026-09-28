@@ -11,6 +11,7 @@ pub mod drafts;
 pub mod experiments;
 pub mod mcu;
 pub mod program;
+pub mod protocol;
 pub mod replay;
 pub mod servo;
 pub mod simulation;

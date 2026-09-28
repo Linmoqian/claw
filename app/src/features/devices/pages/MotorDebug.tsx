@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { isDesktop, listSerialPorts } from "../../../lib/serial";
 import {
+  activeDebugProtocol,
+  closeDebugProtocol,
   parseHexBytes,
   type RawSerialOptions,
 } from "../motor-debug/serialDebug";
@@ -36,11 +38,17 @@ export default function MotorDebug() {
   useEffect(() => {
     if (!isDesktop()) return;
     let active = true;
-    void listBleCharacteristics().then(() => {
-      if (!active) return;
-      setBleConnected(true);
-      setMode("ble");
-    }).catch(() => {});
+    void activeDebugProtocol()
+      .then((selectedProtocol) => {
+        if (selectedProtocol !== "ble-gatt") return;
+        return listBleCharacteristics();
+      })
+      .then((characteristics) => {
+        if (!characteristics || !active) return;
+        setBleConnected(true);
+        setMode("ble");
+      })
+      .catch(() => {});
     return () => { active = false; };
   }, []);
   return (
@@ -55,6 +63,7 @@ export default function MotorDebug() {
 }
 
 function SerialDebug() {
+  const [orphanedProtocol, setOrphanedProtocol] = useState<string | null>(null);
   const [interfaceType, setInterfaceType] = useState<DebugInterface>("ttl");
   const [protocol, setProtocol] = useState<DebugProtocol>("raw");
   const [ports, setPorts] = useState<string[]>([]);
@@ -84,6 +93,16 @@ function SerialDebug() {
   const activeProtocol = session.protocol ?? protocol;
   const activeInterface = session.interfaceType ?? interfaceType;
   const activeMotorId = session.targetId ?? motorId;
+
+  useEffect(() => {
+    if (!isDesktop() || session.port) return;
+    let active = true;
+    void activeDebugProtocol().then((selectedProtocol) => {
+      if (active && selectedProtocol && selectedProtocol !== "ble-gatt")
+        setOrphanedProtocol(selectedProtocol);
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [session.port]);
 
   const scanPorts = async (): Promise<void> => {
     if (!desktop || scanning) return;
@@ -220,6 +239,17 @@ function SerialDebug() {
           Tauri 桌面应用。
         </div>
       )}
+      {orphanedProtocol && !connected && (
+        <div className="motor-debug__notice" role="status">
+          <CircleAlert size={17} /> 桌面后端仍保留 {orphanedProtocol} 调试连接。
+          <button type="button" className="motor-debug__button" onClick={() => {
+            void closeDebugProtocol().then((warning) => {
+              setOrphanedProtocol(null);
+              setInputError(warning ? `已断开，适配器警告：${warning}` : null);
+            }).catch((error: unknown) => setInputError(error instanceof Error ? error.message : String(error)));
+          }}>断开旧会话</button>
+        </div>
+      )}
       {(session.error || scanError || inputError) && (
         <div className="motor-debug__notice is-error" role="alert">
           <CircleAlert size={17} /> {inputError || session.error || scanError}
@@ -271,7 +301,10 @@ function SerialDebug() {
                   }}
                 >
                   {activeInterface === "can" ? (
-                    <option value="slcan">SLCAN · Lawicel ASCII</option>
+                    <>
+                      <option value="slcan">SLCAN · Lawicel ASCII</option>
+                      <option value="raw">原始适配器字节 · HEX / UTF-8</option>
+                    </>
                   ) : (
                     <>
                       <option value="raw">原始串口 · HEX / UTF-8</option>
@@ -409,6 +442,8 @@ function SerialDebug() {
                 ? "飞特串口协议使用 8N1；请确认所用 TTL/RS485 转接器与舵机电气接口匹配。"
                 : activeProtocol === "slcan"
                   ? "仅支持提供虚拟 COM 串口且兼容 SLCAN/Lawicel ASCII 的 USB-CAN 适配器；串口波特率和 CAN 总线速率分别设置。"
+                  : activeInterface === "can"
+                    ? "原始模式只与适配器虚拟串口交换字节，不自动生成 CAN 帧；请按适配器手册输入命令。"
                   : activeInterface === "rs485"
                     ? "RS485 需要自动收发方向控制的转接器；本页按设备手册收发原始字节。"
                     : "TTL 串口需要电平匹配的转接器；本页按设备手册收发原始字节。"}

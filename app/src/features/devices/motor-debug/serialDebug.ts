@@ -11,6 +11,22 @@ export interface RawSerialOptions {
   stopBits: 1 | 2;
 }
 
+export interface DebugProtocolOptions extends RawSerialOptions {
+  protocol: "raw" | "feetech" | "slcan";
+  interfaceType: "ttl" | "rs485" | "can";
+  canBitrate: CanBitrateCode;
+  targetId: number | null;
+}
+
+export const activeDebugProtocol = (): Promise<string | null> =>
+  invoke("protocol_active");
+
+export const openDebugProtocol = (options: DebugProtocolOptions): Promise<string> =>
+  invoke("protocol_open_serial", { ...options });
+
+export const closeDebugProtocol = (): Promise<string | null> =>
+  invoke("protocol_close");
+
 export function parseHexBytes(source: string): number[] {
   const normalized = source.replace(/(?:0x)/gi, "").replace(/[\s,;:_-]/g, "");
   if (
@@ -30,41 +46,17 @@ export function formatHexBytes(bytes: number[]): string {
     .join(" ");
 }
 
-export async function openRawSerial(
-  options: RawSerialOptions,
-): Promise<string> {
-  return invoke<string>("debug_serial_open", {
-    port: options.port,
-    baud: options.baud,
-    dataBits: options.dataBits,
-    parity: options.parity,
-    stopBits: options.stopBits,
-  });
-}
-
-export async function closeRawSerial(): Promise<void> {
-  await invoke("debug_serial_close");
-}
-
 export async function transferRawSerial(
   tx: number[],
   timeoutMs: number,
 ): Promise<number[]> {
-  return invoke<number[]>("debug_serial_transfer", { tx, timeoutMs });
-}
-
-export async function initializeSlcan(bitrate: CanBitrateCode): Promise<void> {
-  await invoke("slcan_initialize", { bitrate });
-}
-
-export async function closeSlcan(): Promise<void> {
-  await invoke("slcan_close");
+  return invoke<number[]>("protocol_raw_transfer", { tx, timeoutMs });
 }
 
 export async function sendSlcanFrame(frame: CanFrame): Promise<number[]> {
-  return invoke<number[]>("slcan_send_frame", { frame });
+  return invoke<number[]>("protocol_can_send", { frame });
 }
 
 export async function receiveSlcanFrames(): Promise<number[]> {
-  return invoke<number[]>("slcan_receive");
+  return invoke<number[]>("protocol_can_receive");
 }

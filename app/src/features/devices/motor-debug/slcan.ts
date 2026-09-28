@@ -19,32 +19,6 @@ export interface CanFrame {
   data: number[];
 }
 
-export function encodeSlcanCommand(command: string): number[] {
-  return Array.from(new TextEncoder().encode(`${command}\r`));
-}
-
-export function encodeSlcanFrame(frame: CanFrame): string {
-  const maxId = frame.extended ? 0x1fffffff : 0x7ff;
-  if (!Number.isInteger(frame.id) || frame.id < 0 || frame.id > maxId)
-    throw new Error(
-      frame.extended ? "扩展帧 ID 须在 0–1FFFFFFF。" : "标准帧 ID 须在 0–7FF。",
-    );
-  if (
-    frame.data.length > 8 ||
-    frame.data.some((byte) => !Number.isInteger(byte) || byte < 0 || byte > 255)
-  )
-    throw new Error("经典 CAN 数据区最多 8 字节，字节范围为 00–FF。");
-  const kind = frame.extended ? "T" : "t";
-  const id = frame.id
-    .toString(16)
-    .toUpperCase()
-    .padStart(frame.extended ? 8 : 3, "0");
-  const data = frame.data
-    .map((byte) => byte.toString(16).toUpperCase().padStart(2, "0"))
-    .join("");
-  return `${kind}${id}${frame.data.length}${data}`;
-}
-
 export function decodeSlcanRecords(
   bytes: number[],
   carry = "",

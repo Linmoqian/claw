@@ -1,8 +1,6 @@
 /** 单电机调试界面状态和有限长度通信日志。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 import { create } from "zustand";
 import {
-  serialConnect,
-  serialDisconnect,
   servoPing,
   servoReadPosition,
   servoSetTorque,
@@ -13,11 +11,9 @@ import { serialConnectionBlockedReason } from "../../../lib/serialConnectionGuar
 import { useActivityStore } from "../../workbench/runtime/activity";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import {
-  closeRawSerial,
-  closeSlcan,
+  closeDebugProtocol,
   formatHexBytes,
-  initializeSlcan,
-  openRawSerial,
+  openDebugProtocol,
   receiveSlcanFrames,
   sendSlcanFrame,
   transferRawSerial,
@@ -26,7 +22,6 @@ import {
 import {
   decodeSlcanRecords,
   describeSlcanRecord,
-  encodeSlcanFrame,
   type CanBitrateCode,
   type CanFrame,
 } from "./slcan";
@@ -172,30 +167,18 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
       set({ error: "舵机 ID 须为 1–253 的整数。" });
       return;
     }
-    if ((options.interfaceType === "can") !== (options.protocol === "slcan")) {
-      set({ error: "CAN 接口请选择 SLCAN 适配器；TTL/RS485 请选择串口协议。" });
+    if (
+      (options.interfaceType === "can" && options.protocol === "feetech") ||
+      (options.interfaceType !== "can" && options.protocol === "slcan")
+    ) {
+      set({ error: "CAN 可选原始串口或 SLCAN；TTL/RS485 可选原始串口或飞特。" });
       return;
     }
     set({ transitioning: true, error: null });
     useActivityStore.setState({ serialTransition: true });
     try {
-      if (options.protocol === "feetech")
-        await serialConnect(options.port, options.baud);
-      else if (options.protocol === "slcan") {
-        await openRawSerial({
-          ...options,
-          dataBits: 8,
-          parity: "none",
-          stopBits: 1,
-        });
-        try {
-          await initializeSlcan(options.canBitrate);
-          slcanCarry = "";
-        } catch (error) {
-          await closeRawSerial();
-          throw error;
-        }
-      } else await openRawSerial(options);
+      await openDebugProtocol(options);
+      if (options.protocol === "slcan") slcanCarry = "";
       set({
         protocol: options.protocol,
         interfaceType: options.interfaceType,
@@ -234,17 +217,8 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
           throw new Error("当前通信尚未结束，请稍候再断开串口。");
         await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
       }
-      if (get().protocol === "feetech") await serialDisconnect();
-      else {
-        if (get().protocol === "slcan") {
-          try {
-            await closeSlcan();
-          } catch (error) {
-            appendLog("error", `关闭 CAN 通道未确认 · ${errorMessage(error)}`);
-          }
-        }
-        await closeRawSerial();
-      }
+      const closeWarning = await closeDebugProtocol();
+      if (closeWarning) appendLog("error", `关闭 CAN 通道未确认 · ${closeWarning}`);
       appendLog("info", `已断开 ${get().port}`);
       set({
         protocol: null,
@@ -366,15 +340,8 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
       get().transitioning
     )
       return;
-    let command: string;
-    try {
-      command = encodeSlcanFrame(frame);
-    } catch (error) {
-      set({ error: errorMessage(error) });
-      return;
-    }
     set({ busy: true, error: null });
-    appendLog("tx", describeSlcanRecord(command));
+    appendLog("tx", `CAN ${frame.extended ? "29" : "11"} 位 ID 0x${frame.id.toString(16).toUpperCase()} · ${formatHexBytes(frame.data) || "空数据"}`);
     try {
       const rx = await sendSlcanFrame(frame);
       const records = logSlcanResponse(rx);
