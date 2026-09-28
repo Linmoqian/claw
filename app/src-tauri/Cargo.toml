@@ -31,3 +31,5 @@ rusqlite = { version = "0.40.2", features = ["bundled"] }
 tokio = { version = "1", features = ["macros", "sync", "time"] }
 tokio-tungstenite = { version = "0.30", features = ["rustls-tls-native-roots"] }
 futures-util = "0.3"
+btleplug = "0.11.8"
+uuid = { version = "1", features = ["serde"] }

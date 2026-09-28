@@ -5,8 +5,8 @@
 mod backend;
 
 use backend::{
-    ai, assets, debug_serial, drafts, experiments, mcu, program, replay, servo, simulation, slcan,
-    training, websocket,
+    ai, assets, bluetooth, debug_serial, drafts, experiments, mcu, program, replay, servo,
+    simulation, slcan, training, websocket,
 };
 use std::sync::Mutex;
 
@@ -36,6 +36,7 @@ pub fn run() {
         .manage(replay::ReplayManager::new())
         .manage(program::ProgramManager::new())
         .manage(websocket::WebSocketManager::new())
+        .manage(bluetooth::BluetoothManager::new())
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
@@ -60,6 +61,13 @@ pub fn run() {
             slcan::slcan_close,
             slcan::slcan_send_frame,
             slcan::slcan_receive,
+            bluetooth::bluetooth_scan,
+            bluetooth::bluetooth_connect,
+            bluetooth::bluetooth_disconnect,
+            bluetooth::bluetooth_characteristics,
+            bluetooth::bluetooth_read,
+            bluetooth::bluetooth_write,
+            bluetooth::bluetooth_subscribe,
             ai::ai_get_config,
             ai::ai_start,
             ai::ai_chat,
