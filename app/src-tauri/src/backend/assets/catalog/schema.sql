@@ -33,5 +33,9 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_models_created_at ON models(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_training_data_created_at ON training_data(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
-PRAGMA user_version = 1;
+CREATE TABLE IF NOT EXISTS asset_catalog_state (
+    bucket TEXT PRIMARY KEY CHECK (bucket IN ('documents', 'project-assets')),
+    initialized_at TEXT NOT NULL
+);
+PRAGMA user_version = 2;
 COMMIT;

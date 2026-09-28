@@ -1,11 +1,13 @@
-// 数字资产 SQLite 元信息索引与旧清单恢复。Created on 2026-09-28
+// 数字资产 SQLite 主存储与旧清单恢复。Created on 2026-09-28
 // Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 use super::{bucket_path, latest_manifest, record_id};
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::Value;
 use std::fs;
+use std::io::Write;
+use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
@@ -26,15 +28,52 @@ fn open(app: &AppHandle) -> Result<Connection, String> {
     let version: i64 = connection
         .pragma_query_value(None, "user_version", |row| row.get(0))
         .map_err(|error| error.to_string())?;
-    if version > 1 {
+    if version > 2 {
         return Err("数字资产数据库版本高于当前应用，请升级应用后重试".into());
     }
     if version == 0 {
         connection
             .execute_batch(SCHEMA)
             .map_err(|error| format!("数字资产建表失败：{error}"))?;
+    } else if version == 1 {
+        connection
+            .execute_batch(
+                "BEGIN; CREATE TABLE IF NOT EXISTS asset_catalog_state (bucket TEXT PRIMARY KEY CHECK (bucket IN ('documents', 'project-assets')), initialized_at TEXT NOT NULL); PRAGMA user_version = 2; COMMIT;",
+            )
+            .map_err(|error| format!("数字资产数据库升级失败：{error}"))?;
     }
     Ok(connection)
+}
+
+fn recovery_marker(app: &AppHandle, bucket: &str) -> Result<PathBuf, String> {
+    if bucket != "documents" && bucket != "project-assets" {
+        return Err("资源分类无效".into());
+    }
+    Ok(bucket_path(app, bucket)?.join("catalog-recovery-needed"))
+}
+
+/** 先持久化恢复标记，后改动文件和数据库；异常退出后由下次列举修复。 */
+pub(super) fn mark_recovery(app: &AppHandle, bucket: &str) -> Result<(), String> {
+    if bucket == "videos" {
+        return Ok(());
+    }
+    let marker = recovery_marker(app, bucket)?;
+    if marker.exists() {
+        // 前一次写入未完成时先恢复，不能用本次成功写入抹去旧恢复标记。
+        list(app, bucket)?;
+    }
+    let mut file = fs::File::create(marker).map_err(|error| error.to_string())?;
+    file.write_all(b"needed")
+        .map_err(|error| error.to_string())?;
+    file.sync_all().map_err(|error| error.to_string())
+}
+
+pub(super) fn clear_recovery(app: &AppHandle, bucket: &str) {
+    if bucket != "videos" {
+        // 删除失败仅导致下一次多做一次幂等恢复，已提交的操作仍然成功。
+        let _ = recovery_marker(app, bucket)
+            .and_then(|path| fs::remove_file(path).map_err(|error| error.to_string()));
+    }
 }
 
 fn insert(connection: &Connection, bucket: &str, record: &Value) -> Result<(), String> {
@@ -118,12 +157,26 @@ fn records(connection: &Connection, table: &str) -> Result<Vec<Value>, String> {
     .collect()
 }
 
-pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> {
-    let mut connection = open(app)?;
+fn recover_from_manifests(
+    app: &AppHandle,
+    bucket: &str,
+    connection: &mut Connection,
+) -> Result<(), String> {
+    let initialized: Option<String> = connection
+        .query_row(
+            "SELECT bucket FROM asset_catalog_state WHERE bucket = ?1",
+            [bucket],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())?;
+    if initialized.is_some() && !recovery_marker(app, bucket)?.exists() {
+        return Ok(());
+    }
     let transaction = connection
         .transaction()
         .map_err(|error| error.to_string())?;
-    // 清单仍保存二进制文件位置；每次列举时重建索引，可恢复文件提交后数据库写入失败的记录。
+    // 仅首次迁移或中断恢复时扫描旧清单；平时由 SQLite 负责元信息查询。
     match bucket {
         "documents" => transaction.execute("DELETE FROM documents", []),
         "project-assets" => transaction
@@ -132,7 +185,6 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
         _ => return Err("资源分类无效".into()),
     }
     .map_err(|error| error.to_string())?;
-    let mut other = Vec::new();
     for entry in fs::read_dir(bucket_path(app, bucket)?)
         .map_err(|error| error.to_string())?
         .filter_map(Result::ok)
@@ -146,13 +198,29 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
         }
         if let Some(manifest) = latest_manifest(&entry.path())? {
             if manifest.record["kind"] == "algorithm" {
-                other.push(manifest.record);
+                continue;
             } else {
                 insert(&transaction, bucket, &manifest.record)?;
             }
         }
     }
+    transaction
+        .execute(
+            "INSERT OR REPLACE INTO asset_catalog_state (bucket, initialized_at) VALUES (?1, datetime('now'))",
+            [bucket],
+        )
+        .map_err(|error| error.to_string())?;
     transaction.commit().map_err(|error| error.to_string())?;
+    clear_recovery(app, bucket);
+    Ok(())
+}
+
+pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> {
+    if bucket != "documents" && bucket != "project-assets" {
+        return Err("资源分类无效".into());
+    }
+    let mut connection = open(app)?;
+    recover_from_manifests(app, bucket, &mut connection)?;
     let mut result = if bucket == "documents" {
         records(&connection, "documents")?
     } else {
@@ -160,19 +228,39 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
         models.extend(records(&connection, "training_data")?);
         models
     };
-    result.extend(other);
+    if bucket == "project-assets" {
+        for entry in fs::read_dir(bucket_path(app, bucket)?)
+            .map_err(|error| error.to_string())?
+            .filter_map(Result::ok)
+        {
+            if entry
+                .file_type()
+                .map_err(|error| error.to_string())?
+                .is_dir()
+            {
+                if let Some(manifest) = latest_manifest(&entry.path())? {
+                    if manifest.record["kind"] == "algorithm" {
+                        result.push(manifest.record);
+                    }
+                }
+            }
+        }
+    }
     Ok(result)
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rusqlite::OptionalExtension;
 
     #[test]
     fn creates_three_asset_tables() {
         let connection = Connection::open_in_memory().unwrap();
         connection.execute_batch(SCHEMA).unwrap();
+        let version: i64 = connection
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .unwrap();
+        assert_eq!(version, 2);
         for table in ["models", "training_data", "documents"] {
             let exists: Option<String> = connection
                 .query_row(

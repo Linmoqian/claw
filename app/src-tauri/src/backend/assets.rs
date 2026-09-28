@@ -15,6 +15,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 
 static FILE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
+static ASSET_CATALOG_LOCK: Mutex<()> = Mutex::new(());
 const MAX_CHUNK: usize = 1024 * 1024;
 
 pub struct AssetManager(pub Mutex<HashMap<String, PendingUpload>>);
@@ -190,6 +191,9 @@ fn commit_manifest(directory: &Path, manifest: &Manifest) -> Result<(), String> 
 #[tauri::command]
 pub fn asset_list(app: AppHandle, bucket: String) -> Result<Vec<serde_json::Value>, String> {
     if bucket == "documents" || bucket == "project-assets" {
+        let _guard = ASSET_CATALOG_LOCK
+            .lock()
+            .map_err(|error| error.to_string())?;
         return catalog::list(&app, &bucket);
     }
     let mut records = Vec::new();
@@ -233,8 +237,12 @@ pub fn asset_save_link(
     record: serde_json::Value,
 ) -> Result<(), String> {
     validate_record(&bucket, &record, false)?;
+    let _guard = ASSET_CATALOG_LOCK
+        .lock()
+        .map_err(|error| error.to_string())?;
     let directory = asset_path(&app, &bucket, record_id(&record)?)?;
     fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+    catalog::mark_recovery(&app, &bucket)?;
     commit_manifest(
         &directory,
         &Manifest {
@@ -243,7 +251,9 @@ pub fn asset_save_link(
         },
     )?;
     catalog::upsert(&app, &bucket, &record)
-        .map_err(|error| format!("文件清单已保存，索引写入失败；刷新资产列表可重试：{error}"))
+        .map_err(|error| format!("文件清单已保存，数据库写入失败；刷新资产列表可重试：{error}"))?;
+    catalog::clear_recovery(&app, &bucket);
+    Ok(())
 }
 
 #[tauri::command]
@@ -321,6 +331,10 @@ pub fn asset_finish_upload(
     }
     upload.file.sync_all().map_err(|error| error.to_string())?;
     drop(upload.file);
+    let _guard = ASSET_CATALOG_LOCK
+        .lock()
+        .map_err(|error| error.to_string())?;
+    catalog::mark_recovery(&app, &upload.bucket)?;
     let binary = unique_name("binary", "bin");
     fs::rename(&upload.temp, upload.directory.join(&binary)).map_err(|error| error.to_string())?;
     commit_manifest(
@@ -331,7 +345,9 @@ pub fn asset_finish_upload(
         },
     )?;
     catalog::upsert(&app, &upload.bucket, &upload.record)
-        .map_err(|error| format!("文件已保存，索引写入失败；刷新资产列表可重试：{error}"))
+        .map_err(|error| format!("文件已保存，数据库写入失败；刷新资产列表可重试：{error}"))?;
+    catalog::clear_recovery(&app, &upload.bucket);
+    Ok(())
 }
 
 #[tauri::command]
@@ -373,11 +389,17 @@ pub fn asset_read_chunk(
 
 #[tauri::command]
 pub fn asset_remove(app: AppHandle, bucket: String, id: String) -> Result<(), String> {
+    let _guard = ASSET_CATALOG_LOCK
+        .lock()
+        .map_err(|error| error.to_string())?;
     let directory = asset_path(&app, &bucket, &id)?;
+    catalog::mark_recovery(&app, &bucket)?;
     if directory.exists() {
         fs::remove_dir_all(directory).map_err(|error| error.to_string())?;
     }
-    catalog::remove(&app, &bucket, &id)
+    catalog::remove(&app, &bucket, &id)?;
+    catalog::clear_recovery(&app, &bucket);
+    Ok(())
 }
 
 #[cfg(test)]
