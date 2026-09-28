@@ -21,6 +21,8 @@ import {
   type DebugProtocol,
 } from "../motor-debug/session";
 import { CAN_BITRATES, type CanBitrateCode } from "../motor-debug/slcan";
+import BleDebug from "../bluetooth/BleDebug";
+import { listBleCharacteristics } from "../bluetooth/ble";
 import "./MotorDebug.css";
 
 const BAUD_PRESETS = [
@@ -28,6 +30,31 @@ const BAUD_PRESETS = [
 ];
 
 export default function MotorDebug() {
+  const [mode, setMode] = useState<"serial" | "ble">("serial");
+  const [bleConnected, setBleConnected] = useState(false);
+  const serialConnected = useMotorDebugStore((state) => Boolean(state.port));
+  useEffect(() => {
+    if (!isDesktop()) return;
+    let active = true;
+    void listBleCharacteristics().then(() => {
+      if (!active) return;
+      setBleConnected(true);
+      setMode("ble");
+    }).catch(() => {});
+    return () => { active = false; };
+  }, []);
+  return (
+    <>
+      <nav className="motor-debug__mode" aria-label="调试通信方式">
+        <button type="button" className={mode === "serial" ? "is-active" : ""} disabled={bleConnected} onClick={() => setMode("serial")}>串口 / CAN</button>
+        <button type="button" className={mode === "ble" ? "is-active" : ""} disabled={serialConnected} onClick={() => setMode("ble")}>蓝牙 BLE</button>
+      </nav>
+      {mode === "ble" ? <BleDebug onConnectionChange={setBleConnected} /> : <SerialDebug />}
+    </>
+  );
+}
+
+function SerialDebug() {
   const [interfaceType, setInterfaceType] = useState<DebugInterface>("ttl");
   const [protocol, setProtocol] = useState<DebugProtocol>("raw");
   const [ports, setPorts] = useState<string[]>([]);

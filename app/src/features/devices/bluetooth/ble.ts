@@ -49,3 +49,6 @@ export function subscribeBle(
   channel.onmessage = onNotification;
   return invoke("bluetooth_subscribe", { uuid, channel });
 }
+
+export const unsubscribeBle = (uuid: string): Promise<void> =>
+  invoke("bluetooth_unsubscribe", { uuid });

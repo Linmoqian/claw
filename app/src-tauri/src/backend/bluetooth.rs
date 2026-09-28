@@ -280,6 +280,27 @@ pub async fn bluetooth_subscribe(
                 break;
             }
         }
+        let mut session = manager.lock().await;
+        if session.generation == generation {
+            session.subscribed.remove(&target.uuid);
+        }
     });
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn bluetooth_unsubscribe(
+    state: State<'_, BluetoothManager>,
+    uuid: String,
+) -> Result<(), String> {
+    let device = connected(&state).await?;
+    let target = characteristic(&device, &uuid)?;
+    if !state.0.lock().await.subscribed.contains(&target.uuid) {
+        return Ok(());
+    }
+    device.unsubscribe(&target).await.map_err(err)?;
+    let mut session = state.0.lock().await;
+    session.generation = session.generation.wrapping_add(1);
+    session.subscribed.remove(&target.uuid);
     Ok(())
 }

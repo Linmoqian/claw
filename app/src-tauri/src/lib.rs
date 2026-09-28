@@ -68,6 +68,7 @@ pub fn run() {
             bluetooth::bluetooth_read,
             bluetooth::bluetooth_write,
             bluetooth::bluetooth_subscribe,
+            bluetooth::bluetooth_unsubscribe,
             ai::ai_get_config,
             ai::ai_start,
             ai::ai_chat,

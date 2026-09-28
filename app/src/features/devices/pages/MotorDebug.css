@@ -1,4 +1,28 @@
-/* 单电机调试页。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/* 单电机调试页。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
+.motor-debug__mode {
+  display: flex;
+  gap: 6px;
+  max-width: 1440px;
+  margin: 20px auto 0;
+  padding: 0 32px;
+}
+.motor-debug__mode button {
+  min-height: 34px;
+  padding: 7px 15px;
+  border: 1px solid var(--border-strong);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--text-secondary);
+  font: 600 11px var(--font-sans);
+  cursor: pointer;
+}
+.motor-debug__mode button.is-active {
+  border-color: var(--accent);
+  background: #fff3eb;
+  color: var(--accent-deep);
+}
+.motor-debug__mode button:disabled { opacity: .5; cursor: not-allowed; }
+.motor-debug__mode button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .motor-debug {
   max-width: 1440px;
   margin: 0 auto;
