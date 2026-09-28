@@ -1,8 +1,10 @@
-// 设备与模型服务。Created on 2026-09-28
+// MCU 串口通信。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 use super::common::to_err;
-use super::debug_serial::DebugSerialState;
+use super::debug_serial::{DebugSerialState, SERIAL_OPEN_LOCK};
+use super::servo::DeviceState;
 use std::io::{Read, Write};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -62,11 +64,13 @@ fn read_mcu_line(session: &mut McuSession, timeout_ms: u64) -> Result<String, St
 pub fn mcu_serial_open(
     state: State<McuState>,
     debug: State<DebugSerialState>,
+    servo: State<DeviceState>,
     port: String,
     baud: u32,
 ) -> Result<String, String> {
-    if debug.lock().map_err(to_err)?.is_some() {
-        return Err("单电机调试串口已连接，请先断开".into());
+    let _opening = SERIAL_OPEN_LOCK.lock().map_err(to_err)?;
+    if debug.lock().map_err(to_err)?.is_some() || servo.lock().map_err(to_err)?.is_some() {
+        return Err("已有其他串口会话，请先断开".into());
     }
     let mut guard = state.lock().map_err(to_err)?;
     if guard.is_some() {

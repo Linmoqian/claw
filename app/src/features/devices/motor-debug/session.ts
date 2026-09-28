@@ -1,4 +1,4 @@
-/** 单电机调试会话和有限长度通信日志。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/** 单电机调试界面状态和有限长度通信日志。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 import { create } from "zustand";
 import {
   serialConnect,
@@ -14,15 +14,18 @@ import { useActivityStore } from "../../workbench/runtime/activity";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import {
   closeRawSerial,
+  closeSlcan,
   formatHexBytes,
+  initializeSlcan,
   openRawSerial,
+  receiveSlcanFrames,
+  sendSlcanFrame,
   transferRawSerial,
   type RawSerialOptions,
 } from "./serialDebug";
 import {
   decodeSlcanRecords,
   describeSlcanRecord,
-  encodeSlcanCommand,
   encodeSlcanFrame,
   type CanBitrateCode,
   type CanFrame,
@@ -93,19 +96,6 @@ function logSlcanResponse(bytes: number[]): string[] {
       describeSlcanRecord(record),
     );
   return decoded.records;
-}
-function requireSlcanAck(bytes: number[], command: string): void {
-  const decoded = decodeSlcanRecords(bytes);
-  if (decoded.records.some((record) => record.includes("\x07")))
-    throw new Error(
-      `CAN 适配器拒绝 ${command} 命令，请核对总线速率与适配器型号。`,
-    );
-  if (
-    !decoded.records.some(
-      (record) => record === "" || record === "z" || record === "Z",
-    )
-  )
-    throw new Error(`CAN 适配器未确认 ${command} 命令。`);
 }
 async function runFeetech<T>(
   id: number,
@@ -199,28 +189,7 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
           stopBits: 1,
         });
         try {
-          await transferRawSerial([13, 13], 150);
-          const version = await transferRawSerial(encodeSlcanCommand("V"), 300);
-          if (
-            !decodeSlcanRecords(version).records.some((record) =>
-              /^V[0-9a-f]{4}$/i.test(record),
-            )
-          )
-            throw new Error(
-              "未收到 SLCAN 版本响应；请确认适配器提供虚拟串口并支持 Lawicel ASCII 协议。",
-            );
-          await transferRawSerial(encodeSlcanCommand("C"), 150);
-          requireSlcanAck(
-            await transferRawSerial(
-              encodeSlcanCommand(options.canBitrate),
-              300,
-            ),
-            "设置总线速率",
-          );
-          requireSlcanAck(
-            await transferRawSerial(encodeSlcanCommand("O"), 300),
-            "开启 CAN 通道",
-          );
+          await initializeSlcan(options.canBitrate);
           slcanCarry = "";
         } catch (error) {
           await closeRawSerial();
@@ -269,7 +238,7 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
       else {
         if (get().protocol === "slcan") {
           try {
-            await transferRawSerial(encodeSlcanCommand("C"), 150);
+            await closeSlcan();
           } catch (error) {
             appendLog("error", `关闭 CAN 通道未确认 · ${errorMessage(error)}`);
           }
@@ -407,16 +376,9 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
     set({ busy: true, error: null });
     appendLog("tx", describeSlcanRecord(command));
     try {
-      const rx = await transferRawSerial(encodeSlcanCommand(command), 350);
+      const rx = await sendSlcanFrame(frame);
       const records = logSlcanResponse(rx);
-      if (records.some((record) => record.includes("\x07")))
-        throw new Error("CAN 适配器拒绝发送该帧。");
-      if (
-        !records.some(
-          (record) => record === "z" || record === "Z" || record === "",
-        )
-      )
-        throw new Error("未收到 CAN 帧发送确认；请检查适配器与总线状态。");
+      if (!records.length) appendLog("info", "CAN 帧已由 Rust 串口会话确认");
     } catch (error) {
       set({ error: errorMessage(error) });
       appendLog("error", errorMessage(error));
@@ -434,7 +396,7 @@ export const useMotorDebugStore = create<DebugSessionState>()((set, get) => ({
       return;
     set({ busy: true, error: null });
     try {
-      const rx = await transferRawSerial([], 100);
+      const rx = await receiveSlcanFrames();
       if (rx.length) logSlcanResponse(rx);
     } catch (error) {
       set({ error: errorMessage(error) });

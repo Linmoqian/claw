@@ -1,5 +1,6 @@
-/** 单电机原始串口边界。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/** Rust 串口命令的前端类型封装。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 import { invoke } from "@tauri-apps/api/core";
+import type { CanBitrateCode, CanFrame } from "./slcan";
 
 export type RawSerialParity = "none" | "even" | "odd";
 export interface RawSerialOptions {
@@ -50,4 +51,20 @@ export async function transferRawSerial(
   timeoutMs: number,
 ): Promise<number[]> {
   return invoke<number[]>("debug_serial_transfer", { tx, timeoutMs });
+}
+
+export async function initializeSlcan(bitrate: CanBitrateCode): Promise<void> {
+  await invoke("slcan_initialize", { bitrate });
+}
+
+export async function closeSlcan(): Promise<void> {
+  await invoke("slcan_close");
+}
+
+export async function sendSlcanFrame(frame: CanFrame): Promise<number[]> {
+  return invoke<number[]>("slcan_send_frame", { frame });
+}
+
+export async function receiveSlcanFrames(): Promise<number[]> {
+  return invoke<number[]>("slcan_receive");
 }

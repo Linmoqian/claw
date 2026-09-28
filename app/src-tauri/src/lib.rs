@@ -1,10 +1,11 @@
 // 设备与模型服务。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 mod backend;
 
 use backend::{
-    ai, assets, debug_serial, drafts, experiments, mcu, program, replay, servo, simulation,
+    ai, assets, debug_serial, drafts, experiments, mcu, program, replay, servo, simulation, slcan,
     training, websocket,
 };
 use std::sync::Mutex;
@@ -22,7 +23,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
-        .manage(Mutex::new(None::<servo::Bridge>))
+        .manage(Mutex::new(None::<servo::ServoSession>))
         .manage(Mutex::new(None::<ai::AiBridge>))
         .manage(Mutex::new(None::<mcu::McuSession>))
         .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
@@ -55,6 +56,10 @@ pub fn run() {
             debug_serial::debug_serial_open,
             debug_serial::debug_serial_close,
             debug_serial::debug_serial_transfer,
+            slcan::slcan_initialize,
+            slcan::slcan_close,
+            slcan::slcan_send_frame,
+            slcan::slcan_receive,
             ai::ai_get_config,
             ai::ai_start,
             ai::ai_chat,

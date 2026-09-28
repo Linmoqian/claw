@@ -1,4 +1,4 @@
-/** 单电机与舵机串口调试台。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/** 单电机与舵机串口调试台。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 import { useEffect, useState, type FormEvent } from "react";
 import {
   Cable,
@@ -248,7 +248,7 @@ export default function MotorDebug() {
                   ) : (
                     <>
                       <option value="raw">原始串口 · HEX / UTF-8</option>
-                      <option value="feetech">飞特 SCS/STS · SDK</option>
+                      <option value="feetech">飞特 SCS/STS</option>
                     </>
                   )}
                 </select>
@@ -379,7 +379,7 @@ export default function MotorDebug() {
             )}
             <p className="motor-debug__hint">
               {activeProtocol === "feetech"
-                ? "飞特 SDK 使用 8N1；请确认所用 TTL/RS485 转接器与舵机电气接口匹配。"
+                ? "飞特串口协议使用 8N1；请确认所用 TTL/RS485 转接器与舵机电气接口匹配。"
                 : activeProtocol === "slcan"
                   ? "仅支持提供虚拟 COM 串口且兼容 SLCAN/Lawicel ASCII 的 USB-CAN 适配器；串口波特率和 CAN 总线速率分别设置。"
                   : activeInterface === "rs485"

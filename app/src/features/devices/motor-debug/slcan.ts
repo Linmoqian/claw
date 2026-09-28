@@ -1,4 +1,4 @@
-/** Lawicel SLCAN 经典 CAN 帧编码与串口记录解析。Created on 2026-09-27 @author: https://github.com/Linmoqian */
+/** Lawicel SLCAN 输入校验与界面日志解析。Created on 2026-09-27; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 // 协议参考：https://www.canusb.com/docs/canusb_manual.pdf
 export const CAN_BITRATES = [
   { code: "S0", label: "10 kbit/s" },

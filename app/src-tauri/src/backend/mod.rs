@@ -1,4 +1,5 @@
 // 设备与模型服务。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 pub mod ai;
@@ -12,5 +13,6 @@ pub mod program;
 pub mod replay;
 pub mod servo;
 pub mod simulation;
+pub mod slcan;
 pub mod training;
 pub mod websocket;

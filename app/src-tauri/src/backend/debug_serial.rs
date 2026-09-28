@@ -1,18 +1,19 @@
-// 设备与模型服务。Created on 2026-09-28
+// 原始串口通信与会话互斥。Created on 2026-09-28
+// Updated on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
 use super::common::to_err;
 use super::mcu::McuState;
 use super::servo::DeviceState;
-use std::io::{Read, Write};
 use std::sync::Mutex;
 use std::time::Duration;
 use tauri::State;
 
 pub type DebugSerialState = Mutex<Option<Box<dyn serialport::SerialPort>>>;
+pub static SERIAL_OPEN_LOCK: Mutex<()> = Mutex::new(());
 
 // —— 单电机通用串口调试 ——
-// 原始字节收发不解释设备协议；设备指令由前端显式构造。
+// 原始字节收发不解释设备协议；SLCAN 握手与 CAN 报文由 slcan.rs 负责。
 
 #[tauri::command]
 pub fn debug_serial_open(
@@ -25,6 +26,7 @@ pub fn debug_serial_open(
     parity: String,
     stop_bits: u8,
 ) -> Result<String, String> {
+    let _opening = SERIAL_OPEN_LOCK.lock().map_err(to_err)?;
     if port.trim().is_empty() || baud == 0 {
         return Err("请选择串口并填写有效波特率".into());
     }
@@ -81,9 +83,17 @@ pub fn debug_serial_transfer(
     }
     let mut guard = state.lock().map_err(to_err)?;
     let serial = guard.as_mut().ok_or("调试串口尚未连接")?;
+    transfer(serial.as_mut(), &tx, timeout_ms)
+}
+
+pub(crate) fn transfer(
+    serial: &mut dyn serialport::SerialPort,
+    tx: &[u8],
+    timeout_ms: u64,
+) -> Result<Vec<u8>, String> {
     if !tx.is_empty() {
         serial
-            .write_all(&tx)
+            .write_all(tx)
             .and_then(|_| serial.flush())
             .map_err(to_err)?;
     }
