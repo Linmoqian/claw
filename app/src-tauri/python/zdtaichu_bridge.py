@@ -1,6 +1,6 @@
 """视觉助手多供应商的常驻 JSONL 推理桥。"""
 
-# Created on 2026-09-16; updated on 2026-09-27
+# Created on 2026-09-16; updated on 2026-09-29
 # @author:  https://github.com/Linmoqian
 
 from __future__ import annotations
@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 import urllib.error
+import urllib.parse
 import urllib.request
 import uuid
 from pathlib import Path
@@ -142,6 +143,40 @@ def openai_chat_url(base_url: str) -> str:
     if base_url.endswith("/chat/completions"):
         return base_url
     return f"{base_url}/chat/completions"
+
+
+# 受控出站 opener：仅注册 http/https 处理器与错误处理，
+# 不含 build_opener 默认的 file/ftp/data 等协议处理器，也不跟随重定向。
+_OUTBOUND_OPENER = urllib.request.OpenerDirector()
+_OUTBOUND_OPENER.add_handler(urllib.request.HTTPHandler())
+_OUTBOUND_OPENER.add_handler(urllib.request.HTTPSHandler())
+_OUTBOUND_OPENER.add_handler(urllib.request.HTTPErrorProcessor())
+_OUTBOUND_OPENER.add_handler(urllib.request.HTTPDefaultErrorHandler())
+
+
+def open_http(
+    url: str,
+    *,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    method: str | None = None,
+    timeout: int,
+):
+    """模型桥唯一的出站请求入口。
+
+    base_url 由本机操作者在配置中指定，属于可信输入；此处仍限制协议
+    白名单并要求主机名非空，防止配置错误或被篡改后指向本地协议。
+    """
+    parsed = urllib.parse.urlparse(url)
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise RuntimeError(f"服务地址仅支持 http/https：{url}")
+    request = urllib.request.Request(
+        url,
+        data=data,
+        headers=headers or {},
+        method=method,
+    )
+    return _OUTBOUND_OPENER.open(request, timeout=timeout)
 
 
 def patch_accelerate_bnb_dispatch() -> None:
@@ -400,21 +435,21 @@ class OpenAICompatibleSession:
 
     def _request(self) -> str:
         body = build_openai_request(self.config, self.messages)
-        request = urllib.request.Request(
-            openai_chat_url(self.config["base_url"]),
-            data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
-            headers={
-                "Content-Type": "application/json",
-                **(
-                    {"Authorization": f"Bearer {self.config['api_key']}"}
-                    if self.config["api_key"]
-                    else {}
-                ),
-            },
-            method="POST",
-        )
         try:
-            with urllib.request.urlopen(request, timeout=300) as response:
+            with open_http(
+                openai_chat_url(self.config["base_url"]),
+                data=json.dumps(body, ensure_ascii=False).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    **(
+                        {"Authorization": f"Bearer {self.config['api_key']}"}
+                        if self.config["api_key"]
+                        else {}
+                    ),
+                },
+                method="POST",
+                timeout=300,
+            ) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", errors="replace")[:500]
@@ -469,12 +504,12 @@ class LlamaCppSession(OpenAICompatibleSession):
             if self.config["api_key"]
             else {}
         )
-        request = urllib.request.Request(
-            f"{self.config['base_url']}/{endpoint}",
-            headers=headers,
-        )
         try:
-            with urllib.request.urlopen(request, timeout=5) as response:
+            with open_http(
+                f"{self.config['base_url']}/{endpoint}",
+                headers=headers,
+                timeout=5,
+            ) as response:
                 payload = json.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as error:
             if error.code == 503:

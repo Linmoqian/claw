@@ -135,7 +135,8 @@ class ZDTaichuBridgeTest(unittest.TestCase):
 
         with patch.dict(
             os.environ,
-            {"AI_API_KEY": "upstream-secret", "LLAMA_CPP_API_KEY": ""},
+            # 假密钥占位：只验证 llama-cpp 隔离会丢弃上游密钥
+            {"AI_API_KEY": "x" * 12, "LLAMA_CPP_API_KEY": ""},
         ):
             isolated = normalize_provider_config(
                 {"provider": "llama-cpp", "model": ""}
