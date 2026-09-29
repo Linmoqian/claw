@@ -1,7 +1,7 @@
 // Created on 2026-09-26
 // @author: https://github.com/Linmoqian
 import { CircleAlert, ShieldCheck } from "lucide-react";
-import { useDevice } from "../store/DeviceContext";
+import { useDevice } from "../stores/DeviceContext";
 import "./EstopButton.css";
 
 /** 串口停止：尝试读当前位置并写回目标以保持扭矩；不覆盖 Studio LIVE。 */

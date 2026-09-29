@@ -16,7 +16,7 @@ import { describeCollision } from "../../../robot/collision";
 
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { parseRecording } from "../../../services/protocol/recording";
-import { useDevice } from "../../../store/DeviceContext";
+import { useDevice } from "../../../stores/DeviceContext";
 
 import { useWorkspaceStore } from "../../../cad/workspaceStore";
 import { useInteractionStore, interactionController } from "../../../stores/interactionStore";

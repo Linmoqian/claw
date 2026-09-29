@@ -32,7 +32,7 @@ import {
 } from "../lib/serial";
 import { angleToPosition, positionToAngle } from "../lib/units";
 import { useActivityStore } from "../features/workbench/runtime/activity";
-import { useBridgeStore } from "../stores/bridgeStore";
+import { useBridgeStore } from "./bridgeStore";
 import { serialConnectionBlockedReason } from "../lib/serialConnectionGuard";
 
 /** 波特率（与 claw_arm/script 一致，SO-100 走 1M） */

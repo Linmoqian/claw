@@ -7,7 +7,7 @@ import TitleBar from "./components/TitleBar";
 import Sidebar from "./components/Sidebar";
 import EstopButton from "./components/EstopButton";
 import ContextMenu, { type ContextMenuItem } from "./components/ContextMenu";
-import { DeviceProvider, useDevice } from "./store/DeviceContext";
+import { DeviceProvider, useDevice } from "./stores/DeviceContext";
 import { emitDebug } from "./lib/debugBus";
 import About from "./features/workbench/pages/About";
 import DataCollection from "./features/experiments/pages/DataCollection";

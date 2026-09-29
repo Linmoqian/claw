@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { useExperimentStore } from "../../experiments/domain/experimentStore";
 import { useRobotStore, findRobotEntry } from "../../../stores/robotStore";
-import { useDevice } from "../../../store/DeviceContext";
+import { useDevice } from "../../../stores/DeviceContext";
 import { isDesktop } from "../../../lib/serial";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { useRuntimeStore } from "../runtime/runtime";

@@ -14,7 +14,7 @@ import {
 import { useExperimentStore } from "../../features/experiments/domain/experimentStore";
 import { useRobotStore, findRobotEntry } from "../../stores/robotStore";
 import { useBridgeStore } from "../../stores/bridgeStore";
-import { useDevice } from "../../store/DeviceContext";
+import { useDevice } from "../../stores/DeviceContext";
 import { useActivityStore } from "../../features/workbench/runtime/activity";
 import { useRuntimeStore } from "../../features/workbench/runtime/runtime";
 import { useMotorDebugStore } from "../../features/devices/motor-debug/session";

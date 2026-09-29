@@ -2,7 +2,7 @@
 // @author: https://github.com/Linmoqian
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { Link, useLocation } from "react-router";
-import { useDevice } from "../../../store/DeviceContext";
+import { useDevice } from "../../../stores/DeviceContext";
 import { DEFAULT_ROBOT_ID, useReadyModel, useRobotStore } from "../../../stores/robotStore";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import RobotStage from "../../../three/RobotStage";
