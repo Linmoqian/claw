@@ -10,13 +10,15 @@ lerna-debug.log*
 node_modules
 dist
 dist-ssr
-src-tauri/target/
-src-tauri/gen/
 *.local
 .env
 .env.*
 !.env.example
 **/__pycache__/
+
+# 本地工具产物
+.mimosa/
+.zcode/
 
 # Editor directories and files
 .vscode/*
