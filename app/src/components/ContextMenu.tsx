@@ -99,7 +99,7 @@ export default function ContextMenu({ items }: { items?: ContextMenuItem[] }) {
         >
           {resolvedItems.map((it, i) => {
             if (it.divider) {
-              return <li key={i} className="ctx-menu__divider" />;
+              return <li key={i} className="ctx-menu__divider" role="separator" />;
             }
 
             const Icon = it.icon;
