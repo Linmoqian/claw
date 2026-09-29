@@ -15,7 +15,7 @@
 - `components/`：全局外壳组件（TitleBar / Sidebar / EstopButton / ContextMenu）及 `components/workbench|videos|documents/` 区域组件；单功能域私有组件一律放在对应 `features/*/components/`。
 - `features/`：`workbench`（首页与 `runtime/` 全局运行时）、`simulation`（仿真调参）、`blocks`（积木）、`devices`（电机/蓝牙调试）、`experiments`（实验与采集）、`assets`（视频/文档/项目资产）、`training`、`vision`。每个子目录有本地 README。
 - `stores/`：Zustand 跨页状态（session、robot、bridge、simulation、activity 互斥等）与 `DeviceContext.tsx`（串口连接、舵机控制、急停的 React Context）。
-- `services/`：v2 协议消息、WebSocket 传输适配、连接管理、仿真/回放/机器人桥；`desktopRuntime.ts` 保存 Rust 仿真状态帧流与订阅，供渲染层与实验域读取。
+- `services/`：v2 协议消息、WebSocket 传输适配、连接管理、仿真/回放/机器人桥；`desktopRuntime.ts` 保存 Rust 仿真状态帧流与订阅，供渲染层与实验域读取；`indexedDb.ts` 是 IndexedDB 连接单例与事务模板，供各资产/实验仓库复用。
 - `core/`：纯领域核心（坐标系树、运行时状态、world 位姿与新鲜度、`motors.ts` 电机/调参领域模型），零 UI 依赖。
 - `robot/`：浏览器预览用机器人算法（URDF、运动学、IK、碰撞、轨迹、手眼）。
 - `three/`：Three.js 渲染组件；`interaction/`：3D 拾取、关节拖拽、TCP gizmo。

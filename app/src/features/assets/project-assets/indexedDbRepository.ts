@@ -1,52 +1,22 @@
-/** 项目资产副本与路径引用仓库。Created on 2026-09-27; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
+/** 项目资产副本与路径引用仓库。Created on 2026-09-27; Updated on 2026-09-29 @author: https://github.com/Linmoqian */
 import { ASSET_KINDS, acceptsAsset, assetKind, type ProjectAssetKind, type ProjectAssetRecord } from "./types";
+import {
+  openIndexedDatabase,
+  requestResult,
+  runWrite,
+} from "../../../services/indexedDb";
 
-const DATABASE = "xiakao-project-assets";
-let opening: Promise<IDBDatabase> | null = null;
-
-function resultOf<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error("资产读取失败"));
-  });
-}
-
-function committed(transaction: IDBTransaction): Promise<void> {
-  return new Promise((resolve, reject) => {
-    transaction.oncomplete = () => resolve();
-    transaction.onabort = () => reject(transaction.error ?? new Error("资产保存中止"));
-    transaction.onerror = () => reject(transaction.error ?? new Error("资产保存失败"));
-  });
-}
+const LABEL = "项目资产";
 
 function openDatabase(): Promise<IDBDatabase> {
-  if (opening) return opening;
-  opening = new Promise<IDBDatabase>((resolve, reject) => {
-    if (typeof indexedDB === "undefined") {
-      reject(new Error("当前环境不支持 IndexedDB，无法保存项目资产"));
-      return;
-    }
-    const request = indexedDB.open(DATABASE, 1);
-    request.onupgradeneeded = () => {
-      const db = request.result;
+  return openIndexedDatabase({
+    name: "xiakao-project-assets",
+    label: LABEL,
+    upgrade: (db) => {
       db.createObjectStore("records", { keyPath: "id" });
       db.createObjectStore("files");
-    };
-    request.onsuccess = () => {
-      const db = request.result;
-      db.onversionchange = () => {
-        db.close();
-        opening = null;
-      };
-      resolve(db);
-    };
-    request.onerror = () => reject(request.error ?? new Error("无法打开项目资产库"));
-    request.onblocked = () => reject(new Error("项目资产库被其他窗口占用，请关闭旧窗口后重试"));
-  }).catch((error: unknown) => {
-    opening = null;
-    throw error;
+    },
   });
-  return opening;
 }
 
 export function validateAssetName(fileName: string, kind: ProjectAssetKind): void {
@@ -106,8 +76,9 @@ function isRecord(value: unknown): value is ProjectAssetRecord {
 export const indexedDbProjectAssetRepository = {
   async list(): Promise<ProjectAssetRecord[]> {
     const db = await openDatabase();
-    const records = await resultOf<unknown[]>(
+    const records = await requestResult<unknown[]>(
       db.transaction("records").objectStore("records").getAll(),
+      LABEL,
     );
     if (!records.every(isRecord)) throw new Error("部分资产记录无法读取，原始内容已保留；请修复后重试");
     return records.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -120,17 +91,10 @@ export const indexedDbProjectAssetRepository = {
       ...assetRecordOf(file.name, kind, "copy"),
       sizeBytes: file.size,
     };
-    const transaction = db.transaction(["records", "files"], "readwrite");
-    const done = committed(transaction);
-    try {
+    await runWrite(db, ["records", "files"], LABEL, (transaction) => {
       transaction.objectStore("records").put(record);
       transaction.objectStore("files").put(file, record.id);
-    } catch (reason) {
-      transaction.abort();
-      await done.catch(() => undefined);
-      throw reason;
-    }
-    await done;
+    });
     return record;
   },
 
@@ -141,17 +105,17 @@ export const indexedDbProjectAssetRepository = {
       ...assetRecordOf(fileName, kind, "path"),
       path: value,
     };
-    const transaction = db.transaction("records", "readwrite");
-    const done = committed(transaction);
-    transaction.objectStore("records").put(record);
-    await done;
+    await runWrite(db, "records", LABEL, (transaction) => {
+      transaction.objectStore("records").put(record);
+    });
     return record;
   },
 
   async file(id: string): Promise<Blob> {
     const db = await openDatabase();
-    const file = await resultOf<Blob | undefined>(
+    const file = await requestResult<Blob | undefined>(
       db.transaction("files").objectStore("files").get(id),
+      LABEL,
     );
     if (!file) throw new Error("资产副本未找到，请重新导入原文件");
     return file;
@@ -159,10 +123,9 @@ export const indexedDbProjectAssetRepository = {
 
   async remove(id: string): Promise<void> {
     const db = await openDatabase();
-    const transaction = db.transaction(["records", "files"], "readwrite");
-    const done = committed(transaction);
-    transaction.objectStore("records").delete(id);
-    transaction.objectStore("files").delete(id);
-    await done;
+    await runWrite(db, ["records", "files"], LABEL, (transaction) => {
+      transaction.objectStore("records").delete(id);
+      transaction.objectStore("files").delete(id);
+    });
   },
 };
