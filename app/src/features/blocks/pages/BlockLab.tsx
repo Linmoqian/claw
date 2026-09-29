@@ -31,7 +31,7 @@ import { registerBlockLabBlocks } from "../blockly/blocks";
 import { DEFAULT_WORKSPACE } from "../blockly/defaultWorkspace";
 import { BLOCK_TOOLBOX } from "../blockly/toolbox";
 
-import { useActivityStore } from "../../workbench/runtime/activity";
+import { useActivityStore } from "../../../stores/activity";
 import { getRuntime } from "../../workbench/runtime/runtime";
 import { parseProgramSnapshot } from "../../workbench/runtime/programSnapshot";
 import { resetProgramStatus, runProgram, stopProgram, useProgramStore, type ProgramStatus } from "../../workbench/runtime/programRunner";

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import type { Motor, TuneParams } from "../types";
+import type { Motor, TuneParams } from "../../../core/motors";
 
 type Props = {
   motor: Motor;

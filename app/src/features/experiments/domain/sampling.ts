@@ -8,7 +8,7 @@ import type { SimulationLoop } from "../../../robot/simulation";
 import type { RobotModel } from "../../../robot/types";
 import type { RecFrame } from "../../../services/protocol/recording";
 import type { ExperimentSample } from "./types";
-import type { SimulationFrame } from "../../workbench/runtime/desktopRuntime";
+import type { SimulationFrame } from "../../../services/desktopRuntime";
 
 export function sampleRuntime(
   runtime: { model: RobotModel; sim: SimulationLoop; baseSim: BaseSim },

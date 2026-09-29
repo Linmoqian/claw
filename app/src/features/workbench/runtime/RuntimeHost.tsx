@@ -6,7 +6,7 @@ import { useDevice } from "../../../stores/DeviceContext";
 import { DEFAULT_ROBOT_ID, useReadyModel, useRobotStore } from "../../../stores/robotStore";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import RobotStage from "../../../three/RobotStage";
-import { useActivityStore } from "./activity";
+import { useActivityStore } from "../../../stores/activity";
 import { cancelRuntimePreview, getRuntime, mountRuntime, useRuntimeStore } from "./runtime";
 import { useProgramStore } from "./programRunner";
 import { useMotorDebugStore } from "../../devices/motor-debug/session";

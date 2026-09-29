@@ -4,7 +4,7 @@ import { create } from "zustand";
 import { buildRobotModel } from "../robot/model";
 import { parseUrdf } from "../robot/urdf";
 import type { RobotDef, RobotModel } from "../robot/types";
-import { useActivityStore } from "../features/workbench/runtime/activity";
+import { useActivityStore } from "./activity";
 
 type LoadStatus = "idle" | "loading" | "ready" | "error";
 /** 可选机型条目（id = public/models 下的目录名） */

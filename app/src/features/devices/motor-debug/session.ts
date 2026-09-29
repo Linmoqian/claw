@@ -8,7 +8,7 @@ import {
   servoWriteSpeed,
 } from "../../../lib/serial";
 import { serialConnectionBlockedReason } from "../../../lib/serialConnectionGuard";
-import { useActivityStore } from "../../workbench/runtime/activity";
+import { useActivityStore } from "../../../stores/activity";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import {
   closeDebugProtocol,

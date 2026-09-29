@@ -20,7 +20,7 @@ import {
   type SafetyLimits,
   type SerialPort,
   type TuneParams,
-} from "../types";
+} from "../core/motors";
 import {
   isDesktop,
   serialConnect,
@@ -31,7 +31,7 @@ import {
   servoWritePosition,
 } from "../lib/serial";
 import { angleToPosition, positionToAngle } from "../lib/units";
-import { useActivityStore } from "../features/workbench/runtime/activity";
+import { useActivityStore } from "./activity";
 import { useBridgeStore } from "./bridgeStore";
 import { serialConnectionBlockedReason } from "../lib/serialConnectionGuard";
 

@@ -1,7 +1,7 @@
 /** 智能与对抗训练的统一入口。Created on 2026-09-27 @author: https://github.com/Linmoqian */
 import { ArrowUpRight, BrainCircuit, Swords } from "lucide-react";
 import { Link } from "react-router";
-import TrainingNavigation from "../../../components/TrainingNavigation";
+import TrainingNavigation from "../components/TrainingNavigation";
 import {
   useAdversarialTrainingStore,
   useModelTrainingStore,

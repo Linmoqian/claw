@@ -6,8 +6,8 @@ import { create } from "zustand";
 import { useWorkspaceStore } from "../../../cad/workspaceStore";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { findRobotEntry, useRobotStore } from "../../../stores/robotStore";
-import { useActivityStore } from "../../workbench/runtime/activity";
-import { desktopRuntimeEnabled, subscribeDesktopFrames } from "../../workbench/runtime/desktopRuntime";
+import { useActivityStore } from "../../../stores/activity";
+import { desktopRuntimeEnabled, subscribeDesktopFrames } from "../../../services/desktopRuntime";
 import {
   awaitRuntimeReady,
   getRuntime,

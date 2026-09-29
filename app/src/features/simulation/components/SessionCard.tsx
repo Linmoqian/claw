@@ -6,8 +6,8 @@
  * Created on 2026-09-10
  * @author:  https://github.com/Linmoqian
  */
-import { labelOf } from "../command/arbiter";
-import { useSessionStore } from "../stores/sessionStore";
+import { labelOf } from "../../../command/arbiter";
+import { useSessionStore } from "../../../stores/sessionStore";
 import "./SessionCard.css";
 
 export default function SessionCard() {

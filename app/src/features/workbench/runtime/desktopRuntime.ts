@@ -1,55 +1,19 @@
-// Rust 仿真状态流与编辑意图桥接。Created on 2026-09-28
-// @author:  https://github.com/Linmoqian
-import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
-import type { SimulationLoop, SimMode } from "../../../robot/simulation";
-import type { BasePose, BaseSim } from "../../../robot/baseSim";
-import type { CollisionStatus } from "../../../robot/collision";
+// Rust 仿真状态流与编辑意图桥接：管理连接生命周期与业务互斥逻辑。
+// 帧的存储与订阅在 services/desktopRuntime，渲染层直接读那一层。
+// Created on 2026-09-28; Updated on 2026-09-29 @author: https://github.com/Linmoqian
+import { Channel, invoke } from "@tauri-apps/api/core";
+import type { SimulationLoop } from "../../../robot/simulation";
+import type { BaseSim } from "../../../robot/baseSim";
 import { useBridgeStore } from "../../../stores/bridgeStore";
-import { useActivityStore } from "./activity";
+import { useActivityStore } from "../../../stores/activity";
+import {
+  publishDesktopFrame,
+  clearDesktopFrame,
+  registerDesktopPauseControl,
+  type SimulationFrame,
+} from "../../../services/desktopRuntime";
 
-interface PropPose {
-  id: string;
-  position_m: [number, number, number];
-  rotation_xyzw: [number, number, number, number];
-}
-
-export interface SimulationFrame {
-  version: number;
-  robotId: string;
-  sequence: number;
-  timestampMs: number;
-  jointsRad: number[];
-  targetRad: number[];
-  mode: SimMode;
-  speed: number;
-  progress: number;
-  base: BasePose;
-  tcpPositionM: [number, number, number];
-  props: PropPose[];
-  collision: CollisionStatus;
-}
-
-let latestFrame: SimulationFrame | null = null;
 let lifecycle: Promise<void> = Promise.resolve();
-const frameListeners = new Set<(frame: SimulationFrame) => void>();
-let pauseControl: ((paused: boolean) => void) | null = null;
-
-export function getDesktopFrame(): SimulationFrame | null {
-  return latestFrame;
-}
-
-export function subscribeDesktopFrames(listener: (frame: SimulationFrame) => void): () => void {
-  frameListeners.add(listener);
-  return () => frameListeners.delete(listener);
-}
-
-export function setDesktopPaused(paused: boolean): void {
-  pauseControl?.(paused);
-}
-
-export function desktopRuntimeEnabled(): boolean {
-  return isTauri();
-}
 
 function enqueueLifecycle(operation: () => Promise<void>): Promise<void> {
   lifecycle = lifecycle.catch(() => undefined).then(operation);
@@ -89,8 +53,7 @@ export function connectDesktopRuntime(
     if (disposed || frame.version !== 1 || frame.robotId !== robotId
       || frame.sequence <= lastFrameSequence) return;
     lastFrameSequence = frame.sequence;
-    latestFrame = frame;
-    for (const listener of frameListeners) listener(frame);
+    publishDesktopFrame(frame);
     if (useBridgeStore.getState().bridge.kind !== "simulation"
       || useActivityStore.getState().replayPreparing) return;
     sim.applyAuthorityFrame(frame.jointsRad, frame.targetRad, frame.mode, frame.progress, frame.collision);
@@ -105,7 +68,7 @@ export function connectDesktopRuntime(
         await invoke("simulation_stop_runtime");
         return;
       }
-      latestFrame = initial;
+      publishDesktopFrame(initial);
       sim.applyAuthorityFrame(initial.jointsRad, initial.targetRad, initial.mode, initial.progress, initial.collision);
       baseSim.applyAuthorityPose(initial.base);
       await invoke("simulation_subscribe", { channel });
@@ -138,10 +101,10 @@ export function connectDesktopRuntime(
   baseSim.onTargetChanged = (pose) => {
     send("simulation_set_base_target", { x: pose.x, y: pose.y, yaw: pose.yaw });
   };
-  pauseControl = (paused) => {
+  registerDesktopPauseControl((paused) => {
     desiredPaused = paused;
     if (started) send("simulation_set_paused", { paused });
-  };
+  });
   const speedTimer = window.setInterval(() => {
     if (disposed || sim.speed === lastSpeed) return;
     lastSpeed = sim.speed;
@@ -154,8 +117,8 @@ export function connectDesktopRuntime(
     sim.onControlIntent = null;
     sim.onTcpIntent = null;
     baseSim.onTargetChanged = null;
-    pauseControl = null;
-    latestFrame = null;
+    registerDesktopPauseControl(null);
+    clearDesktopFrame();
     void enqueueLifecycle(async () => {
       await invoke("simulation_stop_runtime").catch(() => undefined);
     });

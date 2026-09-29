@@ -6,7 +6,7 @@
  */
 import { useMemo, useState, type ChangeEvent } from "react";
 import { Quaternion, Vector3 } from "three";
-import { solveIk, type IkResult } from "../robot/ik";
+import { solveIk, type IkResult } from "../../../robot/ik";
 import {
   applyJointCalibration,
   computeEyeHandPose,
@@ -14,10 +14,10 @@ import {
   DEFAULT_INTRINSICS,
   simulateCameraCalibration,
   type CalibrationReport,
-} from "../robot/handEye";
-import { formatPose } from "../robot/kinematics";
-import type { RobotModel } from "../robot/types";
-import type { SimSnapshot } from "../robot/simulation";
+} from "../../../robot/handEye";
+import { formatPose } from "../../../robot/kinematics";
+import type { RobotModel } from "../../../robot/types";
+import type { SimSnapshot } from "../../../robot/simulation";
 
 interface EyeHandPanelProps {
   model: RobotModel;

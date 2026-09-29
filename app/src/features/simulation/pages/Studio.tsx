@@ -4,10 +4,10 @@
 import { useEffect, useState, type CSSProperties } from "react";
 import { Camera, Pause, Play, RotateCcw, Ruler, Save, SlidersHorizontal, X } from "lucide-react";
 import { Quaternion, Vector3 } from "three";
-import JointCard from "../../../components/JointCard";
-import PidSlider from "../../../components/PidSlider";
-import SessionCard from "../../../components/SessionCard";
-import WaveCanvas from "../../../components/WaveCanvas";
+import JointCard from "../components/JointCard";
+import PidSlider from "../components/PidSlider";
+import SessionCard from "../components/SessionCard";
+import WaveCanvas from "../components/WaveCanvas";
 
 import { formatPose } from "../../../robot/kinematics";
 import { describeCollision } from "../../../robot/collision";
@@ -31,9 +31,9 @@ import {
 import { useSceneStore } from "../../../stores/sceneStore";
 import { useSimulationStore } from "../../../stores/simulationStore";
 import { cancelRuntimePreview, getRuntime, useRuntimeStore, awaitRuntimeReady } from "../../workbench/runtime/runtime";
-import { useActivityStore } from "../../workbench/runtime/activity";
+import { useActivityStore } from "../../../stores/activity";
 import { stopProgram } from "../../workbench/runtime/programRunner";
-import EyeHandPanel from "../../../components/EyeHandPanel";
+import EyeHandPanel from "../components/EyeHandPanel";
 import LoadingState from "../../../components/workbench/LoadingState";
 import "./Studio.css";
 

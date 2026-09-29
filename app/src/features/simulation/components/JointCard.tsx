@@ -1,7 +1,7 @@
 /** 关节控制卡片：代号/名称/当前角 + 限位滑块 + 目标角对照 + 拾取高亮。
  * M4：滑块拖动 = 预览（input 逐帧 → Ghost），松开 = 提交（change → 现实追赶）。 */
 import type { CSSProperties } from "react";
-import type { ActiveJoint } from "../robot/types";
+import type { ActiveJoint } from "../../../robot/types";
 import "./JointCard.css";
 
 type Props = {

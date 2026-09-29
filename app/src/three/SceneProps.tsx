@@ -24,7 +24,7 @@ import {
   snapshotScenePropPoses,
 } from "../robot/scenePhysics";
 import { useSceneStore } from "../stores/sceneStore";
-import { desktopRuntimeEnabled, getDesktopFrame } from "../features/workbench/runtime/desktopRuntime";
+import { desktopRuntimeEnabled, getDesktopFrame } from "../services/desktopRuntime";
 
 /** 场景道具材质（模块级共享，避免每次渲染重复创建材质）。 */
 const CUP_BODY_MATERIAL = new THREE.MeshStandardMaterial({

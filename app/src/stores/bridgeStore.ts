@@ -17,7 +17,7 @@ import {
 } from "../services/bridge";
 import type { RecFrame } from "../services/protocol/recording";
 import { useWorldStore } from "./worldStore";
-import { useActivityStore } from "../features/workbench/runtime/activity";
+import { useActivityStore } from "./activity";
 
 /** mock 真数据源地址（环境变量可覆盖，供联调切换端口） */
 const MOCK_ROBOT_URL =

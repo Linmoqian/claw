@@ -15,7 +15,7 @@ import {
   Target,
 } from "lucide-react";
 import { useAdversarialTrainingStore } from "../../../stores/trainingSessionStore";
-import TrainingNavigation from "../../../components/TrainingNavigation";
+import TrainingNavigation from "../components/TrainingNavigation";
 import { DEFAULT_ROBOT_ID, useRobotStore } from "../../../stores/robotStore";
 import "./AdversarialTraining.css";
 

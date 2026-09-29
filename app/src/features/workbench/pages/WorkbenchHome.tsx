@@ -22,7 +22,7 @@ import { useDevice } from "../../../stores/DeviceContext";
 import { isDesktop } from "../../../lib/serial";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { useRuntimeStore } from "../runtime/runtime";
-import { useActivityStore } from "../runtime/activity";
+import { useActivityStore } from "../../../stores/activity";
 import { useMotorDebugStore } from "../../devices/motor-debug/session";
 import "./WorkbenchHome.css";
 

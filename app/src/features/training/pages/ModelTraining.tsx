@@ -30,7 +30,7 @@ import {
   type PerceptionTrainingResult,
 } from "../../../robot/modelTraining";
 import { useModelTrainingStore } from "../../../stores/trainingSessionStore";
-import TrainingNavigation from "../../../components/TrainingNavigation";
+import TrainingNavigation from "../components/TrainingNavigation";
 import "./ModelTraining.css";
 
 function formatPercent(value: number): string {

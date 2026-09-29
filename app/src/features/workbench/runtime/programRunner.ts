@@ -9,7 +9,7 @@ import { SimulationDeviceGateway } from "../../blocks/blockly/simulationGateway"
 import type { BlockDeviceGateway, Detection } from "../../blocks/blockly/types";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import { useRobotStore } from "../../../stores/robotStore";
-import { useActivityStore } from "./activity";
+import { useActivityStore } from "../../../stores/activity";
 import { awaitRuntimeReady, getRuntime, stopRuntime } from "./runtime";
 import { createProgramSnapshot } from "./programSnapshot";
 import { isTauri } from "@tauri-apps/api/core";

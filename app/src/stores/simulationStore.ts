@@ -3,7 +3,7 @@
 import { create } from "zustand";
 import { Quaternion, Vector3 } from "three";
 import { COLLISION_CLEAR } from "../robot/collision";
-import { useActivityStore } from "../features/workbench/runtime/activity";
+import { useActivityStore } from "./activity";
 import {
   SimulationLoop,
   type SimMode,

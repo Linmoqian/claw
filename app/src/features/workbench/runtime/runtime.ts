@@ -15,8 +15,9 @@ import { useTargetStore } from "../../../stores/targetStore";
 import { useWorldStore } from "../../../stores/worldStore";
 import { useSceneStore } from "../../../stores/sceneStore";
 import { useRobotStore } from "../../../stores/robotStore";
-import { useActivityStore } from "./activity";
-import { connectDesktopRuntime, desktopRuntimeEnabled, setDesktopPaused } from "./desktopRuntime";
+import { useActivityStore } from "../../../stores/activity";
+import { connectDesktopRuntime } from "./desktopRuntime";
+import { desktopRuntimeEnabled, setDesktopPaused } from "../../../services/desktopRuntime";
 
 export interface RobotRuntime {
   model: RobotModel;

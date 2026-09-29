@@ -15,7 +15,7 @@ import { describeCollision } from "../robot/collision";
 import type { BaseSim } from "../robot/baseSim";
 import type { SimulationLoop } from "../robot/simulation";
 import { useTargetStore } from "./targetStore";
-import { useActivityStore } from "../features/workbench/runtime/activity";
+import { useActivityStore } from "./activity";
 
 /** 结束态会话卡的自动消失时长（ms） */
 const DISMISS_MS = 2600;
