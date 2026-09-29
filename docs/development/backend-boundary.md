@@ -1,6 +1,6 @@
 # 工作台分层架构
 
-应用入口在 `app/`：`index.html`、`src/`、`public/` 与 `src-tauri/` 采用 Tauri 官方项目层级。`src/` 保存 React 界面、Three.js 显示与 Blockly 编辑器；`src-tauri/` 保存 Rust 命令和后台运行时。工程说明在 `docs/`，模拟服务与验证脚本在 `tools/`。各功能目录的 `README.md` 标明本地职责。
+应用入口在 `app/`：`index.html`、`src/`、`public/` 与 `src-tauri/` 采用 Tauri 官方项目层级。`src/` 保存 React 界面、Three.js 显示与 Blockly 编辑器；`src-tauri/` 保存 Rust 命令和后台运行时。工程说明在 `docs/`，模拟服务与验证脚本在 `tools/`。各功能目录的 `README.md` 标明本地职责，前端 `src/` 内部分层与依赖规则见 `app/src/README.md`。
 
 桌面端由 Rust 维护唯一仿真循环和权威关节、底盘、TCP 状态。URDF 解析、运动学、碰撞门禁、Rapier 场景物理、回放插值、积木控制流及合成数据训练均在对应后端模块执行；前端接收有序 Channel 状态并渲染。积木动作经请求和回执交给设备网关，桌面仿真的 TCP 目标由 Rust 逆运动学求解。浏览器预览保留前端实现，仅用于界面验收。
 
