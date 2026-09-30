@@ -1,9 +1,11 @@
 // 数字资产 SQLite 主存储与旧清单恢复。Created on 2026-09-28
-// Updated on 2026-09-28
+// Updated on 2026-09-30
 // @author:  https://github.com/Linmoqian
 
 use super::{bucket_path, latest_manifest, record_id};
+use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite_migration::{Migrations, M};
 use serde_json::Value;
 use std::fs;
 use std::io::Write;
@@ -11,38 +13,48 @@ use std::path::PathBuf;
 use std::time::Duration;
 use tauri::{AppHandle, Manager};
 
-const SCHEMA: &str = include_str!("schema.sql");
+/// v1：三张资产表与索引；v2：恢复状态表。事务与 user_version 由迁移库托管。
+const SCHEMA_V1: &str = include_str!("schema.sql");
+const SCHEMA_V2: &str = "CREATE TABLE IF NOT EXISTS asset_catalog_state (bucket TEXT PRIMARY KEY CHECK (bucket IN ('documents', 'project-assets')), initialized_at TEXT NOT NULL);";
+const EXPECTED_VERSION: i64 = 2;
 
-fn open(app: &AppHandle) -> Result<Connection, String> {
-    let directory = app
-        .path()
-        .app_data_dir()
-        .map_err(|error| error.to_string())?
-        .join("assets");
-    fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
-    let connection = Connection::open(directory.join("catalog.sqlite"))
-        .map_err(|error| format!("无法打开数字资产数据库：{error}"))?;
-    connection
-        .busy_timeout(Duration::from_secs(5))
-        .map_err(|error| error.to_string())?;
-    let version: i64 = connection
-        .pragma_query_value(None, "user_version", |row| row.get(0))
-        .map_err(|error| error.to_string())?;
-    if version > 2 {
-        return Err("数字资产数据库版本高于当前应用，请升级应用后重试".into());
-    }
-    if version == 0 {
+const MIGRATIONS_SQL: &[M<'static>] = &[M::up(SCHEMA_V1), M::up(SCHEMA_V2)];
+static MIGRATIONS: Migrations<'static> = Migrations::from_slice(MIGRATIONS_SQL);
+
+/// 应用级唯一 SQLite 连接：启动时打开并迁移，之后所有目录操作复用。
+pub struct CatalogState(Mutex<Connection>);
+
+impl CatalogState {
+    pub fn new(app: &AppHandle) -> Result<Self, String> {
+        let directory = app
+            .path()
+            .app_data_dir()
+            .map_err(|error| error.to_string())?
+            .join("assets");
+        fs::create_dir_all(&directory).map_err(|error| error.to_string())?;
+        let mut connection = Connection::open(directory.join("catalog.sqlite"))
+            .map_err(|error| format!("无法打开数字资产数据库：{error}"))?;
         connection
-            .execute_batch(SCHEMA)
-            .map_err(|error| format!("数字资产建表失败：{error}"))?;
-    } else if version == 1 {
+            .busy_timeout(Duration::from_secs(5))
+            .map_err(|error| error.to_string())?;
+        // WAL 允许读写并行；NORMAL 同步级别在桌面场景兼顾持久性与性能
         connection
-            .execute_batch(
-                "BEGIN; CREATE TABLE IF NOT EXISTS asset_catalog_state (bucket TEXT PRIMARY KEY CHECK (bucket IN ('documents', 'project-assets')), initialized_at TEXT NOT NULL); PRAGMA user_version = 2; COMMIT;",
-            )
-            .map_err(|error| format!("数字资产数据库升级失败：{error}"))?;
+            .pragma_update(None, "journal_mode", "WAL")
+            .map_err(|error| format!("设置 WAL 失败：{error}"))?;
+        connection
+            .pragma_update(None, "synchronous", 1)
+            .map_err(|error| format!("设置同步级别失败：{error}"))?;
+        let version: i64 = connection
+            .pragma_query_value(None, "user_version", |row| row.get(0))
+            .map_err(|error| error.to_string())?;
+        if version > EXPECTED_VERSION {
+            return Err("数字资产数据库版本高于当前应用，请升级应用后重试".into());
+        }
+        MIGRATIONS
+            .to_latest(&mut connection)
+            .map_err(|error| format!("数字资产迁移失败：{error}"))?;
+        Ok(Self(Mutex::new(connection)))
     }
-    Ok(connection)
 }
 
 fn recovery_marker(app: &AppHandle, bucket: &str) -> Result<PathBuf, String> {
@@ -119,14 +131,17 @@ pub(super) fn upsert(app: &AppHandle, bucket: &str, record: &Value) -> Result<()
     if bucket == "videos" || record["kind"] == "algorithm" {
         return Ok(());
     }
-    insert(&open(app)?, bucket, record)
+    let state = app.state::<CatalogState>();
+    let connection = state.0.lock();
+    insert(&connection, bucket, record)
 }
 
 pub(super) fn remove(app: &AppHandle, bucket: &str, id: &str) -> Result<(), String> {
     if bucket == "videos" {
         return Ok(());
     }
-    let connection = open(app)?;
+    let state = app.state::<CatalogState>();
+    let connection = state.0.lock();
     match bucket {
         "documents" => connection.execute("DELETE FROM documents WHERE id = ?1", [id]),
         "project-assets" => connection
@@ -219,7 +234,8 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
     if bucket != "documents" && bucket != "project-assets" {
         return Err("资源分类无效".into());
     }
-    let mut connection = open(app)?;
+    let state = app.state::<CatalogState>();
+    let mut connection = state.0.lock();
     recover_from_manifests(app, bucket, &mut connection)?;
     let mut result = if bucket == "documents" {
         records(&connection, "documents")?
@@ -253,14 +269,19 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
 mod tests {
     use super::*;
 
+    fn migrated_memory() -> Connection {
+        let mut connection = Connection::open_in_memory().unwrap();
+        MIGRATIONS.to_latest(&mut connection).unwrap();
+        connection
+    }
+
     #[test]
-    fn creates_three_asset_tables() {
-        let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(SCHEMA).unwrap();
+    fn migrations_reach_version_two_with_three_asset_tables() {
+        let connection = migrated_memory();
         let version: i64 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, EXPECTED_VERSION);
         for table in ["models", "training_data", "documents"] {
             let exists: Option<String> = connection
                 .query_row(
@@ -276,8 +297,7 @@ mod tests {
 
     #[test]
     fn indexes_supported_asset_kinds_without_collapsing_model_types() {
-        let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(SCHEMA).unwrap();
+        let connection = migrated_memory();
         for (id, bucket, kind) in [
             ("m1", "project-assets", "3d-model"),
             ("m2", "project-assets", "model-weights"),

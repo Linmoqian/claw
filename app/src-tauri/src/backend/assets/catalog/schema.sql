@@ -1,5 +1,5 @@
--- 数字资产元信息表；大文件仍由现有原子提交的文件清单引用。
-BEGIN;
+-- 数字资产元信息表 v1；大文件仍由现有原子提交的文件清单引用。
+-- 事务与 user_version 由 rusqlite_migration 托管，此处不得包含 BEGIN/COMMIT/PRAGMA。
 CREATE TABLE IF NOT EXISTS models (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -33,9 +33,3 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_models_created_at ON models(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_training_data_created_at ON training_data(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_documents_created_at ON documents(created_at DESC);
-CREATE TABLE IF NOT EXISTS asset_catalog_state (
-    bucket TEXT PRIMARY KEY CHECK (bucket IN ('documents', 'project-assets')),
-    initialized_at TEXT NOT NULL
-);
-PRAGMA user_version = 2;
-COMMIT;

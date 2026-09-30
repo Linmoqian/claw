@@ -4,6 +4,8 @@
 
 mod catalog;
 
+pub(crate) use catalog::CatalogState;
+
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs::{self, File};

@@ -9,6 +9,7 @@ use backend::{
     servo, simulation, slcan, training, websocket,
 };
 use std::sync::Mutex;
+use tauri::Manager;
 
 // —— 模板命令（保留，避免破坏前端既有调用） ——
 #[tauri::command]
@@ -38,6 +39,12 @@ pub fn run() {
         .manage(websocket::WebSocketManager::new())
         .manage(protocol::ProtocolManager::new())
         .manage(bluetooth::BluetoothManager::new())
+        .setup(|app| {
+            // 资产目录在启动时打开并完成迁移，后续命令复用同一连接
+            let state = assets::CatalogState::new(app.handle())?;
+            app.manage(state);
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             greet,
             servo::list_serial_ports,
