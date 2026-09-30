@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { isAiDesktop, type AiProviderConfig } from "../../../lib/ai";
 import {
+  hydrateAiSession,
   useAiSessionStore,
   type AssistantStatus,
 } from "../../../stores/aiSessionStore";
@@ -56,7 +57,8 @@ export default function VisionAssistant() {
   const configEditable = !sessionActive && !operation && !configLoading;
 
   useEffect(() => {
-    void initialize();
+    // 先恢复草稿再初始化，保证持久化的消息与非密钥配置不被环境配置覆盖
+    void hydrateAiSession().then(() => initialize());
   }, [initialize]);
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {

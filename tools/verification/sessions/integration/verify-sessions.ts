@@ -1,11 +1,18 @@
-// 页面会话集成验证。Created on 2026-09-26
+// 页面会话集成验证。Created on 2026-09-26; Updated on 2026-09-30
 // @author: https://github.com/Linmoqian
 import assert from "node:assert/strict";
 import {
+  applyAiDraft,
   createAiSessionStore,
+  projectAiDraft,
   type AiSessionClient,
 } from "../../../../app/src/stores/aiSessionStore";
-import { useModelTrainingStore } from "../../../../app/src/stores/trainingSessionStore";
+import {
+  projectAdversarialDraft,
+  projectModelTrainingDraft,
+  useAdversarialTrainingStore,
+  useModelTrainingStore,
+} from "../../../../app/src/stores/trainingSessionStore";
 import { serialConnectionBlockedReason } from "../../../../app/src/lib/serialConnectionGuard";
 
 function verifySerialConnectionGate(): void {
@@ -152,6 +159,58 @@ async function verifyAiSession(): Promise<void> {
   assert.equal(configReads, 1, "浏览器初始化不调用桌面配置服务");
 }
 
+/** 会话持久化投影：密钥与模型路径绝不落盘，草稿合并只覆盖存在的字段。 */
+function verifySessionProjectors(): void {
+  // 夹具密钥由运行时拼接，避免源码出现字面量凭据
+  const fixtureApiKey = ["fixture", "key"].join("-");
+  const baseConfig = {
+    provider: "openai-compatible",
+    model: "fixture-model",
+    baseUrl: "http://localhost/v1",
+    apiKey: fixtureApiKey,
+    supportsVision: true,
+    maxTokens: 64,
+    modelPath: ["D:", "models", "fixture"].join("/"),
+    pythonPath: "python.exe",
+  } as const;
+  const draft = projectAiDraft({
+    config: baseConfig,
+    messages: [{ id: "m1", role: "user", text: "跨页消息" }],
+  } as never);
+  const serialized = JSON.stringify(draft);
+  assert.ok(!serialized.includes(fixtureApiKey), "apiKey 不能写入草稿");
+  assert.ok(!serialized.includes("models/fixture"), "模型路径不能写入草稿");
+  assert.ok(!serialized.includes("pythonPath"), "解释器路径不能写入草稿");
+  assert.ok(serialized.includes("跨页消息"), "消息需要写入草稿");
+  const merged = applyAiDraft(baseConfig, draft);
+  assert.equal(merged.apiKey, fixtureApiKey, "水合不能覆盖运行时密钥");
+  assert.equal(merged.model, "fixture-model");
+  assert.equal(merged.maxTokens, 64);
+  // 部分草稿只覆盖存在的字段
+  const partial = applyAiDraft(baseConfig, { config: { model: "draft-model" } });
+  assert.equal(partial.model, "draft-model");
+  assert.equal(partial.baseUrl, baseConfig.baseUrl);
+  assert.equal(partial.apiKey, baseConfig.apiKey);
+  // 空草稿保持原配置
+  assert.equal(applyAiDraft(baseConfig, null), baseConfig);
+  // 训练投影：仅包含持久化字段，瞬时态不出现
+  useModelTrainingStore.getState().reset();
+  useAdversarialTrainingStore.getState().reset();
+  const modelDraft = JSON.parse(
+    JSON.stringify(projectModelTrainingDraft(useModelTrainingStore.getState())),
+  );
+  assert.deepEqual(
+    modelDraft.perceptionControls,
+    useModelTrainingStore.getState().perceptionControls,
+  );
+  assert.equal(modelDraft.perceptionResult, null);
+  assert.ok(!("running" in modelDraft), "running 是瞬时态不能持久化");
+  assert.ok(!("notice" in modelDraft), "notice 是瞬时态不能持久化");
+  const advDraft = projectAdversarialDraft(useAdversarialTrainingStore.getState());
+  assert.equal(advDraft.result, null);
+  assert.deepEqual(advDraft.controls, useAdversarialTrainingStore.getState().controls);
+}
+
 async function verifyTrainingSession(): Promise<void> {
   const state = useModelTrainingStore.getState();
   state.reset();
@@ -175,7 +234,8 @@ async function verifyTrainingSession(): Promise<void> {
 
 await verifyAiSession();
 await verifyTrainingSession();
+verifySessionProjectors();
 verifySerialConnectionGate();
 console.log(
-  "通过：会话跨订阅保留、单次初始化、操作互斥、AI 错误恢复、训练结果保留、串口连接门禁。",
+  "通过：会话跨订阅保留、单次初始化、操作互斥、AI 错误恢复、训练结果保留、持久化投影不含密钥、串口连接门禁。",
 );

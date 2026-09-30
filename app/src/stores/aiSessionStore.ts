@@ -1,6 +1,6 @@
-// Created on 2026-09-26
+// Created on 2026-09-26; Updated on 2026-09-30
 // @author: https://github.com/Linmoqian
-// 应用内共享 AI 会话；配置、密钥、图片路径和消息只保存在内存。
+// 应用内共享 AI 会话；消息与非密钥配置持久化到业务草稿，密钥与模型路径不落盘。
 import { create } from "zustand";
 import {
   chatWithAi,
@@ -12,6 +12,7 @@ import {
   stopAi,
   type AiProviderConfig,
 } from "../lib/ai";
+import { readDraft, writeDraft } from "../services/draftStorage";
 
 export type AssistantStatus = "idle" | "loading" | "ready" | "busy" | "error";
 type AssistantOperation = "start" | "chat" | "clear" | "stop" | "image" | null;
@@ -95,13 +96,20 @@ export function createAiSessionStore(client: AiSessionClient = defaultClient) {
       if (get().initialized) return;
       if (initialization) return initialization;
       if (!client.isDesktop()) {
-        set({ initialized: true });
+        // 浏览器预览：草稿经 localStorage 恢复历史消息与非密钥配置
+        set({
+          initialized: true,
+          config: applyAiDraft(get().config, aiDraft),
+          messages: aiDraft?.messages ?? [],
+        });
         return;
       }
       set({ configLoading: true });
       initialization = (async () => {
         try {
-          set({ config: await client.getConfig() });
+          // 环境变量配置为基底，草稿只覆盖用户可编辑的非密钥字段
+          const config = applyAiDraft(await client.getConfig(), aiDraft);
+          set({ config, messages: aiDraft?.messages ?? [] });
         } catch (reason) {
           set({
             error: `读取模型配置失败：${String(reason)}。可手动填写后启动。`,
@@ -235,3 +243,84 @@ export function createAiSessionStore(client: AiSessionClient = defaultClient) {
 }
 
 export const useAiSessionStore = createAiSessionStore();
+
+// ---- 会话持久化：消息与非密钥配置写入业务草稿，apiKey/modelPath/pythonPath 不落盘 ----
+
+export interface AiSessionPersisted {
+  config?: Partial<
+    Pick<
+      AiProviderConfig,
+      "provider" | "model" | "baseUrl" | "supportsVision" | "maxTokens"
+    >
+  >;
+  messages?: ChatMessage[];
+}
+
+export function projectAiDraft(state: AiSessionState): AiSessionPersisted {
+  const { provider, model, baseUrl, supportsVision, maxTokens } = state.config;
+  return {
+    config: { provider, model, baseUrl, supportsVision, maxTokens },
+    messages: state.messages,
+  };
+}
+
+/** 水合合并：草稿仅覆盖存在的非密钥字段，密钥与模型路径保留运行时来源。 */
+export function applyAiDraft(
+  config: AiProviderConfig,
+  draft: AiSessionPersisted | null,
+): AiProviderConfig {
+  if (!draft?.config) return config;
+  const patch = draft.config;
+  return {
+    ...config,
+    ...(patch.provider ? { provider: patch.provider } : {}),
+    ...(typeof patch.model === "string" ? { model: patch.model } : {}),
+    ...(typeof patch.baseUrl === "string" ? { baseUrl: patch.baseUrl } : {}),
+    ...(typeof patch.supportsVision === "boolean"
+      ? { supportsVision: patch.supportsVision }
+      : {}),
+    ...(typeof patch.maxTokens === "number" && Number.isFinite(patch.maxTokens)
+      ? { maxTokens: patch.maxTokens }
+      : {}),
+  };
+}
+
+let aiHydrated = false;
+let aiPersistTimer: number | null = null;
+let aiDraft: AiSessionPersisted | null = null;
+
+/** 启动时读取持久化草稿；需在 initialize 之前完成以避免配置覆盖。 */
+export async function hydrateAiSession(): Promise<void> {
+  aiHydrated = false;
+  try {
+    const raw = await readDraft("ai-session", "xiakao:ai-session:v1");
+    if (raw) {
+      const parsed = JSON.parse(raw) as AiSessionPersisted;
+      aiDraft = {
+        config: parsed.config ?? {},
+        messages: Array.isArray(parsed.messages) ? parsed.messages : [],
+      };
+    } else {
+      aiDraft = null;
+    }
+  } catch {
+    aiDraft = null; // 草稿损坏时忽略，保持运行时配置
+  }
+  aiHydrated = true;
+}
+
+if (typeof window !== "undefined") {
+  // 水合完成前不写回；推理进行中（operation 非空）也不写，等终态再落盘
+  useAiSessionStore.subscribe((state) => {
+    if (!aiHydrated || state.operation) return;
+    if (aiPersistTimer !== null) window.clearTimeout(aiPersistTimer);
+    aiPersistTimer = window.setTimeout(() => {
+      aiPersistTimer = null;
+      void writeDraft(
+        "ai-session",
+        "xiakao:ai-session:v1",
+        JSON.stringify(projectAiDraft(useAiSessionStore.getState())),
+      ).catch(() => undefined);
+    }, 500);
+  });
+}
