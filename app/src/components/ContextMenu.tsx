@@ -1,12 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  Clipboard,
-  Copy,
-  Info,
-  RotateCw,
-  type LucideIcon,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 export interface ContextMenuItem {
   id?: string;
@@ -17,14 +11,6 @@ export interface ContextMenuItem {
   divider?: boolean;
 }
 
-const DEFAULT_ITEMS: ContextMenuItem[] = [
-  { id: "refresh", label: "刷新", icon: RotateCw, onClick: () => console.log("refresh") },
-  { id: "copy", label: "复制", icon: Copy, onClick: () => console.log("copy") },
-  { id: "paste", label: "粘贴", icon: Clipboard, onClick: () => console.log("paste") },
-  { divider: true },
-  { id: "about", label: "关于", icon: Info, onClick: () => console.log("about") },
-];
-
 const MENU_WIDTH_ESTIMATE = 220;
 const MENU_HEIGHT_ESTIMATE = 240;
 
@@ -33,7 +19,7 @@ export default function ContextMenu({ items }: { items?: ContextMenuItem[] }) {
   const [pos, setPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const menuRef = useRef<HTMLUListElement | null>(null);
 
-  const resolvedItems = items ?? DEFAULT_ITEMS;
+  const resolvedItems = items ?? [];
 
   useEffect(() => {
     const handleContextMenu = (e: MouseEvent) => {
@@ -87,7 +73,7 @@ export default function ContextMenu({ items }: { items?: ContextMenuItem[] }) {
 
   return (
     <AnimatePresence>
-      {visible && (
+      {visible && resolvedItems.length > 0 && (
         <motion.ul
           ref={menuRef}
           className="ctx-menu"
