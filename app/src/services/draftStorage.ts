@@ -2,7 +2,14 @@
 // @author:  https://github.com/Linmoqian
 import { invoke, isTauri } from "@tauri-apps/api/core";
 
-export type DraftKey = "block-console" | "datasets" | "tool-profiles" | "active-tool";
+export type DraftKey =
+  | "block-console"
+  | "datasets"
+  | "tool-profiles"
+  | "active-tool"
+  | "ai-session"
+  | "model-training"
+  | "adversarial-training";
 
 const pending = new Map<DraftKey, Promise<void>>();
 

@@ -14,7 +14,17 @@ const MAX_DRAFT_BYTES: usize = 10 * 1024 * 1024;
 pub struct DraftStore(pub Mutex<()>);
 
 fn folder(app: &AppHandle, key: &str) -> Result<PathBuf, String> {
-    if !["block-console", "datasets", "tool-profiles", "active-tool"].contains(&key) {
+    if ![
+        "block-console",
+        "datasets",
+        "tool-profiles",
+        "active-tool",
+        "ai-session",
+        "model-training",
+        "adversarial-training",
+    ]
+    .contains(&key)
+    {
         return Err("未知业务草稿类型".into());
     }
     let path = app

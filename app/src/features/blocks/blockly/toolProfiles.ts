@@ -6,7 +6,7 @@
  */
 import type { ToolProfile } from "./types";
 import { isTauri } from "@tauri-apps/api/core";
-import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
+import { readDraft, writeDraft } from "../../../services/draftStorage";
 
 const TOOL_STORAGE_KEY = "xiakao:block-tool-profiles:v1";
 const ACTIVE_TOOL_KEY = "xiakao:block-active-tool:v1";

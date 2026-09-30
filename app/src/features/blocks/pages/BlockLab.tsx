@@ -37,7 +37,7 @@ import { parseProgramSnapshot } from "../../workbench/runtime/programSnapshot";
 import { resetProgramStatus, runProgram, stopProgram, useProgramStore, type ProgramStatus } from "../../workbench/runtime/programRunner";
 import { useBridgeStore } from "../../../stores/bridgeStore";
 import LoadingState from "../../../components/workbench/LoadingState";
-import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
+import { readDraft, writeDraft } from "../../../services/draftStorage";
 import "./BlockLab.css";
 
 type WorkspaceState = ReturnType<typeof Blockly.serialization.workspaces.save>;

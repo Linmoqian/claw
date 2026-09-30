@@ -10,7 +10,7 @@ import VideoLibrary from "../../assets/components/VideoLibrary";
 import EmptyState from "../../../components/EmptyState";
 import { useExperimentStore } from "../domain/experimentStore";
 import { useRobotStore } from "../../../stores/robotStore";
-import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
+import { readDraft, writeDraft } from "../../../services/draftStorage";
 import "./DataCollection.css";
 import "./Experiments.css";
 
