@@ -19,6 +19,7 @@ import PageBoundary from "./components/workbench/PageBoundary";
 import RuntimeBoundary from "./components/workbench/RuntimeBoundary";
 import LoadingState from "./components/workbench/LoadingState";
 import RuntimeHost from "./features/workbench/runtime/RuntimeHost";
+import { stopProgram } from "./features/workbench/runtime/programRunner";
 import "./App.css";
 import "./workbench-theme.css";
 
@@ -137,7 +138,7 @@ function App() {
               </main>
             </div>
           </div>
-          <RuntimeBoundary>
+          <RuntimeBoundary onError={stopProgram}>
             <RuntimeHost />
           </RuntimeBoundary>
           <ContextMenu items={contextItems} />

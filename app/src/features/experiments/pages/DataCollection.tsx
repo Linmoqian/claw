@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Link, useNavigate } from "react-router";
 import { Clapperboard, Database, FileUp, ArrowRight, Square } from "lucide-react";
-import VideoLibrary from "../../../components/videos/VideoLibrary";
+import VideoLibrary from "../../assets/components/VideoLibrary";
 import { useExperimentStore } from "../domain/experimentStore";
 import { useRobotStore } from "../../../stores/robotStore";
 import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";

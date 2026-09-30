@@ -6,8 +6,8 @@ import type {
   DecisionTrainingResult,
   PerceptionTrainingConfig,
   PerceptionTrainingResult,
-} from "../../robot/modelTraining";
-import type { AdversarialTrainingConfig, AdversarialTrainingResult } from "../../robot/adversarialTraining";
+} from "../robot/modelTraining";
+import type { AdversarialTrainingConfig, AdversarialTrainingResult } from "../robot/adversarialTraining";
 
 export interface TrainingProgress {
   version: number;

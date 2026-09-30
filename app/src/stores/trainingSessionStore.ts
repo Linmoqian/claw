@@ -16,7 +16,7 @@ import {
   type AdversarialTrainingResult,
 } from "../robot/adversarialTraining";
 import { findRobotEntry, useRobotStore } from "./robotStore";
-import { desktopTrainingEnabled, trainDesktopAdversarial, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../features/training/desktopTraining";
+import { desktopTrainingEnabled, trainDesktopAdversarial, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../services/desktopTraining";
 
 export type PerceptionControls = Required<
   Pick<PerceptionTrainingConfig, "samplesPerClass" | "epochs" | "learningRate">

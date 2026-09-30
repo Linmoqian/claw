@@ -1,9 +1,10 @@
 /** 三维场景失败时保留工作台和实验结果。Created on 2026-09-26 @author: https://github.com/Linmoqian */
 import { Component, type ReactNode } from "react";
-import { stopProgram } from "../../features/workbench/runtime/programRunner";
 
 interface Props {
   children: ReactNode;
+  /** 场景崩溃时的联动停止动作，由入口层注入（如停止积木程序）。 */
+  onError?: () => void;
 }
 interface State {
   error: string | null;
@@ -16,7 +17,7 @@ export default class RuntimeBoundary extends Component<Props, State> {
     };
   }
   componentDidCatch(): void {
-    stopProgram();
+    this.props.onError?.();
   }
   render(): ReactNode {
     if (!this.state.error) return this.props.children;

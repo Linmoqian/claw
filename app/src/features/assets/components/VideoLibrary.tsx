@@ -1,4 +1,4 @@
-/** 本地视频资源的导入、引用与预览。Created on 2026-09-27; Updated on 2026-09-27 @author: https://github.com/Linmoqian */
+/** 本地视频资源的导入、引用与预览。Created on 2026-09-27; Updated on 2026-09-30 @author: https://github.com/Linmoqian */
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useLocation } from "react-router";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -16,12 +16,12 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import LoadingState from "../workbench/LoadingState";
-import { formatBytes } from "../workbench/format";
-import { isDesktop } from "../../lib/serial";
-import { videoRepository } from "../../features/assets/videos/repository";
-import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../../features/assets/videos/file";
-import type { VideoResource } from "../../features/assets/videos/types";
+import LoadingState from "../../../components/workbench/LoadingState";
+import { formatBytes } from "../../../components/workbench/format";
+import { isDesktop } from "../../../lib/serial";
+import { videoRepository } from "../videos/repository";
+import { isVideoName, readVideoDuration, VIDEO_ACCEPT, VIDEO_EXTENSIONS } from "../videos/file";
+import type { VideoResource } from "../videos/types";
 import "./VideoLibrary.css";
 
 function formatDuration(seconds: number | null): string {
