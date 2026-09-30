@@ -1,6 +1,6 @@
-// Created on 2026-09-26
+// Created on 2026-09-26; Updated on 2026-09-30
 // @author: https://github.com/Linmoqian
-// 训练参数、离线结果与提示跨页面保留；不持久化到实验或外部服务。
+// 训练参数与结果跨页面保留，并持久化到业务草稿；running/progress/notice 为瞬时态。
 import { create } from "zustand";
 import {
   runDecisionNetworkTraining,
@@ -17,6 +17,7 @@ import {
 } from "../robot/adversarialTraining";
 import { findRobotEntry, useRobotStore } from "./robotStore";
 import { desktopTrainingEnabled, trainDesktopAdversarial, trainDesktopDecision, trainDesktopPerception, type TrainingProgress } from "../services/desktopTraining";
+import { readDraft, writeDraft } from "../services/draftStorage";
 
 export type PerceptionControls = Required<
   Pick<PerceptionTrainingConfig, "samplesPerClass" | "epochs" | "learningRate">
@@ -249,3 +250,119 @@ export const useAdversarialTrainingStore = create<AdversarialTrainingState>(
     },
   }),
 );
+
+// ---- 会话持久化：参数与结果写入业务草稿，瞬时态不保存 ----
+
+interface ModelTrainingPersisted {
+  perceptionControls?: PerceptionControls;
+  decisionControls?: DecisionControls;
+  perceptionResult?: PerceptionTrainingResult | null;
+  decisionResult?: DecisionTrainingResult | null;
+  perceptionProvenance?: TrainingProvenance | null;
+  decisionProvenance?: TrainingProvenance | null;
+}
+
+interface AdversarialPersisted {
+  controls?: AdversarialControls;
+  result?: AdversarialTrainingResult | null;
+  resultProvenance?: TrainingProvenance | null;
+}
+
+export function projectModelTrainingDraft(
+  state: ModelTrainingState,
+): ModelTrainingPersisted {
+  return {
+    perceptionControls: state.perceptionControls,
+    decisionControls: state.decisionControls,
+    perceptionResult: state.perceptionResult,
+    decisionResult: state.decisionResult,
+    perceptionProvenance: state.perceptionProvenance,
+    decisionProvenance: state.decisionProvenance,
+  };
+}
+
+export function projectAdversarialDraft(
+  state: AdversarialTrainingState,
+): AdversarialPersisted {
+  return {
+    controls: state.controls,
+    result: state.result,
+    resultProvenance: state.resultProvenance,
+  };
+}
+
+let trainingHydrated = false;
+let modelPersistTimer: number | null = null;
+let adversarialPersistTimer: number | null = null;
+
+/** 启动时恢复持久化的训练参数与结果；草稿损坏时忽略并保持默认。 */
+export async function hydrateTrainingSessions(): Promise<void> {
+  try {
+    const raw = await readDraft("model-training", "xiakao:model-training:v1");
+    if (raw) {
+      const data = JSON.parse(raw) as ModelTrainingPersisted;
+      useModelTrainingStore.setState({
+        perceptionControls: {
+          ...DEFAULT_PERCEPTION,
+          ...(data.perceptionControls ?? {}),
+        },
+        decisionControls: {
+          ...DEFAULT_DECISION,
+          ...(data.decisionControls ?? {}),
+        },
+        perceptionResult: data.perceptionResult ?? null,
+        decisionResult: data.decisionResult ?? null,
+        perceptionProvenance: data.perceptionProvenance ?? null,
+        decisionProvenance: data.decisionProvenance ?? null,
+      });
+    }
+  } catch {
+    // 忽略损坏草稿
+  }
+  try {
+    const raw = await readDraft(
+      "adversarial-training",
+      "xiakao:adversarial-training:v1",
+    );
+    if (raw) {
+      const data = JSON.parse(raw) as AdversarialPersisted;
+      useAdversarialTrainingStore.setState({
+        controls: { ...DEFAULT_ADVERSARIAL, ...(data.controls ?? {}) },
+        result: data.result ?? null,
+        resultProvenance: data.resultProvenance ?? null,
+      });
+    }
+  } catch {
+    // 忽略损坏草稿
+  }
+  trainingHydrated = true;
+}
+
+if (typeof window !== "undefined") {
+  // 水合完成前不写回，避免默认值覆盖已保存内容
+  useModelTrainingStore.subscribe((state) => {
+    if (!trainingHydrated || state.running) return;
+    if (modelPersistTimer !== null) window.clearTimeout(modelPersistTimer);
+    modelPersistTimer = window.setTimeout(() => {
+      modelPersistTimer = null;
+      void writeDraft(
+        "model-training",
+        "xiakao:model-training:v1",
+        JSON.stringify(projectModelTrainingDraft(useModelTrainingStore.getState())),
+      ).catch(() => undefined);
+    }, 400);
+  });
+  useAdversarialTrainingStore.subscribe((state) => {
+    if (!trainingHydrated || state.running) return;
+    if (adversarialPersistTimer !== null) window.clearTimeout(adversarialPersistTimer);
+    adversarialPersistTimer = window.setTimeout(() => {
+      adversarialPersistTimer = null;
+      void writeDraft(
+        "adversarial-training",
+        "xiakao:adversarial-training:v1",
+        JSON.stringify(projectAdversarialDraft(useAdversarialTrainingStore.getState())),
+      ).catch(() => undefined);
+    }, 400);
+  });
+  void hydrateTrainingSessions();
+}
