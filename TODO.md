@@ -22,6 +22,7 @@
 - [x] 对齐 Tauri 官方目录并清理迁移残留（2026-09-29）
 - [x] 前端分层规则与豁免清单（app/src/README.md，反向依赖已收口）
 - [x] 共享空态组件、会话持久化、实验 JSON 导入、大页面拆分（2026-09-30）
+- [x] 后端数据库与性能整理：资产目录 SQLite 单连接复用 + rusqlite_migration 版本迁移 + WAL，perf 计数模块与 parking_lot 热锁（2026-09-30）
 - [ ] Rust 侧大模块拆分：program/interpreter.rs（757 行）、simulation/runtime.rs（525 行）
 - [ ] 协议命令生命周期补执行回执与失败处理（M8/M9，见 docs/development/protocol-v2.md）
 - [ ] 积木视觉接入真实图像（当前使用合成图像）
