@@ -5,6 +5,10 @@
 import assert from "node:assert/strict";
 import { ExperimentJournal } from "../../../app/src/features/experiments/domain/journal";
 import {
+  parseExperimentExport,
+  IMPORT_MAX_BYTES,
+} from "../../../app/src/features/experiments/domain/experimentImport";
+import {
   sampleRuntime,
   toLegacyFrames,
 } from "../../../app/src/features/experiments/domain/sampling";
@@ -185,6 +189,45 @@ release?.();
 await Promise.all([first, final]);
 assert.deepEqual(orderedWrites, [0, 1]);
 assert.equal(queue.bundle.samples.length, 2);
+
+// 导出 → 导入 round-trip：信封封装后解析，字段与逐帧数值必须一致，id 重生成、状态强制 saved。
+const exported = {
+  kind: "claw-experiment",
+  version: 1,
+  units: { position: "m", angle: "rad", time: "s" },
+  ...queue.bundle,
+};
+const imported = parseExperimentExport(JSON.stringify(exported), "回合测试.experiment.json");
+assert.notEqual(imported.record.id, queue.bundle.record.id, "导入必须重生成 id");
+assert.equal(imported.record.status, "saved", "导入记录强制置为已保存");
+assert.equal(imported.record.name, "test");
+assert.equal(imported.record.robotId, "test");
+assert.equal(imported.record.sampleRateHz, 20);
+assert.equal(imported.record.sampleCount, imported.samples.length);
+assert.equal(imported.samples.length, queue.bundle.samples.length);
+assert.deepEqual(imported.samples, queue.bundle.samples);
+assert.deepEqual(imported.snapshot.jointMapping, [{ code: "J1", name: "joint" }]);
+assert.equal(imported.snapshot.scene.workspace, null);
+// 损坏输入必须拒绝
+assert.throws(
+  () => parseExperimentExport(JSON.stringify({ ...exported, kind: "other" }), "x.json"),
+  /kind 或 version/,
+);
+assert.throws(
+  () => parseExperimentExport(JSON.stringify({ ...exported, record: { ...exported.record, sampleRateHz: 50 } }), "x.json"),
+  /采样率/,
+);
+assert.throws(
+  () =>
+    parseExperimentExport(
+      JSON.stringify({ ...exported, samples: [{ ...exported.samples[0], joints: { joint: null } }] }),
+      "x.json",
+    ),
+  /读数无效/,
+);
+assert.throws(() => parseExperimentExport("{broken", "x.json"), /JSON/);
+assert.equal(IMPORT_MAX_BYTES, 64 * 1024 * 1024);
+
 console.log(
-  "实验验证通过：实际状态 SI 采样、旧录像 90° 首/中/末帧、损坏帧拒绝、失败重试无丢帧、写入队列顺序。",
+  "实验验证通过：实际状态 SI 采样、旧录像 90° 首/中/末帧、损坏帧拒绝、失败重试无丢帧、写入队列顺序、实验 JSON 导出导入 round-trip。",
 );

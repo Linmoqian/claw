@@ -2,9 +2,9 @@
  * Created on 2026-09-26
  * @author:  https://github.com/Linmoqian
  */
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
-import { ArrowRight, FlaskConical, LoaderCircle, Plus, Save } from "lucide-react";
+import { ArrowRight, FlaskConical, LoaderCircle, Plus, Save, Upload } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
 import { useExperimentStore } from "../domain/experimentStore";
 import { useRobotStore } from "../../../stores/robotStore";
@@ -19,11 +19,23 @@ export default function Experiments() {
   const robotStatus = useRobotStore((state) => state.status);
   const [name, setName] = useState("");
   const [source, setSource] = useState<"studio" | "blocks">("studio");
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     void useExperimentStore.getState().initialize();
   }, []);
+
+  const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    const id = await useExperimentStore.getState().importBundle(file);
+    setImporting(false);
+    if (id) navigate(`/experiments/${id}`);
+  };
 
   const start = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -146,7 +158,30 @@ export default function Experiments() {
       </section>
       <div className="experiments__section-title">
         <h2>全部实验</h2>
-        <span>{records.length} 条记录 · 保存在当前设备</span>
+        <div className="experiments__section-actions">
+          <span>{records.length} 条记录 · 保存在当前设备</span>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".json,application/json"
+            hidden
+            onChange={(event) => void importFile(event)}
+          />
+          <button
+            type="button"
+            className="experiments__button"
+            disabled={importing || !!active}
+            title={active ? "请先结束当前实验再导入" : "导入本工作台导出的实验 JSON"}
+            onClick={() => importInputRef.current?.click()}
+          >
+            {importing ? (
+              <LoaderCircle size={15} className="wb-spin" aria-hidden="true" />
+            ) : (
+              <Upload size={15} />
+            )}
+            {importing ? "正在导入…" : "导入实验 JSON"}
+          </button>
+        </div>
       </div>
       {!initialized && !error ? (
         <LoadingState

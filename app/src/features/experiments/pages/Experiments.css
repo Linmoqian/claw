@@ -148,6 +148,11 @@
   color: var(--text-tertiary);
   font-size: 11px;
 }
+.experiments__section-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 .experiments__empty {
   padding: 45px 24px;
   border: 1px dashed var(--border);

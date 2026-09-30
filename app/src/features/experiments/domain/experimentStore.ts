@@ -19,6 +19,7 @@ import {
 } from "../../workbench/runtime/programRunner";
 import { ExperimentJournal } from "./journal";
 import { experimentRepository } from "./repository";
+import { IMPORT_MAX_BYTES, parseExperimentExport } from "./experimentImport";
 import { sampleAuthorityFrame, sampleRuntime, toLegacyFrames } from "./sampling";
 import type {
   ExperimentBundle,
@@ -43,6 +44,7 @@ interface ExperimentState {
   retrySave: () => Promise<void>;
   exportActive: () => void;
   exportRecord: (id: string) => Promise<void>;
+  importBundle: (file: File) => Promise<string | null>;
   rename: (id: string, name: string) => Promise<void>;
   beginReplay: (id: string) => Promise<boolean>;
 }
@@ -372,6 +374,36 @@ export const useExperimentStore = create<ExperimentState>((set, get) => ({
       downloadBundle(bundle);
     } catch (error) {
       set({ error: errorText(error) });
+    }
+  },
+
+  importBundle: async (file) => {
+    if (get().active || get().saving) {
+      set({ error: "请先结束并保存当前实验，再导入。" });
+      return null;
+    }
+    try {
+      if (file.size > IMPORT_MAX_BYTES)
+        throw new Error("文件过大（上限 64 MiB）");
+      const bundle = parseExperimentExport(await file.text(), file.name);
+      if (bundle.samples.length === 0) {
+        await experimentRepository.write(bundle.record, bundle.snapshot, [], 0);
+      } else {
+        // 与迁移和 journal 相同的 500 条分块写入约定
+        for (let offset = 0; offset < bundle.samples.length; offset += 500) {
+          await experimentRepository.write(
+            bundle.record,
+            bundle.snapshot,
+            bundle.samples.slice(offset, offset + 500),
+            offset,
+          );
+        }
+      }
+      set({ records: [bundle.record, ...get().records], error: null });
+      return bundle.record.id;
+    } catch (error) {
+      set({ error: `导入失败：${errorText(error)}` });
+      return null;
     }
   },
 
