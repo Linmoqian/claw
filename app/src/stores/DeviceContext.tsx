@@ -301,7 +301,7 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     const steps = 30;
     for (let i = 1; i <= steps; i++) {
       if (animTokens.current[id] !== myToken) return; // 被新请求取消
-      if (estopRef.current) return; // 急停中断
+      if (estopRef.current.value) return; // 急停中断
       const interp = start + (clamped - start) * (i / steps);
       try {
         await servoWritePosition(m.hwId, angleToPosition(interp, m.hwId));
