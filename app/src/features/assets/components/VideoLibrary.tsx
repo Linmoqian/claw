@@ -17,6 +17,7 @@ import {
   X,
 } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
+import EmptyState from "../../../components/EmptyState";
 import { formatBytes } from "../../../components/workbench/format";
 import { isDesktop } from "../../../lib/serial";
 import { videoRepository } from "../videos/repository";
@@ -300,11 +301,13 @@ export default function VideoLibrary() {
       {loading ? (
         <LoadingState label="正在读取视频资源" detail="从当前设备的资源库加载" variant="panel" />
       ) : visibleVideos.length === 0 ? (
-        <div className="video-library__empty">
-          <Clapperboard size={30} aria-hidden="true" />
-          <strong>{search ? "没有匹配的视频" : "从第一段视频开始"}</strong>
-          <p>{search ? "换一个名称试试。" : "导入 MP4、WebM 等视频，或引用本地文件路径。"}</p>
-        </div>
+        <EmptyState
+          className="video-library__empty"
+          icon={Clapperboard}
+          iconSize={30}
+          title={search ? "没有匹配的视频" : "从第一段视频开始"}
+          hint={search ? "换一个名称试试。" : "导入 MP4、WebM 等视频，或引用本地文件路径。"}
+        />
       ) : (
         <div className="video-library__grid">
           {visibleVideos.map((video) => (

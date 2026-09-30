@@ -1,6 +1,7 @@
 /** BLE GATT 原始字节调试界面。Created on 2026-09-28; Updated on 2026-09-28 @author: https://github.com/Linmoqian */
 import { useEffect, useState, type FormEvent } from "react";
 import { CircleAlert, Radio, RotateCw, Trash2 } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import { isDesktop } from "../../../lib/serial";
 import { formatHexBytes, parseHexBytes } from "../motor-debug/serialDebug";
 import {
@@ -124,7 +125,7 @@ export default function BleDebug({ onConnectionChange }: Props) {
           <p className="motor-debug__hint">本页仅收发原始 GATT 字节。写入前请确认设备协议及负载含义；实际单包长度受设备 MTU 限制。</p>
         </section>
       </div><section className="motor-debug__panel motor-debug__log"><div className="motor-debug__log-head"><div><span className="motor-debug__number">03</span><h2>通信记录</h2></div><button type="button" disabled={!logs.length} onClick={() => setLogs([])}><Trash2 size={14} /> 清空</button></div>
-        {logs.length ? <ol aria-live="polite">{logs.map((line) => <li key={line.id} className={line.direction === "RX" ? "is-rx" : line.direction === "ERR" ? "is-error" : ""}><time>{new Date(line.at).toLocaleTimeString("zh-CN", { hour12: false })}</time><span>{line.direction}</span><code>{line.message}</code></li>)}</ol> : <div className="motor-debug__empty"><Radio size={24} /><strong>等待通信记录</strong><p>扫描、收发和错误会显示在这里。</p></div>}
+        {logs.length ? <ol aria-live="polite">{logs.map((line) => <li key={line.id} className={line.direction === "RX" ? "is-rx" : line.direction === "ERR" ? "is-error" : ""}><time>{new Date(line.at).toLocaleTimeString("zh-CN", { hour12: false })}</time><span>{line.direction}</span><code>{line.message}</code></li>)}</ol> : <EmptyState className="motor-debug__empty" icon={Radio} iconSize={24} title="等待通信记录" hint="扫描、收发和错误会显示在这里。" />}
         <div className="motor-debug__log-foot">最多保留最近 200 条记录，当前会话内存保存。</div>
       </section></div>
     </div>

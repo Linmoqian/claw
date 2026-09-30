@@ -17,6 +17,7 @@ import {
   UploadCloud,
 } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
+import EmptyState from "../../../components/EmptyState";
 import { formatBytes, formatDate } from "../../../components/workbench/format";
 import PdfReader from "../../../components/documents/PdfReader";
 import {
@@ -301,11 +302,13 @@ export default function Documents() {
               })}
             </div>
           ) : (
-            <div className="documents__empty">
-              <FileText size={26} aria-hidden="true" />
-              <strong>{records.length ? "没有匹配的文档" : "文档库还是空的"}</strong>
-              <p>{records.length ? "试试其他关键词或类型。" : "导入一份 PDF 或 Markdown 开始整理。"}</p>
-            </div>
+            <EmptyState
+              className="documents__empty"
+              icon={FileText}
+              iconSize={26}
+              title={records.length ? "没有匹配的文档" : "文档库还是空的"}
+              hint={records.length ? "试试其他关键词或类型。" : "导入一份 PDF 或 Markdown 开始整理。"}
+            />
           )}
         </section>
 

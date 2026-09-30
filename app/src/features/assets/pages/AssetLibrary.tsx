@@ -22,6 +22,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import LoadingState from "../../../components/workbench/LoadingState";
+import EmptyState from "../../../components/EmptyState";
 import { formatBytes, formatDate } from "../../../components/workbench/format";
 import { documentRepository, type DocumentRecord } from "../documents/repository";
 import { isDesktop } from "../../../lib/serial";
@@ -396,11 +397,13 @@ export default function AssetLibrary() {
             })}
           </div>
         ) : (
-          <div className="asset-library__empty">
-            <FileArchive size={29} aria-hidden="true" />
-            <strong>{items.length ? "没有匹配的资产" : "项目资产库还是空的"}</strong>
-            <p>{items.length ? "试试其他关键词或分类。" : "选择资产类型并导入文件，开始整理项目资料。"}</p>
-          </div>
+          <EmptyState
+            className="asset-library__empty"
+            icon={FileArchive}
+            iconSize={29}
+            title={items.length ? "没有匹配的资产" : "项目资产库还是空的"}
+            hint={items.length ? "试试其他关键词或分类。" : "选择资产类型并导入文件，开始整理项目资料。"}
+          />
         )}
       </section>
     </div>

@@ -2,6 +2,7 @@
 // Created on 2026-09-30
 // @author:  https://github.com/Linmoqian
 import { Radio, Trash2 } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import {
   useMotorDebugStore,
   type DebugProtocol,
@@ -59,11 +60,13 @@ export default function DebugLogPanel({ activeProtocol }: DebugLogPanelProps) {
           ))}
         </ol>
       ) : (
-        <div className="motor-debug__empty">
-          <Radio size={24} />
-          <strong>等待调试记录</strong>
-          <p>连接后，端口状态和每次操作会显示在这里。</p>
-        </div>
+        <EmptyState
+          className="motor-debug__empty"
+          icon={Radio}
+          iconSize={24}
+          title="等待调试记录"
+          hint="连接后，端口状态和每次操作会显示在这里。"
+        />
       )}
       <div className="motor-debug__log-foot">
         最多保留最近 200 条记录，当前会话内存保存。

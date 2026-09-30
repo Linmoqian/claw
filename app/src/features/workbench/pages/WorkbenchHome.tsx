@@ -16,6 +16,7 @@ import {
   FolderOpen,
   ScanEye,
 } from "lucide-react";
+import EmptyState from "../../../components/EmptyState";
 import { useExperimentStore } from "../../experiments/domain/experimentStore";
 import { useRobotStore, findRobotEntry } from "../../../stores/robotStore";
 import { useDevice } from "../../../stores/DeviceContext";
@@ -156,14 +157,17 @@ export default function WorkbenchHome() {
             </Link>
           </div>
           {error && savedCount === 0 ? (
-            <div className="home-empty">
-              <FlaskConical size={26} />
-              <strong>实验记录暂时不可用</strong>
-              <p>{error}</p>
+            <EmptyState
+              className="home-empty"
+              icon={FlaskConical}
+              iconSize={26}
+              title="实验记录暂时不可用"
+              hint={error}
+            >
               <Link to="/experiments" className="wb-button">
                 查看并重试
               </Link>
-            </div>
+            </EmptyState>
           ) : savedCount === 0 ? (
             <div className="home-empty">
               <span className="home-empty__icon">

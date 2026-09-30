@@ -7,6 +7,7 @@ import { isTauri } from "@tauri-apps/api/core";
 import { Link, useNavigate } from "react-router";
 import { Clapperboard, Database, FileUp, ArrowRight, Square } from "lucide-react";
 import VideoLibrary from "../../assets/components/VideoLibrary";
+import EmptyState from "../../../components/EmptyState";
 import { useExperimentStore } from "../domain/experimentStore";
 import { useRobotStore } from "../../../stores/robotStore";
 import { readDraft, writeDraft } from "../../workbench/runtime/draftStorage";
@@ -315,11 +316,13 @@ export default function DataCollection() {
           旧版仿真样本来自固定演示轨迹；导入文件仅保留摘要。此处内容不作为新实验运动记录或回放来源。
         </p>
         {legacy.datasets.length === 0 ? (
-          <div className="data-collection__empty">
-            <Database size={26} />
-            <strong>暂无旧数据集或文件摘要</strong>
-            <p>新采集请使用上方“开始实验采集”。</p>
-          </div>
+          <EmptyState
+            className="data-collection__empty"
+            icon={Database}
+            iconSize={26}
+            title="暂无旧数据集或文件摘要"
+            hint="新采集请使用上方“开始实验采集”。"
+          />
         ) : (
           <div className="data-collection__grid">
             {legacy.datasets.map((dataset) => (
