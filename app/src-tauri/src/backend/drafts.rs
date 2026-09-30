@@ -1,10 +1,10 @@
 // 业务草稿的原子保存与旧浏览器数据迁移入口。Created on 2026-09-28
 // @author:  https://github.com/Linmoqian
 
+use parking_lot::Mutex;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Manager, State};
 
@@ -59,7 +59,7 @@ pub fn draft_read(
     state: State<DraftStore>,
     key: String,
 ) -> Result<Option<String>, String> {
-    let _guard = state.0.lock().map_err(|error| error.to_string())?;
+    let _guard = state.0.lock();
     let path = folder(&app, &key)?;
     let Some(file) = committed_files(&path)?.pop() else {
         return Ok(None);
@@ -79,7 +79,7 @@ pub fn draft_write(
     if value.len() > MAX_DRAFT_BYTES {
         return Err("草稿超过 10 MiB 上限".into());
     }
-    let _guard = state.0.lock().map_err(|error| error.to_string())?;
+    let _guard = state.0.lock();
     let path = folder(&app, &key)?;
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)

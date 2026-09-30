@@ -10,6 +10,7 @@ pub mod debug_serial;
 pub mod drafts;
 pub mod experiments;
 pub mod mcu;
+pub mod perf;
 pub mod program;
 pub mod protocol;
 pub mod replay;

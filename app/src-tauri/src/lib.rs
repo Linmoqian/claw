@@ -5,7 +5,7 @@
 mod backend;
 
 use backend::{
-    ai, assets, bluetooth, debug_serial, drafts, experiments, mcu, program, protocol, replay,
+    ai, assets, bluetooth, debug_serial, drafts, experiments, mcu, perf, program, protocol, replay,
     servo, simulation, slcan, training, websocket,
 };
 use std::sync::Mutex;
@@ -29,7 +29,7 @@ pub fn run() {
         .manage(Mutex::new(None::<mcu::McuSession>))
         .manage(Mutex::new(None::<Box<dyn serialport::SerialPort>>))
         .manage(experiments::ExperimentLock(Mutex::new(())))
-        .manage(drafts::DraftStore(Mutex::new(())))
+        .manage(drafts::DraftStore(parking_lot::Mutex::new(())))
         .manage(assets::AssetManager(Mutex::new(
             std::collections::HashMap::new(),
         )))
@@ -134,6 +134,7 @@ pub fn run() {
             websocket::websocket_open,
             websocket::websocket_send,
             websocket::websocket_close,
+            perf::perf_snapshot,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

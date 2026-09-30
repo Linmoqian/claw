@@ -3,6 +3,7 @@
 // @author:  https://github.com/Linmoqian
 
 use super::{bucket_path, latest_manifest, record_id};
+use crate::backend::perf;
 use parking_lot::Mutex;
 use rusqlite::{params, Connection, OptionalExtension};
 use rusqlite_migration::{Migrations, M};
@@ -234,35 +235,37 @@ pub(super) fn list(app: &AppHandle, bucket: &str) -> Result<Vec<Value>, String> 
     if bucket != "documents" && bucket != "project-assets" {
         return Err("资源分类无效".into());
     }
-    let state = app.state::<CatalogState>();
-    let mut connection = state.0.lock();
-    recover_from_manifests(app, bucket, &mut connection)?;
-    let mut result = if bucket == "documents" {
-        records(&connection, "documents")?
-    } else {
-        let mut models = records(&connection, "models")?;
-        models.extend(records(&connection, "training_data")?);
-        models
-    };
-    if bucket == "project-assets" {
-        for entry in fs::read_dir(bucket_path(app, bucket)?)
-            .map_err(|error| error.to_string())?
-            .filter_map(Result::ok)
-        {
-            if entry
-                .file_type()
+    perf::timed("catalog.list", || {
+        let state = app.state::<CatalogState>();
+        let mut connection = state.0.lock();
+        recover_from_manifests(app, bucket, &mut connection)?;
+        let mut result = if bucket == "documents" {
+            records(&connection, "documents")?
+        } else {
+            let mut models = records(&connection, "models")?;
+            models.extend(records(&connection, "training_data")?);
+            models
+        };
+        if bucket == "project-assets" {
+            for entry in fs::read_dir(bucket_path(app, bucket)?)
                 .map_err(|error| error.to_string())?
-                .is_dir()
+                .filter_map(Result::ok)
             {
-                if let Some(manifest) = latest_manifest(&entry.path())? {
-                    if manifest.record["kind"] == "algorithm" {
-                        result.push(manifest.record);
+                if entry
+                    .file_type()
+                    .map_err(|error| error.to_string())?
+                    .is_dir()
+                {
+                    if let Some(manifest) = latest_manifest(&entry.path())? {
+                        if manifest.record["kind"] == "algorithm" {
+                            result.push(manifest.record);
+                        }
                     }
                 }
             }
         }
-    }
-    Ok(result)
+        Ok(result)
+    })
 }
 
 #[cfg(test)]

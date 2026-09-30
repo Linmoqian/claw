@@ -5,10 +5,12 @@ use super::collision::{self, CollisionStatus};
 use super::ik::{self, IkSolution};
 use super::model::{Pose, RobotModel};
 use super::physics::{PhysicsScene, PropPose};
+use crate::backend::perf;
+use parking_lot::Mutex;
 use rapier3d::math::{Rotation, Vector};
 use serde::Serialize;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::ipc::Channel;
@@ -204,10 +206,9 @@ fn runtime(state: &State<RuntimeManager>) -> Result<Arc<Mutex<SimulationState>>,
     state
         .0
         .lock()
-        .map_err(|error| error.to_string())?
         .as_ref()
         .map(|handle| Arc::clone(&handle.shared))
-        .ok_or("仿真运行时尚未启动".into())
+        .ok_or_else(|| "仿真运行时尚未启动".into())
 }
 
 #[tauri::command]
@@ -215,9 +216,9 @@ pub fn simulation_start(
     state: State<RuntimeManager>,
     robot_id: String,
 ) -> Result<SimulationFrame, String> {
-    let mut guard = state.0.lock().map_err(|error| error.to_string())?;
+    let mut guard = state.0.lock();
     if let Some(handle) = guard.as_ref() {
-        let runtime = handle.shared.lock().map_err(|error| error.to_string())?;
+        let runtime = handle.shared.lock();
         if runtime.model.id != robot_id {
             return Err("请先停止当前机型的仿真运行时".into());
         }
@@ -235,25 +236,26 @@ pub fn simulation_start(
             let started = Instant::now();
             let dt = started.duration_since(last).as_secs_f32();
             last = started;
-            if let Ok(mut state) = thread_state.lock() {
-                state.step(dt);
+            {
+                let mut state = thread_state.lock();
+                perf::timed("simulation.step", || state.step(dt));
                 if started >= next_stream {
                     let frame = state.frame();
-                    state
-                        .subscribers
-                        .retain(|subscriber| subscriber.send(frame.clone()).is_ok());
+                    perf::timed("simulation.stream", || {
+                        state
+                            .subscribers
+                            .retain(|subscriber| subscriber.send(frame.clone()).is_ok());
+                    });
                     next_stream += STREAM;
                     if next_stream <= started {
                         next_stream = started + STREAM;
                     }
                 }
-            } else {
-                break;
             }
             thread::sleep(STEP.saturating_sub(started.elapsed()));
         }
     });
-    let frame = shared.lock().map_err(|error| error.to_string())?.frame();
+    let frame = shared.lock().frame();
     *guard = Some(RuntimeHandle {
         shared,
         stopped,
@@ -268,7 +270,7 @@ pub fn simulation_subscribe(
     channel: Channel<SimulationFrame>,
 ) -> Result<(), String> {
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     channel
         .send(sim.frame())
         .map_err(|error| error.to_string())?;
@@ -278,20 +280,13 @@ pub fn simulation_subscribe(
 
 #[tauri::command]
 pub fn simulation_frame(state: State<RuntimeManager>) -> Result<SimulationFrame, String> {
-    Ok(runtime(&state)?
-        .lock()
-        .map_err(|error| error.to_string())?
-        .frame())
+    Ok(runtime(&state)?.lock().frame())
 }
 
 #[tauri::command]
 pub fn simulation_reset_props(state: State<RuntimeManager>) -> Result<(), String> {
     let shared = runtime(&state)?;
-    shared
-        .lock()
-        .map_err(|error| error.to_string())?
-        .physics
-        .reset();
+    shared.lock().physics.reset();
     Ok(())
 }
 
@@ -303,7 +298,7 @@ pub fn simulation_set_joint_targets(
     joints_rad: Vec<f32>,
 ) -> Result<(), String> {
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     if sim.paused {
         return Err("回放期间不能控制仿真，请先退出回放".into());
     }
@@ -359,7 +354,7 @@ pub fn simulation_set_tcp_target(
         ),
     };
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     if sim.paused {
         return Err("回放期间不能控制仿真，请先退出回放".into());
     }
@@ -389,7 +384,7 @@ pub fn simulation_set_base_target(
     yaw: f32,
 ) -> Result<(), String> {
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     if sim.paused {
         return Err("回放期间不能控制仿真，请先退出回放".into());
     }
@@ -408,7 +403,7 @@ pub fn simulation_stop_motion(
     sequence: u64,
 ) -> Result<(), String> {
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     sim.accept_command(&robot_id, sequence)?;
     sim.targets = sim.joints.clone();
     sim.base_target = sim.base;
@@ -431,7 +426,7 @@ pub fn simulation_set_mode(
         return Err("未知仿真模式".into());
     }
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     if sim.paused {
         return Err("回放期间不能控制仿真，请先退出回放".into());
     }
@@ -462,7 +457,7 @@ pub fn simulation_set_speed(
         return Err("仿真速度超出范围".into());
     }
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     sim.accept_command(&robot_id, sequence)?;
     sim.speed = speed;
     Ok(())
@@ -476,7 +471,7 @@ pub fn simulation_set_paused(
     paused: bool,
 ) -> Result<(), String> {
     let shared = runtime(&state)?;
-    let mut sim = shared.lock().map_err(|error| error.to_string())?;
+    let mut sim = shared.lock();
     sim.accept_command(&robot_id, sequence)?;
     sim.paused = paused;
     if paused {
@@ -489,7 +484,7 @@ pub fn simulation_set_paused(
 
 #[tauri::command]
 pub fn simulation_stop_runtime(state: State<RuntimeManager>) -> Result<(), String> {
-    let Some(handle) = state.0.lock().map_err(|error| error.to_string())?.take() else {
+    let Some(handle) = state.0.lock().take() else {
         return Ok(());
     };
     handle.stopped.store(true, Ordering::Relaxed);
