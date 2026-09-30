@@ -8,7 +8,7 @@ import { useBridgeStore } from "../../../stores/bridgeStore";
 import RobotStage from "../../../three/RobotStage";
 import { useActivityStore } from "../../../stores/activity";
 import { cancelRuntimePreview, getRuntime, mountRuntime, useRuntimeStore } from "./runtime";
-import { useProgramStore } from "./programRunner";
+import { stopProgram, useProgramStore } from "./programRunner";
 import { useMotorDebugStore } from "../../devices/motor-debug/session";
 import { hydrateToolProfiles } from "../../blocks/blockly/toolProfiles";
 import "./RuntimeHost.css";
@@ -50,6 +50,11 @@ export default function RuntimeHost() {
       serialTransition: connectingPort !== null || disconnecting || debugTransitioning,
     });
   }, [connected, estop, connectingPort, disconnecting, debugConnected, debugTransitioning]);
+
+  useEffect(() => {
+    // 急停联动：积木程序一并停止（组合根职责，见 README 依赖规则 3）
+    if (estop) stopProgram();
+  }, [estop]);
 
   useEffect(() => {
     cancelRuntimePreview();

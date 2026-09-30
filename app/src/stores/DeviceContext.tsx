@@ -334,6 +334,9 @@ export function DeviceProvider({ children }: { children: ReactNode }) {
     setEstop(true);
     setRunning(false);
     animTokens.current = {}; // 取消所有平滑动画（进行中的循环检测 token 失配后退出）
+    // LIVE 通道一并急停：先标记硬件急停（拦截后续下发），再由 estopLive 发送停止并断链
+    useActivityStore.setState({ hardwareEstop: true });
+    void useBridgeStore.getState().estopLive();
     if (isDesktop() && connectedRef.current && !commLostRef.current) {
       // 急停 = 原地停住：读当前 present 写入 goal，保持扭矩。
       // 不 disable torque，避免抗重力关节失力坠落（skill 第一守则：确保用户安全）。

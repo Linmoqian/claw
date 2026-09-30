@@ -48,8 +48,10 @@ interface BridgeStoreState {
   replayControl: (cmd: "play" | "pause" | "seek" | "rate", value?: number) => void;
   /** 退出回放（回到 SIM） */
   exitReplay: () => Promise<void>;
-  /** LIVE 下发统一控制指令（TWIN/SIM/回放下发被拒） */
+  /** LIVE 下发统一控制指令（TWIN/SIM/回放下发被拒；急停锁存期间一并拦截） */
   sendCommand: (command: import("../services/protocol/command").RobotCommand) => Promise<void>;
+  /** 急停覆盖：对 LIVE 链路尽力发送 stop 并断链回 SIM；绕过通道锁与下发门禁 */
+  estopLive: () => Promise<void>;
   /** 便捷入口：回到 SIM（断链，3D 保持最后位姿） */
   backToSim: () => Promise<void>;
 }
@@ -206,7 +208,38 @@ export const useBridgeStore = create<BridgeStoreState>()((set, get) => ({
   },
 
   sendCommand: async (command) => {
+    if (useActivityStore.getState().hardwareEstop) {
+      throw new Error("急停已触发，已拦截控制下发；解除急停后才能重新发送。");
+    }
     await get().bridge.sendCommand(command);
+  },
+
+  estopLive: async () => {
+    const state = get();
+    // 仅 LIVE 通道有控制权需要停止；TWIN 只读观察、回放与 SIM 无需处理
+    if (state.bridge.kind !== "websocket" || !state.isLive) return;
+    // 直连桥实例：急停优先级最高，不受下发门禁与通道锁约束
+    try {
+      await state.bridge.sendCommand({ kind: "stop" });
+    } catch {
+      // 下发失败仍继续断链兜底
+    }
+    replayBridge.pause();
+    unsubscribeRobot?.();
+    unsubscribeRobot = null;
+    try {
+      await state.bridge.disconnect();
+    } catch {
+      // 链路可能已断
+    }
+    set({
+      bridge: simulationBridge,
+      info: simulationBridge.getStatus(),
+      isLive: false,
+      replay: null,
+      lastError: null,
+    });
+    unsubscribeRobot = simulationBridge.subscribeRobotState();
   },
 
   backToSim: async () => {
